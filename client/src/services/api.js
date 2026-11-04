@@ -33,7 +33,8 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   getMe: () => request('/auth/me'),
 
-  // Public Intake
+  // Public Intake & Programs
+  getPrograms: () => request('/programs'),
   submitApplication: (payload) => request('/intake/website-apply', { method: 'POST', body: JSON.stringify(payload) }),
   
   // CSV Import Wizard

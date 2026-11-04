@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Search, ArrowRight, Lock } from 'lucide-react';
 
 export default function VerifyPage({ initialToken }) {
-  const [tokenInput, setTokenInput] = useState(initialToken || '');
+  const { token: routeToken } = useParams();
+  const effectiveToken = routeToken || initialToken || '';
+  const [tokenInput, setTokenInput] = useState(effectiveToken);
   const [loading, setLoading] = useState(false);
   const [cert, setCert] = useState(null);
   const [error, setError] = useState('');
@@ -27,10 +30,11 @@ export default function VerifyPage({ initialToken }) {
   };
 
   useEffect(() => {
-    if (initialToken) {
-      handleVerify(initialToken);
+    if (effectiveToken) {
+      setTokenInput(effectiveToken);
+      handleVerify(effectiveToken);
     }
-  }, [initialToken]);
+  }, [effectiveToken]);
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-4">

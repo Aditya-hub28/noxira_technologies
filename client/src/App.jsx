@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { api } from './services/api';
-import { Award, ShieldCheck, FileSpreadsheet, Users, Sliders, Send, History, LogIn, LogOut, CheckCircle, ExternalLink } from 'lucide-react';
+import {
+  ShieldCheck,
+  FileSpreadsheet,
+  Users,
+  Sliders,
+  Award,
+  Send,
+  History,
+  LogOut,
+  ArrowLeft,
+  Shield
+} from 'lucide-react';
 
+import PublicLayout from './components/PublicLayout';
+import HomePage from './pages/HomePage';
 import ApplyPage from './pages/ApplyPage';
 import VerifyPage from './pages/VerifyPage';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -14,23 +28,130 @@ import CertificatesPage from './pages/CertificatesPage';
 import DistributionPage from './pages/DistributionPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 
-export default function App() {
-  const [currentView, setCurrentView] = useState('apply');
+function AdminConsole({ admin, onLogout }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [adminTab, setAdminTab] = useState('dashboard');
+
+  const tabs = [
+    { id: 'dashboard', label: 'Overview', icon: ShieldCheck },
+    { id: 'participants', label: 'Participants & Review', icon: Users },
+    { id: 'import', label: 'CSV Import', icon: FileSpreadsheet },
+    { id: 'templates', label: 'Template Studio', icon: Sliders },
+    { id: 'issuance', label: 'Batch Issuance', icon: Award },
+    { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
+    { id: 'distribution', label: 'Email Distribution', icon: Send },
+    { id: 'audit', label: 'Audit Trail', icon: History }
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      {/* Admin Top Navigation */}
+      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700 transition"
+              title="Return to Public Website"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Public Site
+            </Link>
+            <div className="h-5 w-px bg-slate-700 hidden sm:block"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center font-black text-slate-950 text-xs shadow-xs">
+                N
+              </div>
+              <div className="hidden sm:block">
+                <span className="font-extrabold tracking-tight text-white text-sm">NOXIRA</span>
+                <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider block -mt-1">
+                  Admin Authority Console
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 hidden md:inline font-mono">
+              {admin.email} ({admin.role})
+            </span>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-1 px-3 py-1.5 text-slate-300 hover:text-rose-400 hover:bg-slate-800/80 rounded-lg text-xs font-semibold border border-slate-700 transition"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        {/* Secondary Sub-Navigation Tabs */}
+        <div className="bg-slate-950/90 border-t border-slate-800 px-4 sm:px-6 lg:px-8 overflow-x-auto">
+          <div className="max-w-7xl mx-auto flex items-center gap-1 py-1.5 text-xs">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = adminTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setAdminTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium whitespace-nowrap transition ${
+                    isActive
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Admin Tab Body */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        {adminTab === 'dashboard' && (
+          <DashboardOverview onNavigate={(view) => setAdminTab(view)} />
+        )}
+        {adminTab === 'participants' && (
+          <ParticipantsPage onNavigateToIssuance={() => setAdminTab('issuance')} />
+        )}
+        {adminTab === 'import' && (
+          <CsvImportPage onImportSuccess={() => setAdminTab('participants')} />
+        )}
+        {adminTab === 'templates' && (
+          <TemplatePreviewPage />
+        )}
+        {adminTab === 'issuance' && (
+          <IssuanceBatchPage onBatchSuccess={() => setAdminTab('certificates')} />
+        )}
+        {adminTab === 'certificates' && (
+          <CertificatesPage onNavigateToVerify={(token) => navigate(`/verify/${token}`)} />
+        )}
+        {adminTab === 'distribution' && (
+          <DistributionPage />
+        )}
+        {adminTab === 'audit' && (
+          <AuditLogsPage />
+        )}
+      </main>
+
+      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+        <p>NOXIRA Technologies Private Limited · Administrative Console</p>
+      </footer>
+    </div>
+  );
+}
+
+function AppContent() {
   const [admin, setAdmin] = useState(null);
-  const [verifyToken, setVerifyToken] = useState('');
   const [loadingUser, setLoadingUser] = useState(true);
+  const navigate = useNavigate();
 
-  // Check initial path (e.g. /verify/TOKEN)
-  useEffect(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/verify/')) {
-      const token = path.replace('/verify/', '');
-      setVerifyToken(token);
-      setCurrentView('verify');
-    }
-  }, []);
-
-  // Check logged-in admin session
+  // Bootstrap logged-in admin session
   useEffect(() => {
     api.getMe()
       .then(res => {
@@ -43,180 +164,77 @@ export default function App() {
   const handleLogout = async () => {
     await api.logout().catch(() => {});
     setAdmin(null);
-    setCurrentView('apply');
+    navigate('/');
   };
 
-  const navigateToVerifyWithToken = (token) => {
-    setVerifyToken(token);
-    setCurrentView('verify');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleLoginSuccess = (adminUser) => {
+    setAdmin(adminUser);
+    navigate('/admin');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* Top Main Navigation Bar */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo & Brand */}
-          <div
-            onClick={() => setCurrentView(admin ? 'dashboard' : 'apply')}
-            className="flex items-center gap-2.5 cursor-pointer"
-          >
-            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center font-black text-slate-900 text-sm shadow-md">
-              N
-            </div>
-            <div>
-              <span className="font-extrabold tracking-tight text-white text-base">NOXIRA</span>
-              <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider block -mt-1">
-                Credential System
-              </span>
-            </div>
-          </div>
+    <Routes>
+      {/* Public Pages wrapped in PublicLayout */}
+      <Route
+        element={
+          <PublicLayout
+            admin={admin}
+            onLogout={handleLogout}
+            onOpenAdminLogin={() => navigate('/admin/login')}
+          />
+        }
+      >
+        <Route path="/" element={<HomePage />} />
+        <Route path="/apply" element={<ApplyPage />} />
+        <Route path="/verify" element={<VerifyPage />} />
+        <Route path="/verify/:token" element={<VerifyPage />} />
+      </Route>
 
-          {/* Navigation Links */}
-          <nav className="flex items-center gap-1 sm:gap-2">
-            {/* Public links */}
-            <button
-              onClick={() => setCurrentView('apply')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                currentView === 'apply' ? 'bg-slate-800 text-amber-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              Application Form
-            </button>
-            <button
-              onClick={() => setCurrentView('verify')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                currentView === 'verify' ? 'bg-slate-800 text-amber-400' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              Verify Credential
-            </button>
-
-            {/* Admin section or Login button */}
-            {admin ? (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-700 ml-1">
-                <button
-                  onClick={() => setCurrentView('dashboard')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    currentView === 'dashboard' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-200 hover:bg-slate-800'
-                  }`}
-                >
-                  Admin Console
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+      {/* Admin Login Route */}
+      <Route
+        path="/admin/login"
+        element={
+          admin ? (
+            <Navigate to="/admin" replace />
+          ) : (
+            <div className="min-h-screen bg-slate-50 flex flex-col justify-center">
+              <div className="p-4 text-center">
+                <Link to="/" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 mb-4">
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to NOXIRA Public Site
+                </Link>
               </div>
-            ) : (
-              <button
-                onClick={() => setCurrentView('login')}
-                className="ml-2 flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                Admin Login
-              </button>
-            )}
-          </nav>
-        </div>
-
-        {/* Secondary Admin Sub-Navigation (Visible when logged in) */}
-        {admin && (
-          <div className="bg-slate-950/80 border-t border-slate-800/80 px-4 sm:px-6 lg:px-8 overflow-x-auto">
-            <div className="max-w-7xl mx-auto flex items-center gap-1 py-1.5 text-xs">
-              {[
-                { id: 'dashboard', label: 'Overview', icon: ShieldCheck },
-                { id: 'participants', label: 'Participants & Review', icon: Users },
-                { id: 'import', label: 'CSV Import', icon: FileSpreadsheet },
-                { id: 'templates', label: 'Template Studio', icon: Sliders },
-                { id: 'issuance', label: 'Batch Issuance', icon: Award },
-                { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
-                { id: 'distribution', label: 'Email Distribution', icon: Send },
-                { id: 'audit', label: 'Audit Trail', icon: History }
-              ].map(tab => {
-                const Icon = tab.icon;
-                const isActive = currentView === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setCurrentView(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium whitespace-nowrap transition ${
-                      isActive
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
+              <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
             </div>
-          </div>
-        )}
-      </header>
+          )
+        }
+      />
 
-      {/* Main Page Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {currentView === 'apply' && (
-          <ApplyPage onNavigateToVerify={() => setCurrentView('verify')} />
-        )}
+      {/* Admin Console Route */}
+      <Route
+        path="/admin"
+        element={
+          loadingUser ? (
+            <div className="min-h-screen flex items-center justify-center text-xs text-slate-400">
+              Loading administration portal...
+            </div>
+          ) : admin ? (
+            <AdminConsole admin={admin} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/admin/login" replace />
+          )
+        }
+      />
 
-        {currentView === 'verify' && (
-          <VerifyPage initialToken={verifyToken} />
-        )}
+      {/* Catch-all fallback: redirect to Home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
-        {currentView === 'login' && (
-          <AdminLoginPage onLoginSuccess={(adminUser) => {
-            setAdmin(adminUser);
-            setCurrentView('dashboard');
-          }} />
-        )}
-
-        {currentView === 'dashboard' && admin && (
-          <DashboardOverview onNavigate={(view) => setCurrentView(view)} />
-        )}
-
-        {currentView === 'participants' && admin && (
-          <ParticipantsPage onNavigateToIssuance={() => setCurrentView('issuance')} />
-        )}
-
-        {currentView === 'import' && admin && (
-          <CsvImportPage onImportSuccess={() => setCurrentView('participants')} />
-        )}
-
-        {currentView === 'templates' && admin && (
-          <TemplatePreviewPage />
-        )}
-
-        {currentView === 'issuance' && admin && (
-          <IssuanceBatchPage onBatchSuccess={() => setCurrentView('certificates')} />
-        )}
-
-        {currentView === 'certificates' && admin && (
-          <CertificatesPage onNavigateToVerify={navigateToVerifyWithToken} />
-        )}
-
-        {currentView === 'distribution' && admin && (
-          <DistributionPage />
-        )}
-
-        {currentView === 'audit' && admin && (
-          <AuditLogsPage />
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
-        <p>NOXIRA Technologies Private Limited · Digital Credential Issuance & Verification Infrastructure</p>
-        <p className="text-[11px] text-slate-400 mt-1">
-          Cryptographically authenticated with 128-bit verification entropy and immutable audit logging.
-        </p>
-      </footer>
-    </div>
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }

@@ -21,6 +21,7 @@ const participantController = require('../src/controllers/participantController'
 const distributionController = require('../src/controllers/distributionController');
 const intakeController = require('../src/controllers/intakeController');
 const templateController = require('../src/controllers/templateController');
+const { getPublicPrograms } = require('../src/routes/programRoutes');
 
 // Helper to mock express req, res, next for controller integration testing
 function mockReqRes(options = {}) {
@@ -795,6 +796,54 @@ async function runTestSuite() {
     });
 
     assert.strictEqual(job.providerIdempotencyKey, `noxira-dist-${cert._id}`);
+  });
+
+  // TEST 17: Public Programs Listing & Inactive Program Protection (Module 1)
+  await test('Public Programs API: Returns only active programs with safe fields & rejects apply on inactive', async () => {
+    // 1. Seed an inactive program alongside existing active ones
+    await Program.create({
+      code: 'INACTIVE-PRG',
+      title: 'Legacy Inactive Course',
+      description: 'Archived program not currently running',
+      defaultBatch: 'BATCH-OLD',
+      isActive: false
+    });
+
+    // 2. Query public programs API without auth
+    const mockPrograms = mockReqRes();
+    await getPublicPrograms(mockPrograms.req, mockPrograms.res, mockPrograms.next);
+    assert.strictEqual(mockPrograms.getStatus(), 200);
+
+    const { programs } = mockPrograms.getData();
+    assert.ok(Array.isArray(programs), 'Programs must be an array');
+    assert.ok(programs.length >= 2, 'Must return seeded active programs');
+
+    // Inactive program must NOT be returned
+    const inactiveFound = programs.find(p => p.code === 'INACTIVE-PRG');
+    assert.strictEqual(inactiveFound, undefined, 'Inactive programs must be excluded from public list');
+
+    // Sensitive internal fields must NOT leak in public response
+    for (const prg of programs) {
+      assert.ok(prg.code, 'Program must have code');
+      assert.ok(prg.title, 'Program must have title');
+      assert.strictEqual(prg.defaultBatch, undefined, 'defaultBatch must not leak');
+      assert.strictEqual(prg.defaultStartDate, undefined, 'defaultStartDate must not leak');
+      assert.strictEqual(prg.defaultEndDate, undefined, 'defaultEndDate must not leak');
+      assert.strictEqual(prg._id, undefined, '_id must be excluded');
+    }
+
+    // 3. Attempt websiteApply on inactive program -> must be rejected with 400
+    const mockApply = mockReqRes({
+      body: {
+        fullName: 'Applicant Tester',
+        email: 'applicant.tester@example.com',
+        programCode: 'INACTIVE-PRG'
+      }
+    });
+
+    await intakeController.websiteApply(mockApply.req, mockApply.res, mockApply.next);
+    assert.strictEqual(mockApply.getStatus(), 400, 'Must reject application for inactive program with 400');
+    assert.ok(mockApply.getData().message.includes('inactive and not accepting applications'));
   });
 
   // Cleanup

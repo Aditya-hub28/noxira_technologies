@@ -31,6 +31,12 @@ exports.websiteApply = async (req, res, next) => {
         message: `Program code "${cleanProgramCode}" does not exist. Please select from valid official programs.`
       });
     }
+    if (!program.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: `Program "${program.title}" is currently inactive and not accepting applications.`
+      });
+    }
     const programTitle = program.title;
 
     // Check for duplicate registration attempt

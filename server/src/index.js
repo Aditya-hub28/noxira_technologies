@@ -17,6 +17,7 @@ const certificateRoutes = require('./routes/certificateRoutes');
 const verifyRoutes = require('./routes/verifyRoutes');
 const distributionRoutes = require('./routes/distributionRoutes');
 const auditRoutes = require('./routes/auditRoutes');
+const programRoutes = require('./routes/programRoutes');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/v1/certificates', certificateRoutes);
 app.use('/api/v1/public', verifyRoutes);
 app.use('/api/v1/distribution', distributionRoutes);
 app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/programs', programRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

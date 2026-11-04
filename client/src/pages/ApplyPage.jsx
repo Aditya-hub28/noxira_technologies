@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { CheckCircle2, AlertCircle, Award, Send, ArrowRight } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Award, Send, ArrowRight, RotateCcw } from 'lucide-react';
 
 export default function ApplyPage({ onNavigateToVerify }) {
+  const [searchParams] = useSearchParams();
+  const urlProgram = (searchParams.get('program') || '').toUpperCase().trim();
+
+  const [programs, setPrograms] = useState([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [programLoadError, setProgramLoadError] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -15,11 +23,36 @@ export default function ApplyPage({ onNavigateToVerify }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
-  const programs = [
-    { code: 'FS-DEV', title: 'Full Stack Web Development & Cloud Systems' },
-    { code: 'AI-ENG', title: 'Applied Artificial Intelligence & LLM Engineering' },
-    { code: 'CYBER-SEC', title: 'Enterprise Cybersecurity & Infrastructure Defense' }
-  ];
+  // Fetch active programs from server
+  const loadPrograms = async () => {
+    setLoadingPrograms(true);
+    setProgramLoadError(false);
+    try {
+      const data = await api.getPrograms();
+      const fetched = data.programs || [];
+      setPrograms(fetched);
+
+      // Check URL query param prefill
+      if (urlProgram && fetched.some(p => p.code === urlProgram)) {
+        setFormData(prev => ({ ...prev, programCode: urlProgram }));
+      } else if (fetched.length > 0) {
+        // Keep existing if valid, or default to first active program
+        setFormData(prev => ({
+          ...prev,
+          programCode: fetched.some(p => p.code === prev.programCode) ? prev.programCode : fetched[0].code
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to load active programs:', err);
+      setProgramLoadError(true);
+    } finally {
+      setLoadingPrograms(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPrograms();
+  }, [urlProgram]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,13 +63,13 @@ export default function ApplyPage({ onNavigateToVerify }) {
     try {
       const res = await api.submitApplication(formData);
       setResult(res);
-      setFormData({
+      setFormData(prev => ({
         fullName: '',
         email: '',
         phone: '',
-        programCode: 'FS-DEV',
+        programCode: prev.programCode,
         batchId: 'BATCH-2026-Q4'
-      });
+      }));
     } catch (err) {
       setError(err.message || 'Failed to submit application');
     } finally {
@@ -132,15 +165,30 @@ export default function ApplyPage({ onNavigateToVerify }) {
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                 Certification Program *
               </label>
-              <select
-                value={formData.programCode}
-                onChange={(e) => setFormData({ ...formData, programCode: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition bg-white"
-              >
-                {programs.map(p => (
-                  <option key={p.code} value={p.code}>{p.title}</option>
-                ))}
-              </select>
+              {loadingPrograms ? (
+                <div className="h-10 bg-slate-100 rounded-lg animate-pulse"></div>
+              ) : programLoadError ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-rose-600">Failed to load programs.</span>
+                  <button
+                    type="button"
+                    onClick={loadPrograms}
+                    className="text-xs text-slate-700 underline font-semibold flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Retry
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={formData.programCode}
+                  onChange={(e) => setFormData({ ...formData, programCode: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition bg-white"
+                >
+                  {programs.map(p => (
+                    <option key={p.code} value={p.code}>{p.title} ({p.code})</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
@@ -157,7 +205,7 @@ export default function ApplyPage({ onNavigateToVerify }) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || loadingPrograms || programLoadError}
             className="w-full mt-4 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
           >
             {loading ? 'Submitting Application...' : (
@@ -171,12 +219,12 @@ export default function ApplyPage({ onNavigateToVerify }) {
       </div>
 
       <div className="mt-8 text-center">
-        <button
-          onClick={onNavigateToVerify}
+        <Link
+          to="/verify"
           className="text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1 transition"
         >
           Have a certificate to verify? Open Public Verification Portal <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        </Link>
       </div>
     </div>
   );
