@@ -63,17 +63,50 @@ exports.listJobs = async (req, res, next) => {
 exports.retryJob = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    // Read current state
     const job = await DeliveryJob.findById(id);
-
     if (!job) {
       return res.status(404).json({ success: false, message: 'Delivery job not found' });
     }
 
-    // Reset admin override if previously blocked
-    job.adminOverrideNeeded = false;
-    await job.save();
+    // Bug 4 fix: Protect against duplicate email sends
+    if (['PROVIDER_ACCEPTED', 'DELIVERED'].includes(job.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email has already been accepted or delivered by the provider. Resending is blocked to prevent duplicate emails.'
+      });
+    }
 
-    const processed = await processDeliveryJob(job._id);
+    if (job.status === 'DELIVERY_UNKNOWN') {
+      return res.status(409).json({
+        success: false,
+        message: 'Previous attempt outcome is uncertain (timeout). Please reconcile gateway logs before retrying to prevent duplicate emails.'
+      });
+    }
+
+    if (job.status === 'PROCESSING') {
+      return res.status(409).json({
+        success: false,
+        message: 'This delivery job is currently in-flight. Concurrent retry blocked.'
+      });
+    }
+
+    // Atomic claim: only proceed if status is FAILED
+    const claimedJob = await DeliveryJob.findOneAndUpdate(
+      { _id: id, status: 'FAILED' },
+      { $set: { status: 'PROCESSING', lastAttemptAt: new Date(), adminOverrideNeeded: false } },
+      { new: true }
+    );
+
+    if (!claimedJob) {
+      return res.status(409).json({
+        success: false,
+        message: 'Job could not be claimed for retry. It may have already been retried or is currently processing.'
+      });
+    }
+
+    const processed = await processDeliveryJob(claimedJob._id);
 
     res.json({
       success: true,

@@ -1,6 +1,10 @@
 const Participant = require('../models/Participant');
 const AuditLog = require('../models/AuditLog');
 
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.getParticipants = async (req, res, next) => {
   try {
     const { programCode, batchId, completionStatus, isIssued, search, page = 1, limit = 50 } = req.query;
@@ -11,8 +15,9 @@ exports.getParticipants = async (req, res, next) => {
     if (completionStatus) query.completionStatus = completionStatus;
     if (typeof isIssued !== 'undefined' && isIssued !== '') query.isIssued = isIssued === 'true';
 
-    if (search) {
-      const searchRegex = new RegExp(search.trim(), 'i');
+    if (search && search.trim()) {
+      const escaped = escapeRegex(search.trim());
+      const searchRegex = new RegExp(escaped, 'i');
       query.$or = [
         { fullName: searchRegex },
         { email: searchRegex },

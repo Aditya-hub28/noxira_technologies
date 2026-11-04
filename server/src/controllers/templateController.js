@@ -10,6 +10,17 @@ exports.getTemplates = async (req, res, next) => {
       template = await Template.create({
         title: 'Official NOXIRA Certificate Template',
         version: '1.0.0',
+        signatory: {
+          name: 'Aditya Jha',
+          title: 'Managing Director & Lead Architect',
+          organization: 'Noxira Technologies Private Limited'
+        },
+        layout: {
+          signatory: {
+            name: 'Aditya Jha',
+            title: 'Managing Director & Lead Architect'
+          }
+        },
         isActive: true
       });
     }
@@ -41,6 +52,15 @@ exports.uploadBackground = async (req, res, next) => {
       template = new Template({ title: 'NOXIRA Custom Template', version: '1.1.0' });
     }
 
+    // Clean up previous custom background file if exists
+    if (template.backgroundAssetPath && fs.existsSync(template.backgroundAssetPath) && template.backgroundAssetPath !== targetPath) {
+      try {
+        await fs.promises.unlink(template.backgroundAssetPath);
+      } catch (err) {
+        // Non-blocking cleanup
+      }
+    }
+
     template.backgroundAssetPath = targetPath;
     template.useCustomBackground = true;
     await template.save();
@@ -65,7 +85,11 @@ exports.saveLayout = async (req, res, next) => {
     }
 
     if (layout) template.layout = { ...template.layout, ...layout };
-    if (signatory) template.signatory = { ...template.signatory, ...signatory };
+    if (signatory) {
+      template.signatory = { ...template.signatory, ...signatory };
+      if (!template.layout) template.layout = {};
+      template.layout.signatory = { ...template.layout.signatory, ...signatory };
+    }
     if (typeof useCustomBackground !== 'undefined') template.useCustomBackground = useCustomBackground;
 
     await template.save();
@@ -84,6 +108,13 @@ exports.resetToDefaultBorder = async (req, res, next) => {
   try {
     let template = await Template.findOne({ isActive: true });
     if (template) {
+      if (template.backgroundAssetPath && fs.existsSync(template.backgroundAssetPath)) {
+        try {
+          await fs.promises.unlink(template.backgroundAssetPath);
+        } catch (unlinkErr) {
+          console.warn('Failed to delete old template background file:', unlinkErr.message);
+        }
+      }
       template.useCustomBackground = false;
       template.backgroundAssetPath = null;
       await template.save();
@@ -101,8 +132,8 @@ exports.previewRender = async (req, res, next) => {
       programTitle = 'Full Stack Digital Engineering & Cloud Architecture',
       startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       endDate = new Date(),
-      signatoryName = 'Aditya Jha',
-      signatoryTitle = 'Managing Director & Lead Architect',
+      signatoryName,
+      signatoryTitle,
       customLayout = null,
       useCustomBackground = null
     } = req.body;
@@ -113,6 +144,11 @@ exports.previewRender = async (req, res, next) => {
     const activeTemplate = await Template.findOne({ isActive: true });
     const bgPath = (useCustomBackground ?? activeTemplate?.useCustomBackground) ? activeTemplate?.backgroundAssetPath : null;
 
+    const resolvedSignatory = (activeTemplate && (activeTemplate.signatory || activeTemplate.layout?.signatory)) || {
+      name: 'Aditya Jha',
+      title: 'Managing Director & Lead Architect'
+    };
+
     const pdfBuffer = await generateCertificatePdf({
       recipientName,
       programTitle,
@@ -121,8 +157,8 @@ exports.previewRender = async (req, res, next) => {
       issueDate: new Date(),
       certificateNumber: dummyCertNumber,
       publicVerificationToken: dummyToken,
-      signatoryName: signatoryName || activeTemplate?.signatory?.name,
-      signatoryTitle: signatoryTitle || activeTemplate?.signatory?.title,
+      signatoryName: signatoryName || resolvedSignatory.name,
+      signatoryTitle: signatoryTitle || resolvedSignatory.title,
       isDraft: true,
       backgroundImagePath: bgPath,
       customLayout: customLayout || activeTemplate?.layout

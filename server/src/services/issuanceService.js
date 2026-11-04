@@ -20,16 +20,22 @@ function computeAwardKey(participantId, programCode, batchId) {
 
 /**
  * Generates human readable certificate ID: NOX-<YEAR>-<PROGRAM>-<SEQUENCE>
+ * Collision-safe with collision check
  */
 async function generateNextCertificateNumber(programCode) {
   const year = new Date().getFullYear();
   const cleanCode = programCode.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
   
-  // Count total certificates for sequence numbering
   const count = await Certificate.countDocuments();
-  const sequence = String(count + 1).padStart(4, '0');
+  let sequence = count + 1;
+  let candidate = `NOX-${year}-${cleanCode}-${String(sequence).padStart(4, '0')}`;
+
+  while (await Certificate.exists({ certificateNumber: candidate })) {
+    sequence++;
+    candidate = `NOX-${year}-${cleanCode}-${String(sequence).padStart(4, '0')}`;
+  }
   
-  return `NOX-${year}-${cleanCode}-${sequence}`;
+  return candidate;
 }
 
 /**
@@ -84,6 +90,12 @@ async function issueCertificateForParticipant({
     version: '1.0.0'
   };
 
+  // Safe Signatory resolution (supports both top-level and layout.signatory)
+  const activeSignatory = (template && (template.signatory || template.layout?.signatory)) || {
+    name: 'Aditya Jha',
+    title: 'Managing Director & Lead Architect'
+  };
+
   // 5. Create or reuse Certificate Draft Record
   let certRecord = existingCert;
   if (!certRecord) {
@@ -105,9 +117,9 @@ async function issueCertificateForParticipant({
         startDate,
         endDate,
         issueDate,
-        authorizedSignatoryName: template.signatory.name,
-        authorizedSignatoryTitle: template.signatory.title,
-        templateVersion: template.version
+        authorizedSignatoryName: activeSignatory.name,
+        authorizedSignatoryTitle: activeSignatory.title,
+        templateVersion: template.version || '1.0.0'
       },
       status: 'GENERATING',
       approvedBy: adminId,

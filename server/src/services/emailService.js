@@ -97,7 +97,7 @@ async function processDeliveryJob(jobId) {
   job.lastAttemptAt = new Date();
   await job.save();
 
-  const downloadLink = `${env.VERIFY_BASE_URL}/api/v1/public/download/${job.downloadToken}`;
+  const downloadLink = `${env.API_BASE_URL || env.VERIFY_BASE_URL}/api/v1/public/download/${job.downloadToken}`;
   const verificationLink = `${env.VERIFY_BASE_URL}/verify/${cert.publicVerificationToken}`;
 
   const mailOptions = {

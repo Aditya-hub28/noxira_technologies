@@ -6,6 +6,10 @@ const { generate128BitToken } = require('../services/qrService');
 const { generateCertificatePdf } = require('../services/pdfService');
 const { saveCertificateFile } = require('../services/storageService');
 
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Issues certificates in bulk for approved participants
  */
@@ -77,8 +81,9 @@ exports.getCertificates = async (req, res, next) => {
     if (status) query.status = status;
     if (programCode) query.programCode = programCode.toUpperCase();
 
-    if (search) {
-      const searchRegex = new RegExp(search.trim(), 'i');
+    if (search && search.trim()) {
+      const escaped = escapeRegex(search.trim());
+      const searchRegex = new RegExp(escaped, 'i');
       query.$or = [
         { certificateNumber: searchRegex },
         { 'renderedSnapshot.recipientName': searchRegex },
@@ -131,6 +136,14 @@ exports.revokeCertificate = async (req, res, next) => {
 
     if (cert.status === 'REVOKED') {
       return res.status(400).json({ success: false, message: 'Certificate is already revoked' });
+    }
+
+    // Strict State Machine Check: Only actively ISSUED certificates can be revoked
+    if (cert.status !== 'ISSUED') {
+      return res.status(400).json({
+        success: false,
+        message: `Only actively ISSUED certificates can be revoked (current state is ${cert.status})`
+      });
     }
 
     cert.status = 'REVOKED';
@@ -191,17 +204,30 @@ exports.replaceCertificate = async (req, res, next) => {
       });
     }
 
+    if (oldCert.status !== 'ISSUED') {
+      return res.status(400).json({
+        success: false,
+        message: `Only actively ISSUED certificates can be replaced with a correction (current state is ${oldCert.status})`
+      });
+    }
+
     // Prepare corrected details
     const finalName = (correctedName || oldCert.renderedSnapshot.recipientName).trim();
     const finalProgramTitle = (correctedProgramTitle || oldCert.renderedSnapshot.programTitle).trim();
     const finalStartDate = correctedStartDate ? new Date(correctedStartDate) : oldCert.renderedSnapshot.startDate;
     const finalEndDate = correctedEndDate ? new Date(correctedEndDate) : oldCert.renderedSnapshot.endDate;
     
-    // Generate new unique identifiers
-    const count = await Certificate.countDocuments();
+    // Generate new unique identifiers (collision safe)
     const year = new Date().getFullYear();
     const cleanCode = oldCert.programCode.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
-    const newCertNumber = `NOX-${year}-${cleanCode}-${String(count + 1).padStart(4, '0')}`;
+    const count = await Certificate.countDocuments();
+    let sequence = count + 1;
+    let newCertNumber = `NOX-${year}-${cleanCode}-${String(sequence).padStart(4, '0')}`;
+    while (await Certificate.exists({ certificateNumber: newCertNumber })) {
+      sequence++;
+      newCertNumber = `NOX-${year}-${cleanCode}-${String(sequence).padStart(4, '0')}`;
+    }
+
     const newPublicToken = generate128BitToken();
 
     // 1. Render new PDF

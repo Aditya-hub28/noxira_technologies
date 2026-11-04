@@ -23,9 +23,15 @@ exports.websiteApply = async (req, res, next) => {
     const cleanProgramCode = programCode.toUpperCase().trim();
     const cleanBatch = (batchId || 'BATCH-2026-Q4').toUpperCase().trim();
 
-    // Check if Program exists
-    let program = await Program.findOne({ code: cleanProgramCode });
-    const programTitle = program ? program.title : `${cleanProgramCode} Certification Program`;
+    // Strict Program Validation (Bug 5 fix: Reject unknown/invented program codes)
+    const program = await Program.findOne({ code: cleanProgramCode });
+    if (!program) {
+      return res.status(400).json({
+        success: false,
+        message: `Program code "${cleanProgramCode}" does not exist. Please select from valid official programs.`
+      });
+    }
+    const programTitle = program.title;
 
     // Check for duplicate registration attempt
     const existing = await Participant.findOne({
@@ -113,6 +119,15 @@ exports.previewCsv = async (req, res, next) => {
     const cleanProgramCode = programCode.toUpperCase().trim();
     const cleanBatch = (batchId || 'BATCH-2026-Q4').toUpperCase().trim();
 
+    // Validate program code
+    const program = await Program.findOne({ code: cleanProgramCode });
+    if (!program) {
+      return res.status(400).json({
+        success: false,
+        message: `Program code "${cleanProgramCode}" not found. Please select from valid programs.`
+      });
+    }
+
     const rawRows = await parseCsvBuffer(req.file.buffer);
 
     if (rawRows.length === 0) {
@@ -137,6 +152,9 @@ exports.previewCsv = async (req, res, next) => {
     let duplicateCount = 0;
     let errorCount = 0;
 
+    // Bug 2 fix: Track duplicates within the CSV file itself using composite key
+    const seenInFile = new Set();
+
     for (let i = 0; i < rawRows.length; i++) {
       const row = rawRows[i];
       const rawName = row[nameHeader];
@@ -154,17 +172,30 @@ exports.previewCsv = async (req, res, next) => {
       let isDuplicate = false;
       if (errors.length === 0) {
         const normEmail = rawEmail.toLowerCase().trim();
-        const existing = await Participant.findOne({
-          normalizedEmail: normEmail,
-          programCode: cleanProgramCode,
-          batchId: cleanBatch
-        });
+        const rowKey = `${normEmail}|${cleanProgramCode}|${cleanBatch}`;
 
-        if (existing) {
+        // Check if seen earlier in this exact CSV
+        if (seenInFile.has(rowKey)) {
           isDuplicate = true;
           duplicateCount++;
+          errors.push('Duplicate entry inside this CSV file');
         } else {
-          validCount++;
+          seenInFile.add(rowKey);
+
+          // Check if already exists in MongoDB
+          const existing = await Participant.findOne({
+            normalizedEmail: normEmail,
+            programCode: cleanProgramCode,
+            batchId: cleanBatch
+          });
+
+          if (existing) {
+            isDuplicate = true;
+            duplicateCount++;
+            errors.push('Already exists in database for this program & batch');
+          } else {
+            validCount++;
+          }
         }
       } else {
         errorCount++;
@@ -217,8 +248,15 @@ exports.commitCsv = async (req, res, next) => {
     const cleanProgramCode = programCode.toUpperCase().trim();
     const cleanBatch = (batchId || 'BATCH-2026-Q4').toUpperCase().trim();
 
-    let program = await Program.findOne({ code: cleanProgramCode });
-    const programTitle = program ? program.title : `${cleanProgramCode} Certification Program`;
+    // Validate program exists
+    const program = await Program.findOne({ code: cleanProgramCode });
+    if (!program) {
+      return res.status(400).json({
+        success: false,
+        message: `Program code "${cleanProgramCode}" not found. Please choose from official programs.`
+      });
+    }
+    const programTitle = program.title;
 
     // Filter only valid, non-duplicate rows
     const validRows = rows.filter(r => r.isValid && !r.isDuplicate);
@@ -255,21 +293,35 @@ exports.commitCsv = async (req, res, next) => {
       completionStatus: 'PENDING'
     }));
 
-    const result = await Participant.insertMany(insertDocs, { ordered: false });
+    // Bug 2 fix: Gracefully catch bulk write errors without crashing with 500
+    let insertedCount = 0;
+    try {
+      const result = await Participant.insertMany(insertDocs, { ordered: false });
+      insertedCount = result.length;
+    } catch (e) {
+      if (e.name === 'MongoBulkWriteError' || e.name === 'BulkWriteError') {
+        insertedCount = e.insertedDocs ? e.insertedDocs.length : (e.result?.nInserted || 0);
+        importBatch.validRows = insertedCount;
+        importBatch.duplicateRows += (insertDocs.length - insertedCount);
+        await importBatch.save();
+      } else {
+        throw e;
+      }
+    }
 
     await AuditLog.create({
       actorId: req.admin._id,
       actorType: 'ADMIN',
       action: 'CSV_COMMITTED',
       targetEntity: 'PARTICIPANT',
-      summary: `Admin ${req.admin.email} imported ${result.length} participants for ${cleanProgramCode} from CSV`
+      summary: `Admin ${req.admin.email} imported ${insertedCount} participants for ${cleanProgramCode} from CSV`
     });
 
     res.json({
       success: true,
-      message: `Successfully imported ${result.length} participants. All marked as PENDING.`,
+      message: `Successfully imported ${insertedCount} participants. All marked as PENDING.`,
       batchId: importBatch._id,
-      importedCount: result.length
+      importedCount: insertedCount
     });
   } catch (error) {
     next(error);

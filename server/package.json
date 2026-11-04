@@ -24,8 +24,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.16",
     "pdf-lib": "^1.17.1",
-    "qrcode": "^1.5.4",
-    "zod": "^3.24.1"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "mongodb-memory-server": "^10.1.3",

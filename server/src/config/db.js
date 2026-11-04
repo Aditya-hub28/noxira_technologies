@@ -20,6 +20,15 @@ async function connectDB() {
       autoIndex: true
     });
 
+    // Ensure unique indexes are built to prevent race conditions on startup
+    await Promise.all([
+      require('../models/Participant').init(),
+      require('../models/Certificate').init(),
+      require('../models/DeliveryJob').init(),
+      require('../models/Admin').init(),
+      require('../models/Program').init()
+    ]);
+
     console.log(`🚀 MongoDB Connected Successfully: ${mongoose.connection.host}`);
   } catch (error) {
     console.error('❌ MongoDB Connection Error:', error.message);
