@@ -10,7 +10,20 @@ const { generate128BitToken } = require('./qrService');
 let transporter = null;
 function getTransporter() {
   if (!transporter) {
-    if (process.env.NODE_ENV !== 'test' && env.SMTP.USER && env.SMTP.PASS && env.SMTP.USER !== 'test@example.com' && env.SMTP.PASS !== 'password') {
+    if (env.NODE_ENV === 'production') {
+      if (!env.SMTP.USER || !env.SMTP.PASS || env.SMTP.HOST === 'smtp.ethereal.email' || env.SMTP.USER === 'test@example.com') {
+        throw new Error('[CRITICAL] SMTP transporter unconfigured or using insecure placeholders in production mode. Refusing to simulate or send real emails.');
+      }
+      transporter = nodemailer.createTransport({
+        host: env.SMTP.HOST,
+        port: env.SMTP.PORT,
+        secure: env.SMTP.PORT === 465,
+        auth: {
+          user: env.SMTP.USER,
+          pass: env.SMTP.PASS
+        }
+      });
+    } else if (process.env.NODE_ENV !== 'test' && env.SMTP.USER && env.SMTP.PASS && env.SMTP.USER !== 'test@example.com' && env.SMTP.PASS !== 'password') {
       transporter = nodemailer.createTransport({
         host: env.SMTP.HOST,
         port: env.SMTP.PORT,
@@ -21,7 +34,7 @@ function getTransporter() {
         }
       });
     } else {
-      // Mock transporter for development/testing
+      // Mock transporter for development/testing ONLY
       transporter = {
         sendMail: async (mailOptions) => {
           console.log(`[SIMULATED EMAIL SENT] to: ${mailOptions.to} | Subject: ${mailOptions.subject}`);
@@ -61,7 +74,8 @@ async function queueCertificateEmails(certificateIds, adminId) {
         recipientEmail: cert.participantId.email,
         downloadToken,
         downloadTokenExpiresAt: expiresAt,
-        status: 'QUEUED'
+        status: 'QUEUED',
+        providerIdempotencyKey: `noxira-dist-${cert._id}`
       });
       await existingJob.save();
     }
@@ -159,9 +173,9 @@ async function processClaimedJob(jobId, workerLockId) {
   const cert = job.certificateId;
   const participant = cert.participantId;
 
-  // Generate provider idempotency key if not already present
+  // Generate provider idempotency key if not already present (stable per certificate)
   if (!job.providerIdempotencyKey) {
-    job.providerIdempotencyKey = `noxira-dist-${cert._id}-${job.attempts + 1}`;
+    job.providerIdempotencyKey = `noxira-dist-${cert._id}`;
   }
 
   job.status = 'PROCESSING';
@@ -292,5 +306,6 @@ module.exports = {
   claimNextQueuedJob,
   recoverStaleProcessingJobs,
   runWorkerCycle,
-  setTransporter
+  setTransporter,
+  getTransporter
 };

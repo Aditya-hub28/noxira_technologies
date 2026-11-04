@@ -69,7 +69,8 @@ async function autoSeedIfEmpty() {
   const adminCount = await Admin.countDocuments();
   if (adminCount === 0) {
     console.log('⚡ Bootstrapping initial Super Admin & Demo Cohorts...');
-    const hash = await Admin.hashPassword('NoxiraAdmin@2026');
+    const defaultPassword = process.env.INITIAL_ADMIN_PASSWORD || 'NoxiraAdmin@2026';
+    const hash = await Admin.hashPassword(defaultPassword);
     await Admin.create({
       name: 'Aditya Jha',
       email: 'admin@noxira.com',

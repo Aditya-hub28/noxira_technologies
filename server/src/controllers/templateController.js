@@ -84,13 +84,42 @@ exports.saveLayout = async (req, res, next) => {
       template = new Template({ title: 'NOXIRA Custom Template' });
     }
 
-    if (layout) template.layout = { ...template.layout, ...layout };
-    if (signatory) {
-      template.signatory = { ...template.signatory, ...signatory };
-      if (!template.layout) template.layout = {};
-      template.layout.signatory = { ...template.layout.signatory, ...signatory };
+    // Safely extract plain object for existing layout
+    const currentLayout = template.layout && typeof template.layout.toObject === 'function'
+      ? template.layout.toObject()
+      : (template.layout || {});
+
+    if (layout && typeof layout === 'object') {
+      const mergedLayout = { ...currentLayout };
+      for (const [key, val] of Object.entries(layout)) {
+        if (val && typeof val === 'object' && !Array.isArray(val)) {
+          mergedLayout[key] = { ...(currentLayout[key] || {}), ...val };
+        } else {
+          mergedLayout[key] = val;
+        }
+      }
+      template.layout = mergedLayout;
+      template.markModified('layout');
     }
-    if (typeof useCustomBackground !== 'undefined') template.useCustomBackground = useCustomBackground;
+
+    if (signatory && typeof signatory === 'object') {
+      const currentSig = template.signatory && typeof template.signatory.toObject === 'function'
+        ? template.signatory.toObject()
+        : (template.signatory || {});
+      template.signatory = { ...currentSig, ...signatory };
+      template.markModified('signatory');
+
+      if (!template.layout) template.layout = {};
+      const currentLayoutSig = (template.layout.signatory && typeof template.layout.signatory.toObject === 'function')
+        ? template.layout.signatory.toObject()
+        : (template.layout.signatory || {});
+      template.layout.signatory = { ...currentLayoutSig, ...signatory };
+      template.markModified('layout');
+    }
+
+    if (typeof useCustomBackground !== 'undefined') {
+      template.useCustomBackground = Boolean(useCustomBackground);
+    }
 
     await template.save();
 

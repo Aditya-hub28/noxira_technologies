@@ -32,6 +32,18 @@ function validateEnv(conf = config) {
     } else if (conf.JWT_SECRET.length < 32) {
       errors.push('JWT_SECRET must be at least 32 characters long in production for cryptographic safety.');
     }
+
+    // SMTP Credentials Validation in Production (prevents silent mock emails)
+    if (!conf.SMTP || !conf.SMTP.HOST || conf.SMTP.HOST.trim() === '' || conf.SMTP.HOST === 'smtp.ethereal.email') {
+      errors.push('SMTP_HOST is required in production and cannot use the development ethereal mock host.');
+    }
+    if (!conf.SMTP || !conf.SMTP.USER || conf.SMTP.USER.trim() === '' || conf.SMTP.USER === 'test@example.com') {
+      errors.push('SMTP_USER is required in production.');
+    }
+    if (!conf.SMTP || !conf.SMTP.PASS || conf.SMTP.PASS.trim() === '' || conf.SMTP.PASS === 'password') {
+      errors.push('SMTP_PASS is required in production.');
+    }
+
     if (errors.length > 0) {
       throw new Error(`[CRITICAL CONFIG ERROR] Startup halted due to insecure production configuration:\n - ${errors.join('\n - ')}`);
     }

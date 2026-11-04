@@ -58,6 +58,10 @@ const DeliveryJobSchema = new mongoose.Schema({
     type: String,
     index: true
   },
+  providerMessageId: {
+    type: String,
+    index: true
+  },
   providerIdempotencyKey: {
     type: String,
     index: true

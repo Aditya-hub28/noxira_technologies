@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const DeliveryJob = require('../models/DeliveryJob');
+const AuditLog = require('../models/AuditLog');
 const { queueCertificateEmails, processClaimedJob, runWorkerCycle } = require('../services/emailService');
 const { generate128BitToken } = require('../services/qrService');
 
@@ -62,6 +64,10 @@ exports.listJobs = async (req, res, next) => {
 exports.retryJob = async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid delivery job ID format' });
+    }
     
     // Read current state
     const job = await DeliveryJob.findById(id);
@@ -121,6 +127,99 @@ exports.retryJob = async (req, res, next) => {
       message: `Delivery attempt completed with status: ${processed.status}`,
       job: processed
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reconcile a DELIVERY_UNKNOWN job after administrator checks provider gateway logs.
+ * Allowed resolutions:
+ * - MARK_DELIVERED: Provider confirmed email arrived; marks status DELIVERED.
+ * - RESET_FOR_RETRY: Provider confirmed email never sent; resets status to FAILED so it can be retried cleanly.
+ */
+exports.reconcileJob = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { resolution, reconciliationNotes, providerMessageId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid delivery job ID format' });
+    }
+
+    const job = await DeliveryJob.findById(id);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Delivery job not found' });
+    }
+
+    if (job.status !== 'DELIVERY_UNKNOWN') {
+      return res.status(400).json({
+        success: false,
+        message: `Job is currently in status "${job.status}". Only DELIVERY_UNKNOWN jobs require reconciliation.`
+      });
+    }
+
+    if (!['MARK_DELIVERED', 'RESET_FOR_RETRY'].includes(resolution)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid resolution. Must be either "MARK_DELIVERED" or "RESET_FOR_RETRY".'
+      });
+    }
+
+    const adminEmail = req.admin?.email || 'admin@noxira.com';
+    const timestamp = new Date().toISOString();
+
+    if (resolution === 'MARK_DELIVERED') {
+      job.status = 'DELIVERED';
+      job.adminOverrideNeeded = false;
+      job.lockId = null;
+      job.leaseExpiresAt = null;
+      if (providerMessageId) {
+        job.providerMessageId = providerMessageId;
+        job.gatewayMessageId = providerMessageId;
+      }
+      job.reconciliationNotes = (job.reconciliationNotes ? `${job.reconciliationNotes}\n` : '') +
+        `[RECONCILED: MARK_DELIVERED by ${adminEmail} at ${timestamp}]: ${reconciliationNotes || 'Verified delivered on email provider gateway.'}`;
+      await job.save();
+
+      await AuditLog.create({
+        actorId: req.admin?._id,
+        actorType: 'ADMIN',
+        action: 'DELIVERY_RECONCILED_DELIVERED',
+        targetEntity: 'DELIVERY_JOB',
+        summary: `Admin ${adminEmail} reconciled DELIVERY_UNKNOWN job ${job._id} as DELIVERED`
+      });
+
+      return res.json({
+        success: true,
+        message: 'Delivery job marked as DELIVERED after provider reconciliation.',
+        job
+      });
+    }
+
+    if (resolution === 'RESET_FOR_RETRY') {
+      job.status = 'FAILED';
+      job.adminOverrideNeeded = false;
+      job.lockId = null;
+      job.leaseExpiresAt = null;
+      job.reconciliationNotes = (job.reconciliationNotes ? `${job.reconciliationNotes}\n` : '') +
+        `[RECONCILED: RESET_FOR_RETRY by ${adminEmail} at ${timestamp}]: ${reconciliationNotes || 'Confirmed not delivered on provider. Safely unlocked for retry.'}`;
+      await job.save();
+
+      await AuditLog.create({
+        actorId: req.admin?._id,
+        actorType: 'ADMIN',
+        action: 'DELIVERY_RECONCILED_RESET',
+        targetEntity: 'DELIVERY_JOB',
+        summary: `Admin ${adminEmail} reset DELIVERY_UNKNOWN job ${job._id} to FAILED for retry`
+      });
+
+      return res.json({
+        success: true,
+        message: 'Delivery job reset to FAILED. It is now safely eligible for retry.',
+        job
+      });
+    }
   } catch (error) {
     next(error);
   }

@@ -20,6 +20,7 @@ const { validateEnv } = require('../src/config/env');
 const participantController = require('../src/controllers/participantController');
 const distributionController = require('../src/controllers/distributionController');
 const intakeController = require('../src/controllers/intakeController');
+const templateController = require('../src/controllers/templateController');
 
 // Helper to mock express req, res, next for controller integration testing
 function mockReqRes(options = {}) {
@@ -496,7 +497,12 @@ async function runTestSuite() {
       validateEnv({
         NODE_ENV: 'production',
         MONGODB_URI: 'mongodb+srv://user:pass@cluster.mongodb.net/prod',
-        JWT_SECRET: 'a_very_long_secure_jwt_secret_with_more_than_32_characters_123456789'
+        JWT_SECRET: 'a_very_long_secure_jwt_secret_with_more_than_32_characters_123456789',
+        SMTP: {
+          HOST: 'smtp.sendgrid.net',
+          USER: 'apikey',
+          PASS: 'SG.valid_production_api_key_here_123456789'
+        }
       });
     });
   });
@@ -565,6 +571,152 @@ async function runTestSuite() {
     assert.strictEqual(verifiedNew.status, 'ISSUED');
     assert.strictEqual(verifiedNew.version, 2);
     assert.strictEqual(String(verifiedNew.supersedesCertificateId), String(oldCert._id));
+  });
+
+  // TEST 14: Production SMTP Guard (Never Silently Mock in Production)
+  await test('Production SMTP Guard: validateEnv rejects missing or mock SMTP credentials in production mode', () => {
+    const baseValid = {
+      NODE_ENV: 'production',
+      MONGODB_URI: 'mongodb+srv://user:pass@cluster.mongodb.net/prod',
+      JWT_SECRET: 'a_very_long_secure_jwt_secret_with_more_than_32_characters_123456789'
+    };
+
+    // Missing SMTP_HOST or mock ethereal host
+    assert.throws(
+      () => validateEnv({ ...baseValid, SMTP: { HOST: 'smtp.ethereal.email', USER: 'user', PASS: 'pass' } }),
+      /cannot use the development ethereal mock host/
+    );
+
+    // Missing or placeholder SMTP_USER
+    assert.throws(
+      () => validateEnv({ ...baseValid, SMTP: { HOST: 'smtp.sendgrid.net', USER: 'test@example.com', PASS: 'pass' } }),
+      /SMTP_USER is required in production/
+    );
+
+    // Missing or placeholder SMTP_PASS
+    assert.throws(
+      () => validateEnv({ ...baseValid, SMTP: { HOST: 'smtp.sendgrid.net', USER: 'apikey', PASS: 'password' } }),
+      /SMTP_PASS is required in production/
+    );
+  });
+
+  // TEST 15: DELIVERY_UNKNOWN Reconciliation Flow & Invalid ID Validation
+  await test('Reconciliation Flow: reconcileJob allows admin to MARK_DELIVERED or RESET_FOR_RETRY safely', async () => {
+    const cert = await Certificate.findOne({ status: 'ISSUED' });
+    const p = await Participant.findOne({ email: 'aarav.sharma@example.com' });
+    const admin = await Admin.findOne({ email: 'root@noxira.com' });
+
+    // 1. Invalid job ID returns 400
+    const mockInvalidId = mockReqRes({ params: { id: 'invalid-object-id-123' }, body: { resolution: 'MARK_DELIVERED' } });
+    await distributionController.reconcileJob(mockInvalidId.req, mockInvalidId.res, mockInvalidId.next);
+    assert.strictEqual(mockInvalidId.getStatus(), 400);
+    assert.ok(mockInvalidId.getData().message.includes('Invalid delivery job ID format'));
+
+    const mockInvalidRetry = mockReqRes({ params: { id: 'invalid-object-id-123' } });
+    await distributionController.retryJob(mockInvalidRetry.req, mockInvalidRetry.res, mockInvalidRetry.next);
+    assert.strictEqual(mockInvalidRetry.getStatus(), 400);
+
+    // 2. Reconcile with MARK_DELIVERED
+    const jobForDelivery = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'reconcile-delivered@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'DELIVERY_UNKNOWN',
+      adminOverrideNeeded: true,
+      attempts: 1,
+      providerIdempotencyKey: `noxira-dist-${cert._id}`
+    });
+
+    const mockDelivered = mockReqRes({
+      admin,
+      params: { id: jobForDelivery._id },
+      body: {
+        resolution: 'MARK_DELIVERED',
+        reconciliationNotes: 'Verified received via SendGrid gateway log trace 987654',
+        providerMessageId: 'sg-msg-987654'
+      }
+    });
+
+    await distributionController.reconcileJob(mockDelivered.req, mockDelivered.res, mockDelivered.next);
+    assert.strictEqual(mockDelivered.getStatus(), 200);
+
+    const savedDelivered = await DeliveryJob.findById(jobForDelivery._id);
+    assert.strictEqual(savedDelivered.status, 'DELIVERED');
+    assert.strictEqual(savedDelivered.adminOverrideNeeded, false);
+    assert.strictEqual(savedDelivered.providerMessageId, 'sg-msg-987654');
+    assert.ok(savedDelivered.reconciliationNotes.includes('Verified received via SendGrid'));
+
+    // 3. Reconcile with RESET_FOR_RETRY
+    const jobForRetry = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'reconcile-retry@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'DELIVERY_UNKNOWN',
+      adminOverrideNeeded: true,
+      attempts: 1,
+      providerIdempotencyKey: `noxira-dist-${cert._id}`
+    });
+
+    const mockReset = mockReqRes({
+      admin,
+      params: { id: jobForRetry._id },
+      body: {
+        resolution: 'RESET_FOR_RETRY',
+        reconciliationNotes: 'Confirmed by gateway support that email was dropped due to network blip'
+      }
+    });
+
+    await distributionController.reconcileJob(mockReset.req, mockReset.res, mockReset.next);
+    assert.strictEqual(mockReset.getStatus(), 200);
+
+    const savedReset = await DeliveryJob.findById(jobForRetry._id);
+    assert.strictEqual(savedReset.status, 'FAILED');
+    assert.strictEqual(savedReset.adminOverrideNeeded, false);
+
+    // Now retryJob should be able to claim and retry it cleanly
+    const mockRetry = mockReqRes({ admin, params: { id: jobForRetry._id } });
+    await distributionController.retryJob(mockRetry.req, mockRetry.res, mockRetry.next);
+    assert.strictEqual(mockRetry.getStatus(), 200);
+  });
+
+  // TEST 16: Partial Layout Robustness & Stable Idempotency Key
+  await test('Template & Distribution Robustness: Partial layout save succeeds without 500 & idempotency key is stable', async () => {
+    // 1. Partial layout save
+    const mockSaveLayout = mockReqRes({
+      body: {
+        layout: {
+          name: { y: 420 }
+        }
+      }
+    });
+
+    await templateController.saveLayout(mockSaveLayout.req, mockSaveLayout.res, mockSaveLayout.next);
+    assert.strictEqual(mockSaveLayout.getStatus(), 200);
+
+    const updatedTemplate = await Template.findOne({ isActive: true });
+    assert.strictEqual(updatedTemplate.layout.name.y, 420);
+    assert.ok(updatedTemplate.layout.signatory, 'Signatory must not be wiped by partial layout update');
+    assert.ok(updatedTemplate.layout.qr, 'QR code config must not be wiped by partial layout update');
+
+    // 2. Stable idempotency key check
+    const cert = await Certificate.findOne({ status: 'ISSUED' });
+    const p = await Participant.findOne({ email: 'aarav.sharma@example.com' });
+
+    const job = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'idempotency-check@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'QUEUED',
+      providerIdempotencyKey: `noxira-dist-${cert._id}`
+    });
+
+    assert.strictEqual(job.providerIdempotencyKey, `noxira-dist-${cert._id}`);
   });
 
   // Cleanup
