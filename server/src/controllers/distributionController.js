@@ -1,5 +1,6 @@
 const DeliveryJob = require('../models/DeliveryJob');
-const { queueCertificateEmails, processDeliveryJob } = require('../services/emailService');
+const { queueCertificateEmails, processClaimedJob, runWorkerCycle } = require('../services/emailService');
+const { generate128BitToken } = require('../services/qrService');
 
 exports.queueBatch = async (req, res, next) => {
   try {
@@ -11,14 +12,12 @@ exports.queueBatch = async (req, res, next) => {
 
     const queuedJobs = await queueCertificateEmails(certificateIds, req.admin._id);
 
-    // Process queued jobs asynchronously in the background
+    // Launch worker cycle asynchronously to process queued jobs with atomic leases
     setImmediate(async () => {
-      for (const job of queuedJobs) {
-        try {
-          await processDeliveryJob(job._id);
-        } catch (err) {
-          console.error(`Error processing job ${job._id}:`, err.message);
-        }
+      try {
+        await runWorkerCycle();
+      } catch (err) {
+        console.error('Background email worker error:', err.message);
       }
     });
 
@@ -70,7 +69,7 @@ exports.retryJob = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Delivery job not found' });
     }
 
-    // Bug 4 fix: Protect against duplicate email sends
+    // Protection against duplicate email sends
     if (['PROVIDER_ACCEPTED', 'DELIVERED'].includes(job.status)) {
       return res.status(400).json({
         success: false,
@@ -92,10 +91,19 @@ exports.retryJob = async (req, res, next) => {
       });
     }
 
-    // Atomic claim: only proceed if status is FAILED
+    // Atomic claim with lease: only proceed if status is FAILED
+    const workerLockId = `retry-${Date.now()}-${generate128BitToken().slice(0, 8)}`;
     const claimedJob = await DeliveryJob.findOneAndUpdate(
       { _id: id, status: 'FAILED' },
-      { $set: { status: 'PROCESSING', lastAttemptAt: new Date(), adminOverrideNeeded: false } },
+      {
+        $set: {
+          status: 'PROCESSING',
+          lockId: workerLockId,
+          leaseExpiresAt: new Date(Date.now() + 2 * 60 * 1000),
+          adminOverrideNeeded: false,
+          lastAttemptAt: new Date()
+        }
+      },
       { new: true }
     );
 
@@ -106,7 +114,7 @@ exports.retryJob = async (req, res, next) => {
       });
     }
 
-    const processed = await processDeliveryJob(claimedJob._id);
+    const processed = await processClaimedJob(claimedJob._id, workerLockId);
 
     res.json({
       success: true,

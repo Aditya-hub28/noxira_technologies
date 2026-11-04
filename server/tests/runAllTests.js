@@ -1,3 +1,4 @@
+process.env.NODE_ENV = 'test';
 const assert = require('assert');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
@@ -7,13 +8,53 @@ const Program = require('../src/models/Program');
 const Template = require('../src/models/Template');
 const Certificate = require('../src/models/Certificate');
 const DeliveryJob = require('../src/models/DeliveryJob');
+const ImportBatch = require('../src/models/ImportBatch');
+const AuditLog = require('../src/models/AuditLog');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
 const { issueCertificateForParticipant } = require('../src/services/issuanceService');
 const { generate128BitToken } = require('../src/services/qrService');
+const { recoverStaleProcessingJobs } = require('../src/services/emailService');
+const { validateEnv } = require('../src/config/env');
 
-function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const participantController = require('../src/controllers/participantController');
+const distributionController = require('../src/controllers/distributionController');
+const intakeController = require('../src/controllers/intakeController');
+
+// Helper to mock express req, res, next for controller integration testing
+function mockReqRes(options = {}) {
+  const req = {
+    body: options.body || {},
+    params: options.params || {},
+    query: options.query || {},
+    admin: options.admin || { _id: new mongoose.Types.ObjectId(), name: 'Test Admin', role: 'SUPER_ADMIN' }
+  };
+  let statusCode = 200;
+  let responseData = null;
+  const res = {
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(data) {
+      responseData = data;
+      return this;
+    },
+    send(data) {
+      responseData = data;
+      return this;
+    }
+  };
+  const next = (err) => {
+    if (err) throw err;
+  };
+  return {
+    req,
+    res,
+    next,
+    getStatus: () => statusCode,
+    getData: () => responseData
+  };
 }
 
 async function runTestSuite() {
@@ -32,7 +73,9 @@ async function runTestSuite() {
     DeliveryJob.init(),
     Admin.init(),
     Program.init(),
-    Template.init()
+    Template.init(),
+    ImportBatch.init(),
+    AuditLog.init()
   ]);
 
   let passed = 0;
@@ -71,9 +114,8 @@ async function runTestSuite() {
     assert.strictEqual(isFalse, false, 'Wrong password must fail');
   });
 
-  // TEST 2: Intake Duplicate Prevention & Normalized Key (Race Condition Proof)
-  await test('Intake: Duplicate email+program+batch collision detected and rejected', async () => {
-    // Seed program first
+  // TEST 2: Intake Duplicate Prevention & Normalized Key (Model Compound Index)
+  await test('Intake: Duplicate email+program+batch collision detected and rejected at model level', async () => {
     await Program.create({
       code: 'FS-DEV',
       title: 'Full Stack Web Development',
@@ -94,7 +136,7 @@ async function runTestSuite() {
     assert.strictEqual(p1.normalizedEmail, 'aarav.sharma@example.com');
     assert.strictEqual(p1.completionStatus, 'PENDING');
 
-    // Attempt duplicate with different casing/whitespace
+    // Attempt duplicate with different casing/whitespace in same program & batch
     const p2 = new Participant({
       fullName: 'Aarav Sharma Duplicate',
       email: 'aarav.sharma@example.com',
@@ -135,7 +177,6 @@ async function runTestSuite() {
 
   // TEST 4: Seeded Template with Signatory Verification (Bug 1 Root Cause Test)
   await test('Bug 1 Fix: Template signatory properly resolved without undefined error during issuance', async () => {
-    // Explicitly create a real Template in DB like server boot does
     await Template.create({
       title: 'Official NOXIRA Template v1',
       version: '1.0.0',
@@ -158,7 +199,6 @@ async function runTestSuite() {
 
     const admin = await Admin.findOne({ email: 'root@noxira.com' });
 
-    // Issue certificate - must NOT crash on template.signatory.name
     const res = await issueCertificateForParticipant({
       participantId: p._id,
       adminId: admin._id
@@ -197,7 +237,6 @@ async function runTestSuite() {
     const p = await Participant.findOne({ email: 'aarav.sharma@example.com' });
     const admin = await Admin.findOne({ email: 'root@noxira.com' });
 
-    // Re-issue
     const res = await issueCertificateForParticipant({
       participantId: p._id,
       adminId: admin._id
@@ -208,60 +247,261 @@ async function runTestSuite() {
     assert.strictEqual(totalCerts, 1, 'Exactly one certificate record must exist in DB');
   });
 
-  // TEST 7: Regex Search Escaping (Bug 3 Fix)
-  await test('Bug 3 Fix: Search box with special characters [ or ( is properly escaped without 500 error', async () => {
-    const dangerousInput1 = '[';
-    const dangerousInput2 = '(.*+?^${}()|[\\]\\)';
-
-    const safeRegex1 = new RegExp(escapeRegex(dangerousInput1), 'i');
-    const safeRegex2 = new RegExp(escapeRegex(dangerousInput2), 'i');
-
-    assert.ok(safeRegex1 instanceof RegExp, 'Must compile valid RegExp');
-    assert.ok(safeRegex2 instanceof RegExp, 'Must compile valid RegExp');
-
-    // Run actual query with escaped regex
-    const matches = await Participant.find({
-      $or: [
-        { fullName: safeRegex1 },
-        { email: safeRegex1 }
-      ]
+  // TEST 7: Controller Integration: participantController.getParticipants with regex metacharacters
+  await test('Bug 3 Controller Integration: participantController.getParticipants escapes [ and ( without 500 crash', async () => {
+    const { req, res, next, getStatus, getData } = mockReqRes({
+      query: { search: '[(evil-regex.*+?^${}' }
     });
-    assert.ok(Array.isArray(matches), 'Query must complete cleanly without throwing SyntaxError');
+
+    await participantController.getParticipants(req, res, next);
+    assert.strictEqual(getStatus(), 200, 'Controller must return 200 OK');
+    const data = getData();
+    assert.strictEqual(data.success, true);
+    assert.ok(Array.isArray(data.participants), 'Participants must be an array');
   });
 
-  // TEST 8: Email Retry Duplicate Protection (Bug 4 Fix)
-  await test('Bug 4 Fix: Delivery retry rejects PROVIDER_ACCEPTED and DELIVERY_UNKNOWN jobs', async () => {
-    const cert = await Certificate.findOne();
-    const p = await Participant.findOne();
+  // TEST 8: Controller Integration: distributionController.retryJob blocks duplicates & prevents concurrent race
+  await test('Bug 4 Controller Integration: distributionController.retryJob enforces state guard and atomic claim', async () => {
+    const cert = await Certificate.findOne({ status: 'ISSUED' });
+    const p = await Participant.findOne({ email: 'aarav.sharma@example.com' });
 
-    // Create job marked as PROVIDER_ACCEPTED
+    // 1. PROVIDER_ACCEPTED job must be rejected with 400
     const acceptedJob = await DeliveryJob.create({
       certificateId: cert._id,
       participantId: p._id,
-      recipientEmail: 'test@example.com',
+      recipientEmail: 'accepted@example.com',
       downloadToken: generate128BitToken(),
       downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
       status: 'PROVIDER_ACCEPTED',
       attempts: 1
     });
 
-    // Verify status rejection check
-    assert.strictEqual(['PROVIDER_ACCEPTED', 'DELIVERED'].includes(acceptedJob.status), true, 'Accepted job must be identified');
+    const mockAccepted = mockReqRes({ params: { id: acceptedJob._id } });
+    await distributionController.retryJob(mockAccepted.req, mockAccepted.res, mockAccepted.next);
+    assert.strictEqual(mockAccepted.getStatus(), 400, 'Must return 400 for PROVIDER_ACCEPTED');
+    assert.ok(mockAccepted.getData().message.includes('already been accepted'));
 
-    // Create job marked as DELIVERY_UNKNOWN (timeout)
-    const timeoutJob = await DeliveryJob.create({
+    // 2. DELIVERY_UNKNOWN job must be rejected with 409
+    const unknownJob = await DeliveryJob.create({
       certificateId: cert._id,
       participantId: p._id,
-      recipientEmail: 'test2@example.com',
+      recipientEmail: 'unknown@example.com',
       downloadToken: generate128BitToken(),
       downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
       status: 'DELIVERY_UNKNOWN',
       attempts: 1
     });
-    assert.strictEqual(timeoutJob.status === 'DELIVERY_UNKNOWN', true, 'Timeout job must be flagged for reconciliation');
+
+    const mockUnknown = mockReqRes({ params: { id: unknownJob._id } });
+    await distributionController.retryJob(mockUnknown.req, mockUnknown.res, mockUnknown.next);
+    assert.strictEqual(mockUnknown.getStatus(), 409, 'Must return 409 for DELIVERY_UNKNOWN');
+    assert.ok(mockUnknown.getData().message.includes('reconcile gateway logs'));
+
+    // 3. FAILED job retry: Atomic claim race test
+    const failedJob = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'failed@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'FAILED',
+      attempts: 1
+    });
+
+    // Simulate two simultaneous retry calls
+    const call1 = mockReqRes({ params: { id: failedJob._id } });
+    const call2 = mockReqRes({ params: { id: failedJob._id } });
+
+    const [res1, res2] = await Promise.all([
+      distributionController.retryJob(call1.req, call1.res, call1.next),
+      distributionController.retryJob(call2.req, call2.res, call2.next)
+    ]);
+
+    const statuses = [call1.getStatus(), call2.getStatus()].sort();
+    assert.strictEqual(statuses[0], 200, 'One retry request must succeed');
+    assert.strictEqual(statuses[1], 409, 'Concurrent retry request must be blocked with 409 Conflict');
   });
 
-  // TEST 9: Public Verification & Zero-PII Check
+  // TEST 9: Controller Integration: intakeController.commitCsv rejects client flag tampering & deduplicates
+  await test('Intake Controller Integration: commitCsv ignores client flags, enforces server re-validation & cross-program uniqueness', async () => {
+    await Program.create({
+      code: 'AI-ENG',
+      title: 'Artificial Intelligence Engineering',
+      defaultBatch: 'BATCH-2026-Q4'
+    });
+
+    const admin = await Admin.findOne({ email: 'root@noxira.com' });
+
+    // Client maliciously sends isValid: true on invalid / duplicate rows
+    const manipulatedRows = [
+      {
+        fullName: 'Valid Applicant One',
+        email: 'applicant.one@example.com',
+        phone: '+91 91234 56780',
+        isValid: true,
+        isDuplicate: false
+      },
+      {
+        fullName: 'Valid Applicant One Duplicate In File',
+        email: 'applicant.one@example.com', // Duplicate in same file
+        phone: '+91 91234 56780',
+        isValid: true, // Tampered flag
+        isDuplicate: false
+      },
+      {
+        fullName: 'X', // Invalid: Too short (<2 chars)
+        email: 'shortname@example.com',
+        isValid: true, // Tampered flag
+        isDuplicate: false
+      },
+      {
+        fullName: 'Bad Email User',
+        email: 'not-an-email-format', // Invalid: Bad email
+        isValid: true, // Tampered flag
+        isDuplicate: false
+      }
+    ];
+
+    const mockCommit = mockReqRes({
+      admin,
+      body: {
+        fileName: 'tampered_batch.csv',
+        programCode: 'AI-ENG',
+        batchId: 'BATCH-2026-Q4',
+        rows: manipulatedRows
+      }
+    });
+
+    await intakeController.commitCsv(mockCommit.req, mockCommit.res, mockCommit.next);
+    assert.strictEqual(mockCommit.getStatus(), 200);
+    const result = mockCommit.getData();
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.importedCount, 1, 'Only the single valid applicant should be inserted');
+    assert.strictEqual(result.duplicatesCount, 1, 'In-file duplicate must be caught by server');
+    assert.strictEqual(result.invalidCount, 2, 'Two invalid rows must be rejected despite client isValid: true');
+
+    // Cross-program check: same email 'applicant.one@example.com' CAN be registered in 'FS-DEV'
+    const crossProgramRows = [
+      {
+        fullName: 'Valid Applicant One',
+        email: 'applicant.one@example.com',
+        phone: '+91 91234 56780'
+      }
+    ];
+
+    const mockCrossCommit = mockReqRes({
+      admin,
+      body: {
+        fileName: 'cross_program.csv',
+        programCode: 'FS-DEV',
+        batchId: 'BATCH-2026-Q4',
+        rows: crossProgramRows
+      }
+    });
+
+    await intakeController.commitCsv(mockCrossCommit.req, mockCrossCommit.res, mockCrossCommit.next);
+    assert.strictEqual(mockCrossCommit.getStatus(), 200);
+    assert.strictEqual(mockCrossCommit.getData().importedCount, 1, 'Same email in different program must be allowed');
+  });
+
+  // TEST 10: Email Worker Crash Recovery (recoverStaleProcessingJobs)
+  await test('Email Worker Recovery: Transitions stale jobs with attempts > 0 to DELIVERY_UNKNOWN, unattempted to QUEUED', async () => {
+    const cert = await Certificate.findOne({ status: 'ISSUED' });
+    const p = await Participant.findOne({ email: 'aarav.sharma@example.com' });
+
+    // Stale job that crashed mid-flight after 1 attempt
+    const crashedMidFlight = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'midflight@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'PROCESSING',
+      lockId: 'crashed-worker-lock-1',
+      leaseExpiresAt: new Date(Date.now() - 10000), // Expired lease
+      attempts: 1,
+      lastAttemptAt: new Date(Date.now() - 15000)
+    });
+
+    // Stale job claimed but worker died before any SMTP call (attempts: 0)
+    const crashedBeforeAttempt = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'beforeattempt@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'PROCESSING',
+      lockId: 'crashed-worker-lock-2',
+      leaseExpiresAt: new Date(Date.now() - 10000), // Expired lease
+      attempts: 0
+    });
+
+    const recoveryResult = await recoverStaleProcessingJobs(0);
+    assert.strictEqual(recoveryResult.recoveredToUnknown, 1);
+    assert.strictEqual(recoveryResult.recoveredToQueued, 1);
+
+    const updatedMidFlight = await DeliveryJob.findById(crashedMidFlight._id);
+    assert.strictEqual(updatedMidFlight.status, 'DELIVERY_UNKNOWN');
+    assert.strictEqual(updatedMidFlight.adminOverrideNeeded, true);
+    assert.strictEqual(updatedMidFlight.lockId, null);
+    assert.ok(updatedMidFlight.reconciliationNotes.includes('Reconcile with gateway'));
+
+    const updatedBeforeAttempt = await DeliveryJob.findById(crashedBeforeAttempt._id);
+    assert.strictEqual(updatedBeforeAttempt.status, 'QUEUED');
+    assert.strictEqual(updatedBeforeAttempt.lockId, null);
+    assert.strictEqual(updatedBeforeAttempt.leaseExpiresAt, null);
+  });
+
+  // TEST 11: Production Security Configuration (Fail-Safe Boot)
+  await test('Production Config: validateEnv halts startup on missing MongoDB URI or insecure JWT secret', () => {
+    // 1. Missing MongoDB URI in production
+    assert.throws(
+      () => {
+        validateEnv({
+          NODE_ENV: 'production',
+          MONGODB_URI: '',
+          JWT_SECRET: 'a_very_long_secure_jwt_secret_with_more_than_32_characters_123456789'
+        });
+      },
+      /MONGODB_URI environment variable is required in production/
+    );
+
+    // 2. Default fallback JWT secret in production
+    assert.throws(
+      () => {
+        validateEnv({
+          NODE_ENV: 'production',
+          MONGODB_URI: 'mongodb+srv://user:pass@cluster.mongodb.net/prod',
+          JWT_SECRET: 'noxira_default_insecure_jwt_secret_dev_only'
+        });
+      },
+      /cannot be the default fallback/
+    );
+
+    // 3. Short JWT secret (<32 chars) in production
+    assert.throws(
+      () => {
+        validateEnv({
+          NODE_ENV: 'production',
+          MONGODB_URI: 'mongodb+srv://user:pass@cluster.mongodb.net/prod',
+          JWT_SECRET: 'short_secret'
+        });
+      },
+      /at least 32 characters long in production/
+    );
+
+    // 4. Valid production configuration
+    assert.doesNotThrow(() => {
+      validateEnv({
+        NODE_ENV: 'production',
+        MONGODB_URI: 'mongodb+srv://user:pass@cluster.mongodb.net/prod',
+        JWT_SECRET: 'a_very_long_secure_jwt_secret_with_more_than_32_characters_123456789'
+      });
+    });
+  });
+
+  // TEST 12: Public Verification & Zero-PII Check
   await test('Public Verification: Shows valid status, hides all PII (email, phone, notes)', async () => {
     const cert = await Certificate.findOne({ status: 'ISSUED' });
     assert.ok(cert);
@@ -285,10 +525,10 @@ async function runTestSuite() {
     assert.strictEqual(publicPayload.internalNotes, undefined, 'Internal notes must NOT be present');
   });
 
-  // TEST 10: Correction, Revocation & Atomic Replacement
+  // TEST 13: Correction, Revocation & Atomic Replacement
   await test('Revoke & Replace: Preserves history, marks old as REPLACED, links to new certificate', async () => {
     const oldCert = await Certificate.findOne({ status: 'ISSUED' });
-    const admin = await Admin.findOne();
+    const admin = await Admin.findOne({ email: 'root@noxira.com' });
 
     const newPublicToken = generate128BitToken();
     const newCert = new Certificate({

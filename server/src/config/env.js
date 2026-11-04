@@ -1,7 +1,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-module.exports = {
+const config = {
   PORT: process.env.PORT || 5000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   MONGODB_URI: process.env.MONGODB_URI || '',
@@ -19,4 +19,31 @@ module.exports = {
     PASS: process.env.SMTP_PASS || '',
     FROM: process.env.SMTP_FROM || 'certificates@noxira.com'
   }
+};
+
+function validateEnv(conf = config) {
+  if (conf.NODE_ENV === 'production') {
+    const errors = [];
+    if (!conf.MONGODB_URI || conf.MONGODB_URI.trim() === '') {
+      errors.push('MONGODB_URI environment variable is required in production.');
+    }
+    if (!conf.JWT_SECRET || conf.JWT_SECRET === 'noxira_default_insecure_jwt_secret_dev_only') {
+      errors.push('JWT_SECRET must be explicitly set in production and cannot be the default fallback.');
+    } else if (conf.JWT_SECRET.length < 32) {
+      errors.push('JWT_SECRET must be at least 32 characters long in production for cryptographic safety.');
+    }
+    if (errors.length > 0) {
+      throw new Error(`[CRITICAL CONFIG ERROR] Startup halted due to insecure production configuration:\n - ${errors.join('\n - ')}`);
+    }
+  }
+}
+
+// Enforce validation on module load in production
+if (config.NODE_ENV === 'production') {
+  validateEnv(config);
+}
+
+module.exports = {
+  ...config,
+  validateEnv
 };

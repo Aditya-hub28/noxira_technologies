@@ -56,6 +56,11 @@ app.use('/api/v1/audit', auditRoutes);
 app.use(errorHandler);
 
 async function autoSeedIfEmpty() {
+  if (env.NODE_ENV === 'production') {
+    console.log('🔒 Production mode active: Auto-seeding disabled. Default admin and demo data will not be provisioned.');
+    return;
+  }
+
   const Admin = require('./models/Admin');
   const Program = require('./models/Program');
   const Template = require('./models/Template');
@@ -109,6 +114,13 @@ async function autoSeedIfEmpty() {
         name: 'Aditya Jha',
         title: 'Managing Director & Lead Architect',
         organization: 'Noxira Technologies Private Limited'
+      },
+      layout: {
+        signatory: {
+          name: 'Aditya Jha',
+          title: 'Managing Director & Lead Architect',
+          organization: 'Noxira Technologies Private Limited'
+        }
       },
       isActive: true
     });

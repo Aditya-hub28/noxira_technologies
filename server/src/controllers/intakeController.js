@@ -23,7 +23,7 @@ exports.websiteApply = async (req, res, next) => {
     const cleanProgramCode = programCode.toUpperCase().trim();
     const cleanBatch = (batchId || 'BATCH-2026-Q4').toUpperCase().trim();
 
-    // Strict Program Validation (Bug 5 fix: Reject unknown/invented program codes)
+    // Strict Program Validation (Reject unknown/invented program codes)
     const program = await Program.findOne({ code: cleanProgramCode });
     if (!program) {
       return res.status(400).json({
@@ -152,7 +152,7 @@ exports.previewCsv = async (req, res, next) => {
     let duplicateCount = 0;
     let errorCount = 0;
 
-    // Bug 2 fix: Track duplicates within the CSV file itself using composite key
+    // Track duplicates within the CSV file itself using composite key
     const seenInFile = new Set();
 
     for (let i = 0; i < rawRows.length; i++) {
@@ -174,7 +174,6 @@ exports.previewCsv = async (req, res, next) => {
         const normEmail = rawEmail.toLowerCase().trim();
         const rowKey = `${normEmail}|${cleanProgramCode}|${cleanBatch}`;
 
-        // Check if seen earlier in this exact CSV
         if (seenInFile.has(rowKey)) {
           isDuplicate = true;
           duplicateCount++;
@@ -182,7 +181,6 @@ exports.previewCsv = async (req, res, next) => {
         } else {
           seenInFile.add(rowKey);
 
-          // Check if already exists in MongoDB
           const existing = await Participant.findOne({
             normalizedEmail: normEmail,
             programCode: cleanProgramCode,
@@ -226,7 +224,7 @@ exports.previewCsv = async (req, res, next) => {
         phoneHeader
       },
       availableHeaders: headers,
-      previewRows: previewRows.slice(0, 100), // Preview top 100 rows
+      previewRows: previewRows.slice(0, 100),
       fullRows: previewRows
     });
   } catch (error) {
@@ -235,7 +233,9 @@ exports.previewCsv = async (req, res, next) => {
 };
 
 /**
- * Commits approved CSV rows into participants collection
+ * Commits CSV rows into participants collection.
+ * CRITICAL RULE: Revalidates every single row on server-side.
+ * Never blindly trusts client-provided isValid or isDuplicate flags.
  */
 exports.commitCsv = async (req, res, next) => {
   try {
@@ -245,10 +245,10 @@ exports.commitCsv = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No rows provided to commit' });
     }
 
-    const cleanProgramCode = programCode.toUpperCase().trim();
+    const cleanProgramCode = (programCode || '').toUpperCase().trim();
     const cleanBatch = (batchId || 'BATCH-2026-Q4').toUpperCase().trim();
 
-    // Validate program exists
+    // 1. Strict Server-Side Program Code Validation
     const program = await Program.findOne({ code: cleanProgramCode });
     if (!program) {
       return res.status(400).json({
@@ -258,51 +258,106 @@ exports.commitCsv = async (req, res, next) => {
     }
     const programTitle = program.title;
 
-    // Filter only valid, non-duplicate rows
-    const validRows = rows.filter(r => r.isValid && !r.isDuplicate);
+    // 2. Strict Server-Side Row Re-Validation & In-Batch Deduplication
+    const toInsert = [];
+    const duplicateConflicts = [];
+    const invalidRows = [];
+    const seenInCommit = new Set();
 
-    if (validRows.length === 0) {
-      return res.status(400).json({ success: false, message: 'No valid rows to commit.' });
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const rowIndex = r.rowIndex || (i + 1);
+      const fullName = (r.fullName || '').trim();
+      const email = (r.email || '').toLowerCase().trim();
+      const phone = (r.phone || '').trim();
+
+      // Field validation
+      if (!fullName || fullName.length < 2) {
+        invalidRows.push({ rowIndex, email, error: 'Name missing or fewer than 2 characters' });
+        continue;
+      }
+      if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+        invalidRows.push({ rowIndex, email, error: 'Invalid email format' });
+        continue;
+      }
+
+      // In-batch composite key deduplication
+      const rowKey = `${email}|${cleanProgramCode}|${cleanBatch}`;
+      if (seenInCommit.has(rowKey)) {
+        duplicateConflicts.push({ rowIndex, email, reason: 'Duplicate within the submitted import batch' });
+        continue;
+      }
+      seenInCommit.add(rowKey);
+
+      // Database composite key collision check
+      const existing = await Participant.findOne({
+        normalizedEmail: email,
+        programCode: cleanProgramCode,
+        batchId: cleanBatch
+      });
+
+      if (existing) {
+        duplicateConflicts.push({ rowIndex, email, reason: 'Already registered in database for this program & cohort' });
+        continue;
+      }
+
+      toInsert.push({
+        fullName,
+        normalizedName: fullName.toLowerCase(),
+        email,
+        normalizedEmail: email,
+        phone,
+        programCode: cleanProgramCode,
+        programTitle,
+        batchId: cleanBatch,
+        source: 'CSV_IMPORT',
+        completionStatus: 'PENDING'
+      });
     }
 
-    // Create ImportBatch record
+    // 3. Create ImportBatch audit record
     const importBatch = new ImportBatch({
       fileName: fileName || 'manual_import.csv',
       uploadedBy: req.admin._id,
       programCode: cleanProgramCode,
       batchId: cleanBatch,
       totalRows: rows.length,
-      validRows: validRows.length,
-      duplicateRows: rows.filter(r => r.isDuplicate).length,
-      errorRows: rows.filter(r => r.errors && r.errors.length > 0).length,
-      status: 'COMMITTED'
+      validRows: toInsert.length,
+      duplicateRows: duplicateConflicts.length,
+      errorRows: invalidRows.length,
+      status: toInsert.length > 0 ? 'COMMITTED' : 'DISCARDED'
     });
     await importBatch.save();
 
-    const insertDocs = validRows.map(r => ({
-      fullName: r.fullName.trim(),
-      normalizedName: r.fullName.toLowerCase().trim(),
-      email: r.email.toLowerCase().trim(),
-      normalizedEmail: r.email.toLowerCase().trim(),
-      phone: r.phone ? r.phone.trim() : '',
-      programCode: cleanProgramCode,
-      programTitle,
-      batchId: cleanBatch,
-      source: 'CSV_IMPORT',
-      sourceImportBatchId: importBatch._id,
-      completionStatus: 'PENDING'
-    }));
+    // 4. Handle Case where 0 rows are eligible
+    if (toInsert.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: 'No valid or non-duplicate records found to import.',
+        batchId: importBatch._id,
+        importedCount: 0,
+        duplicatesCount: duplicateConflicts.length,
+        invalidCount: invalidRows.length,
+        details: {
+          duplicateConflicts,
+          invalidRows
+        }
+      });
+    }
 
-    // Bug 2 fix: Gracefully catch bulk write errors without crashing with 500
+    // Attach batch reference
+    toInsert.forEach(doc => { doc.sourceImportBatchId = importBatch._id; });
+
+    // 5. Insert Valid Rows Gracefully
     let insertedCount = 0;
     try {
-      const result = await Participant.insertMany(insertDocs, { ordered: false });
+      const result = await Participant.insertMany(toInsert, { ordered: false });
       insertedCount = result.length;
     } catch (e) {
       if (e.name === 'MongoBulkWriteError' || e.name === 'BulkWriteError') {
         insertedCount = e.insertedDocs ? e.insertedDocs.length : (e.result?.nInserted || 0);
         importBatch.validRows = insertedCount;
-        importBatch.duplicateRows += (insertDocs.length - insertedCount);
+        importBatch.duplicateRows += (toInsert.length - insertedCount);
         await importBatch.save();
       } else {
         throw e;
@@ -314,14 +369,20 @@ exports.commitCsv = async (req, res, next) => {
       actorType: 'ADMIN',
       action: 'CSV_COMMITTED',
       targetEntity: 'PARTICIPANT',
-      summary: `Admin ${req.admin.email} imported ${insertedCount} participants for ${cleanProgramCode} from CSV`
+      summary: `Admin ${req.admin.email} imported ${insertedCount} participants for ${cleanProgramCode} from CSV (${duplicateConflicts.length} duplicates skipped, ${invalidRows.length} invalid rejected)`
     });
 
     res.json({
       success: true,
-      message: `Successfully imported ${insertedCount} participants. All marked as PENDING.`,
+      message: `Successfully imported ${insertedCount} participants. ${duplicateConflicts.length} duplicates skipped. ${invalidRows.length} invalid rejected.`,
       batchId: importBatch._id,
-      importedCount: insertedCount
+      importedCount: insertedCount,
+      duplicatesCount: duplicateConflicts.length,
+      invalidCount: invalidRows.length,
+      details: {
+        duplicateConflicts: duplicateConflicts.slice(0, 50),
+        invalidRows: invalidRows.slice(0, 50)
+      }
     });
   } catch (error) {
     next(error);

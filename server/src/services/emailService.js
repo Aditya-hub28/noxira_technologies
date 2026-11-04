@@ -10,7 +10,7 @@ const { generate128BitToken } = require('./qrService');
 let transporter = null;
 function getTransporter() {
   if (!transporter) {
-    if (env.SMTP.USER && env.SMTP.PASS) {
+    if (process.env.NODE_ENV !== 'test' && env.SMTP.USER && env.SMTP.PASS && env.SMTP.USER !== 'test@example.com' && env.SMTP.PASS !== 'password') {
       transporter = nodemailer.createTransport({
         host: env.SMTP.HOST,
         port: env.SMTP.PORT,
@@ -36,6 +36,10 @@ function getTransporter() {
   return transporter;
 }
 
+function setTransporter(customTransporter) {
+  transporter = customTransporter;
+}
+
 /**
  * Creates or updates delivery jobs for a batch of certificates
  */
@@ -46,10 +50,8 @@ async function queueCertificateEmails(certificateIds, adminId) {
     const cert = await Certificate.findById(certId).populate('participantId');
     if (!cert || cert.status !== 'ISSUED') continue;
 
-    // Check if job already exists
     let existingJob = await DeliveryJob.findOne({ certificateId: cert._id });
     if (!existingJob) {
-      // Generate 128-bit scoped token for private download (valid for 72 hours)
       const downloadToken = generate128BitToken();
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
@@ -66,7 +68,6 @@ async function queueCertificateEmails(certificateIds, adminId) {
     jobs.push(existingJob);
   }
 
-  // Audit Log
   await AuditLog.create({
     actorId: adminId,
     actorType: 'ADMIN',
@@ -79,9 +80,70 @@ async function queueCertificateEmails(certificateIds, adminId) {
 }
 
 /**
- * Dispatches a single queued delivery job with retry reconciliation
+ * Sweeps and recovers stale PROCESSING jobs after an interrupted process or crash.
+ * If attempts > 0, the email may have reached provider -> marked DELIVERY_UNKNOWN to prevent duplicate sends.
+ * If attempts === 0, safely resets to QUEUED.
  */
-async function processDeliveryJob(jobId) {
+async function recoverStaleProcessingJobs(staleThresholdMs = 2 * 60 * 1000) {
+  const cutoff = new Date(Date.now() - staleThresholdMs);
+
+  const staleJobs = await DeliveryJob.find({
+    status: 'PROCESSING',
+    $or: [
+      { leaseExpiresAt: { $lt: new Date() } },
+      { leaseExpiresAt: null, lastAttemptAt: { $lt: cutoff } }
+    ]
+  });
+
+  let recoveredToUnknown = 0;
+  let recoveredToQueued = 0;
+
+  for (const job of staleJobs) {
+    if (job.attempts > 0) {
+      // Possible that provider already received it before crash
+      job.status = 'DELIVERY_UNKNOWN';
+      job.adminOverrideNeeded = true;
+      job.leaseExpiresAt = null;
+      job.lockId = null;
+      job.reconciliationNotes = 'Interrupted mid-flight during server crash or timeout; potential unconfirmed provider acceptance. Reconcile with gateway before resending.';
+      await job.save();
+      recoveredToUnknown++;
+    } else {
+      // Claimed but never attempted
+      job.status = 'QUEUED';
+      job.leaseExpiresAt = null;
+      job.lockId = null;
+      await job.save();
+      recoveredToQueued++;
+    }
+  }
+
+  return { recoveredToUnknown, recoveredToQueued, total: staleJobs.length };
+}
+
+/**
+ * Atomically claims the next QUEUED job with a lease
+ */
+async function claimNextQueuedJob(workerLockId, leaseDurationMs = 2 * 60 * 1000) {
+  const leaseExpiresAt = new Date(Date.now() + leaseDurationMs);
+
+  return DeliveryJob.findOneAndUpdate(
+    { status: 'QUEUED' },
+    {
+      $set: {
+        status: 'PROCESSING',
+        lockId: workerLockId,
+        leaseExpiresAt
+      }
+    },
+    { new: true, sort: { createdAt: 1 } }
+  );
+}
+
+/**
+ * Processes a claimed delivery job with provider idempotency headers and retry-safe guards
+ */
+async function processClaimedJob(jobId, workerLockId) {
   const job = await DeliveryJob.findById(jobId).populate({
     path: 'certificateId',
     populate: { path: 'participantId' }
@@ -89,12 +151,23 @@ async function processDeliveryJob(jobId) {
 
   if (!job) throw new Error('Job not found');
 
+  // Verify lock ownership if workerLockId supplied
+  if (workerLockId && job.lockId && job.lockId !== workerLockId) {
+    throw new Error('Job lease belongs to another worker instance');
+  }
+
   const cert = job.certificateId;
   const participant = cert.participantId;
+
+  // Generate provider idempotency key if not already present
+  if (!job.providerIdempotencyKey) {
+    job.providerIdempotencyKey = `noxira-dist-${cert._id}-${job.attempts + 1}`;
+  }
 
   job.status = 'PROCESSING';
   job.attempts += 1;
   job.lastAttemptAt = new Date();
+  job.leaseExpiresAt = new Date(Date.now() + 2 * 60 * 1000);
   await job.save();
 
   const downloadLink = `${env.API_BASE_URL || env.VERIFY_BASE_URL}/api/v1/public/download/${job.downloadToken}`;
@@ -104,6 +177,9 @@ async function processDeliveryJob(jobId) {
     from: `"NOXIRA Credentials" <${env.SMTP.FROM}>`,
     to: job.recipientEmail,
     subject: `Your Certificate of Achievement: ${cert.programTitle} [${cert.certificateNumber}]`,
+    headers: {
+      'X-Idempotency-Key': job.providerIdempotencyKey
+    },
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b; line-height: 1.6;">
         <div style="background-color: #0f172a; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -146,18 +222,28 @@ async function processDeliveryJob(jobId) {
     const info = await mailClient.sendMail(mailOptions);
 
     job.gatewayMessageId = info.messageId;
-    job.status = 'PROVIDER_ACCEPTED'; // Gateway accepted for delivery
+    job.status = 'PROVIDER_ACCEPTED'; // Provider accepted transmission
     job.lastError = null;
+    job.leaseExpiresAt = null;
+    job.lockId = null;
     await job.save();
 
     return job;
   } catch (error) {
     job.lastError = error.message;
+    job.leaseExpiresAt = null;
+    job.lockId = null;
     
-    // Check if timeout or ambiguous
-    if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+    // Check if network timeout / socket dropped after handshake
+    const isTimeout = error.code === 'ETIMEDOUT' ||
+      error.code === 'ESOCKETTIMEDOUT' ||
+      error.code === 'ECONNRESET' ||
+      (error.message && /timeout|hangup|reset/i.test(error.message));
+
+    if (isTimeout) {
       job.status = 'DELIVERY_UNKNOWN';
-      job.adminOverrideNeeded = true; // Avoid blind resend
+      job.adminOverrideNeeded = true;
+      job.reconciliationNotes = 'Network socket timed out or connection dropped during transmission. Outcome uncertain; reconcile before retrying.';
     } else {
       job.status = job.attempts >= 3 ? 'FAILED' : 'QUEUED';
     }
@@ -166,7 +252,45 @@ async function processDeliveryJob(jobId) {
   }
 }
 
+/**
+ * Worker execution cycle: recovers stale jobs, then claims & processes queued jobs
+ */
+async function runWorkerCycle() {
+  const workerLockId = `worker-${Date.now()}-${generate128BitToken().slice(0, 8)}`;
+
+  // Step 1: Recover any stale processing jobs from previous crashes
+  await recoverStaleProcessingJobs();
+
+  // Step 2: Process queued jobs sequentially
+  let job = await claimNextQueuedJob(workerLockId);
+  const processed = [];
+
+  while (job) {
+    try {
+      const outcome = await processClaimedJob(job._id, workerLockId);
+      processed.push(outcome);
+    } catch (err) {
+      console.warn(`Worker processing job ${job._id} ended with status: ${job.status} (${err.message})`);
+    }
+    // Claim next
+    job = await claimNextQueuedJob(workerLockId);
+  }
+
+  return processed;
+}
+
+// Legacy helper for direct single-job execution
+async function processDeliveryJob(jobId) {
+  const workerLockId = `direct-${Date.now()}`;
+  return processClaimedJob(jobId, workerLockId);
+}
+
 module.exports = {
   queueCertificateEmails,
-  processDeliveryJob
+  processDeliveryJob,
+  processClaimedJob,
+  claimNextQueuedJob,
+  recoverStaleProcessingJobs,
+  runWorkerCycle,
+  setTransporter
 };

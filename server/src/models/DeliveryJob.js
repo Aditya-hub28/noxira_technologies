@@ -58,6 +58,10 @@ const DeliveryJobSchema = new mongoose.Schema({
     type: String,
     index: true
   },
+  providerIdempotencyKey: {
+    type: String,
+    index: true
+  },
   attempts: {
     type: Number,
     default: 0
@@ -71,6 +75,17 @@ const DeliveryJobSchema = new mongoose.Schema({
   adminOverrideNeeded: {
     type: Boolean,
     default: false
+  },
+  // Atomic Lease & Worker Locks (For Crash Recovery & Exactly-Once Guard)
+  leaseExpiresAt: {
+    type: Date,
+    index: true
+  },
+  lockId: {
+    type: String
+  },
+  reconciliationNotes: {
+    type: String
   }
 }, {
   timestamps: true
