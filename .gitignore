@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production builds
+dist/
+build/
+client/dist/
+
+# Environment variables & secrets
+.env
+.env.local
+*.env
+
+# Local private file storage (don't commit generated certificates)
+server/storage/certificates/*.pdf
+server/storage/templates/*
+!server/storage/templates/.gitkeep
+!server/storage/certificates/.gitkeep
+
+# Logs & Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
