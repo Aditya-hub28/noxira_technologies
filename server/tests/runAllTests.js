@@ -712,6 +712,7 @@ async function runTestSuite() {
     const savedReset = await DeliveryJob.findById(jobForRetry._id);
     assert.strictEqual(savedReset.status, 'FAILED');
     assert.strictEqual(savedReset.adminOverrideNeeded, false);
+    assert.strictEqual(savedReset.attempts, 0, 'Unfulfilled attempt counter must be restored on RESET_FOR_RETRY');
 
     // Now retryJob should be able to claim and retry it cleanly
     const mockRetry = mockReqRes({ admin, params: { id: jobForRetry._id } });

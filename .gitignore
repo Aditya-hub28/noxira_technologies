@@ -11,6 +11,8 @@ client/dist/
 .env
 .env.local
 *.env
+.initial_admin_secret
+*.secret
 
 # Local private file storage (don't commit generated certificates)
 server/storage/certificates/*.pdf

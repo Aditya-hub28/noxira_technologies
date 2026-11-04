@@ -375,7 +375,10 @@ export default function DistributionPage() {
                     name="resolution"
                     value="RESET_FOR_RETRY"
                     checked={reconcileResolution === 'RESET_FOR_RETRY'}
-                    onChange={() => setReconcileResolution('RESET_FOR_RETRY')}
+                    onChange={() => {
+                      setReconcileResolution('RESET_FOR_RETRY');
+                      if (reconcileError) setReconcileError('');
+                    }}
                     className="mt-0.5 text-amber-600 focus:ring-amber-500"
                   />
                   <div>
@@ -392,7 +395,10 @@ export default function DistributionPage() {
                     name="resolution"
                     value="MARK_DELIVERED"
                     checked={reconcileResolution === 'MARK_DELIVERED'}
-                    onChange={() => setReconcileResolution('MARK_DELIVERED')}
+                    onChange={() => {
+                      setReconcileResolution('MARK_DELIVERED');
+                      if (reconcileError) setReconcileError('');
+                    }}
                     className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
                   />
                   <div>
@@ -415,7 +421,10 @@ export default function DistributionPage() {
                     type="text"
                     required
                     value={providerMessageId}
-                    onChange={(e) => setProviderMessageId(e.target.value)}
+                    onChange={(e) => {
+                      setProviderMessageId(e.target.value);
+                      if (reconcileError) setReconcileError('');
+                    }}
                     placeholder="e.g. msg_01ABC123XYZ or SendGrid/SES ID"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono text-xs"
                   />
@@ -432,7 +441,10 @@ export default function DistributionPage() {
                   required
                   rows="3"
                   value={reconciliationNotes}
-                  onChange={(e) => setReconciliationNotes(e.target.value)}
+                  onChange={(e) => {
+                    setReconciliationNotes(e.target.value);
+                    if (reconcileError) setReconcileError('');
+                  }}
                   placeholder="Document specific log trace or reason (e.g., 'Checked SendGrid activity feed; recipient Aarav Sharma received msg-98765 at 15:42 with status 250 OK')."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
                 />

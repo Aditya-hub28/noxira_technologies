@@ -3,8 +3,8 @@ import { api } from '../services/api';
 import { Shield, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function AdminLoginPage({ onLoginSuccess }) {
-  const [email, setEmail] = useState('admin@noxira.com');
-  const [password, setPassword] = useState('NoxiraAdmin@2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -88,7 +88,7 @@ export default function AdminLoginPage({ onLoginSuccess }) {
 
         <div className="text-center pt-2 border-t border-slate-100">
           <p className="text-[11px] text-slate-400">
-            Default seeded credentials: <span className="font-mono text-slate-600">admin@noxira.com</span> / <span className="font-mono text-slate-600">NoxiraAdmin@2026</span>
+            Restricted administrative console. Enter your provisioned system credentials.
           </p>
         </div>
       </div>

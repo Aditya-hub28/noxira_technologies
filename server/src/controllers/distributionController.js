@@ -213,7 +213,9 @@ exports.reconcileJob = async (req, res, next) => {
       auditAction = 'DELIVERY_RECONCILED_DELIVERED';
     } else {
       updateFields.status = 'FAILED';
-      actionSummary = `[RECONCILED: RESET_FOR_RETRY by ${adminEmail} at ${timestamp}]: ${cleanNotes}`;
+      // Reset unfulfilled attempt count so the un-sent dispatch does not count against future retry caps
+      updateFields.attempts = Math.max(0, (existingJob.attempts || 1) - 1);
+      actionSummary = `[RECONCILED: RESET_FOR_RETRY by ${adminEmail} at ${timestamp}]: ${cleanNotes} (Attempt counter restored)`;
       auditAction = 'DELIVERY_RECONCILED_RESET';
     }
 

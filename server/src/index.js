@@ -82,7 +82,13 @@ async function autoSeedIfEmpty() {
     });
     console.log('✅ Default Super Admin provisioned (admin@noxira.com)');
     if (!isCustomPass) {
-      console.log(`🔑 Generated temporary Super Admin password: ${defaultPassword}`);
+      const secretFile = path.resolve(__dirname, '../../server/.initial_admin_secret');
+      try {
+        fs.writeFileSync(secretFile, `admin@noxira.com:${defaultPassword}\n`, { mode: 0o600 });
+        console.log('🔒 Generated initial development Super Admin credentials saved to server/.initial_admin_secret (never logged to stdout).');
+      } catch (writeErr) {
+        console.log('🔒 Initial development Super Admin provisioned (configure INITIAL_ADMIN_PASSWORD in server/.env).');
+      }
       console.log('💡 Tip: Set INITIAL_ADMIN_PASSWORD in server/.env to configure a static development password.');
     }
 
