@@ -69,7 +69,9 @@ async function autoSeedIfEmpty() {
   const adminCount = await Admin.countDocuments();
   if (adminCount === 0) {
     console.log('⚡ Bootstrapping initial Super Admin & Demo Cohorts...');
-    const defaultPassword = process.env.INITIAL_ADMIN_PASSWORD || 'NoxiraAdmin@2026';
+    const crypto = require('crypto');
+    const isCustomPass = Boolean(process.env.INITIAL_ADMIN_PASSWORD);
+    const defaultPassword = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
     const hash = await Admin.hashPassword(defaultPassword);
     await Admin.create({
       name: 'Aditya Jha',
@@ -79,6 +81,10 @@ async function autoSeedIfEmpty() {
       isActive: true
     });
     console.log('✅ Default Super Admin provisioned (admin@noxira.com)');
+    if (!isCustomPass) {
+      console.log(`🔑 Generated temporary Super Admin password: ${defaultPassword}`);
+      console.log('💡 Tip: Set INITIAL_ADMIN_PASSWORD in server/.env to configure a static development password.');
+    }
 
     await Program.create([
       {

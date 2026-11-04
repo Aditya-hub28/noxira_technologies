@@ -69,6 +69,7 @@ export const api = {
   listDeliveryJobs: (params = '') => request(`/distribution/jobs?${params}`),
   queueEmailBatch: (payload) => request('/distribution/queue-batch', { method: 'POST', body: JSON.stringify(payload) }),
   retryDelivery: (id) => request(`/distribution/retry/${id}`, { method: 'POST' }),
+  reconcileDelivery: (id, payload) => request(`/distribution/jobs/${id}/reconcile`, { method: 'POST', body: JSON.stringify(payload) }),
 
   // Audit
   getAuditLogs: (params = '') => request(`/audit?${params}`)

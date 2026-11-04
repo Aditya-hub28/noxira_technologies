@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Send, Clock, CheckCircle2, AlertTriangle, XCircle, RefreshCw, RotateCcw } from 'lucide-react';
+import { Send, Clock, CheckCircle2, AlertTriangle, XCircle, RefreshCw, RotateCcw, ShieldAlert, FileCheck, Info } from 'lucide-react';
 
 export default function DistributionPage() {
   const [jobs, setJobs] = useState([]);
@@ -13,6 +13,14 @@ export default function DistributionPage() {
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueing, setQueueing] = useState(false);
   const [retryingId, setRetryingId] = useState(null);
+
+  // Reconciliation Modal
+  const [reconcileJobModal, setReconcileJobModal] = useState(null);
+  const [reconcileResolution, setReconcileResolution] = useState('RESET_FOR_RETRY');
+  const [providerMessageId, setProviderMessageId] = useState('');
+  const [reconciliationNotes, setReconciliationNotes] = useState('');
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileError, setReconcileError] = useState('');
 
   const loadJobs = async () => {
     setLoading(true);
@@ -71,6 +79,45 @@ export default function DistributionPage() {
     }
   };
 
+  const openReconcileModal = (job) => {
+    setReconcileJobModal(job);
+    setReconcileResolution('RESET_FOR_RETRY');
+    setProviderMessageId('');
+    setReconciliationNotes('');
+    setReconcileError('');
+  };
+
+  const handleReconcileSubmit = async (e) => {
+    e.preventDefault();
+    if (!reconcileJobModal) return;
+
+    if (!reconciliationNotes.trim() || reconciliationNotes.trim().length < 10) {
+      setReconcileError('Detailed reconciliation notes are required (min 10 characters) citing evidence from gateway logs.');
+      return;
+    }
+
+    if (reconcileResolution === 'MARK_DELIVERED' && (!providerMessageId.trim() || providerMessageId.trim().length < 3)) {
+      setReconcileError('Provider Message ID is mandatory when confirming delivery to prevent false claims.');
+      return;
+    }
+
+    setReconciling(true);
+    setReconcileError('');
+    try {
+      await api.reconcileDelivery(reconcileJobModal._id, {
+        resolution: reconcileResolution,
+        reconciliationNotes: reconciliationNotes.trim(),
+        providerMessageId: providerMessageId.trim() || undefined
+      });
+      setReconcileJobModal(null);
+      loadJobs();
+    } catch (err) {
+      setReconcileError(err.message || 'Failed to reconcile job');
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'DELIVERED':
@@ -96,7 +143,7 @@ export default function DistributionPage() {
       case 'DELIVERY_UNKNOWN':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-            <AlertTriangle className="w-3 h-3" /> Timeout Review
+            <AlertTriangle className="w-3 h-3" /> Requires Gateway Review
           </span>
         );
       default:
@@ -143,7 +190,8 @@ export default function DistributionPage() {
           { label: 'All Dispatches', value: '' },
           { label: 'Queued', value: 'QUEUED' },
           { label: 'Provider Accepted / Sent', value: 'PROVIDER_ACCEPTED' },
-          { label: 'Failed / Bounced', value: 'FAILED' }
+          { label: 'Failed / Bounced', value: 'FAILED' },
+          { label: 'Needs Reconciliation ⚠️', value: 'DELIVERY_UNKNOWN' }
         ].map(tab => (
           <button
             key={tab.value}
@@ -204,9 +252,22 @@ export default function DistributionPage() {
                           {j.lastError}
                         </div>
                       )}
+                      {j.reconciliationNotes && (
+                        <div className="text-[10px] text-amber-700 mt-1 max-w-xs line-clamp-2" title={j.reconciliationNotes}>
+                          📝 {j.reconciliationNotes.split('\n')[0]}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {(j.status === 'FAILED' || j.status === 'DELIVERY_UNKNOWN') && (
+                      {j.status === 'DELIVERY_UNKNOWN' ? (
+                        <button
+                          onClick={() => openReconcileModal(j)}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg inline-flex items-center gap-1 transition shadow-2xs"
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                          Reconcile
+                        </button>
+                      ) : j.status === 'FAILED' ? (
                         <button
                           onClick={() => handleRetryJob(j._id)}
                           disabled={retryingId === j._id}
@@ -215,7 +276,7 @@ export default function DistributionPage() {
                           <RotateCcw className={`w-3 h-3 ${retryingId === j._id ? 'animate-spin' : ''}`} />
                           Retry
                         </button>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))
@@ -267,6 +328,139 @@ export default function DistributionPage() {
                 {queueing ? 'Queuing Batch...' : `Approve & Queue (${issuedCerts.length}) Emails`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reconciliation Modal */}
+      {reconcileJobModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl space-y-5">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-700">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Reconcile Uncertain Delivery Outcome</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Verify your email gateway logs before resolving. Blind retries are blocked to prevent duplicate emails.
+                </p>
+              </div>
+            </div>
+
+            {/* Job Summary Banner */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Recipient:</span>
+                <span className="font-semibold text-slate-900">{reconcileJobModal.recipientEmail}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Certificate:</span>
+                <span className="font-mono font-bold text-amber-700">{reconcileJobModal.certificateId?.certificateNumber || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Attempts Made:</span>
+                <span className="font-semibold text-slate-800">{reconcileJobModal.attempts}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleReconcileSubmit} className="space-y-4 text-xs">
+              {/* Resolution Radio Choices */}
+              <div className="space-y-2">
+                <label className="font-bold text-slate-700 block">Gateway Log Outcome:</label>
+                
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${reconcileResolution === 'RESET_FOR_RETRY' ? 'border-amber-400 bg-amber-50/50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                  <input
+                    type="radio"
+                    name="resolution"
+                    value="RESET_FOR_RETRY"
+                    checked={reconcileResolution === 'RESET_FOR_RETRY'}
+                    onChange={() => setReconcileResolution('RESET_FOR_RETRY')}
+                    className="mt-0.5 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900">Provider Confirmed NOT Sent (Safe to Retry)</div>
+                    <div className="text-slate-500 text-[11px] mt-0.5">
+                      Gateway has no record or dropped request. Resets job to FAILED so it can be retried cleanly.
+                    </div>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${reconcileResolution === 'MARK_DELIVERED' ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                  <input
+                    type="radio"
+                    name="resolution"
+                    value="MARK_DELIVERED"
+                    checked={reconcileResolution === 'MARK_DELIVERED'}
+                    onChange={() => setReconcileResolution('MARK_DELIVERED')}
+                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900">Provider Confirmed Delivered</div>
+                    <div className="text-slate-500 text-[11px] mt-0.5">
+                      Gateway confirmed receipt or delivery (requires verified provider message ID proof).
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Provider Message ID (Mandatory for MARK_DELIVERED) */}
+              {reconcileResolution === 'MARK_DELIVERED' && (
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 flex items-center justify-between">
+                    <span>Provider Gateway Message ID <span className="text-rose-500">*</span></span>
+                    <span className="text-[10px] text-slate-400 font-normal">Required for delivery proof</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={providerMessageId}
+                    onChange={(e) => setProviderMessageId(e.target.value)}
+                    placeholder="e.g. msg_01ABC123XYZ or SendGrid/SES ID"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Reconciliation Evidence Notes */}
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 flex items-center justify-between">
+                  <span>Audit Evidence Notes <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-slate-400 font-normal">Min 10 characters</span>
+                </label>
+                <textarea
+                  required
+                  rows="3"
+                  value={reconciliationNotes}
+                  onChange={(e) => setReconciliationNotes(e.target.value)}
+                  placeholder="Document specific log trace or reason (e.g., 'Checked SendGrid activity feed; recipient Aarav Sharma received msg-98765 at 15:42 with status 250 OK')."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
+                />
+              </div>
+
+              {reconcileError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
+                  {reconcileError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setReconcileJobModal(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold text-xs rounded-lg hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={reconciling}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg shadow-sm transition disabled:opacity-50"
+                >
+                  {reconciling ? 'Saving Reconciliation...' : 'Apply Verified Resolution'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -616,7 +616,43 @@ async function runTestSuite() {
     await distributionController.retryJob(mockInvalidRetry.req, mockInvalidRetry.res, mockInvalidRetry.next);
     assert.strictEqual(mockInvalidRetry.getStatus(), 400);
 
-    // 2. Reconcile with MARK_DELIVERED
+    // 2. Strict Validation: Notes required (min 10 chars)
+    const jobForValidation = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'validation-test@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'DELIVERY_UNKNOWN',
+      adminOverrideNeeded: true,
+      attempts: 1,
+      providerIdempotencyKey: `noxira-dist-${cert._id}`
+    });
+
+    const mockNoNotes = mockReqRes({
+      admin,
+      params: { id: jobForValidation._id },
+      body: { resolution: 'RESET_FOR_RETRY', reconciliationNotes: '' }
+    });
+    await distributionController.reconcileJob(mockNoNotes.req, mockNoNotes.res, mockNoNotes.next);
+    assert.strictEqual(mockNoNotes.getStatus(), 400);
+    assert.ok(mockNoNotes.getData().message.includes('minimum 10 characters'));
+
+    // 3. Strict Validation: MARK_DELIVERED requires providerMessageId
+    const mockNoMsgId = mockReqRes({
+      admin,
+      params: { id: jobForValidation._id },
+      body: {
+        resolution: 'MARK_DELIVERED',
+        reconciliationNotes: 'Checked logs and confirmed email was delivered'
+        // providerMessageId omitted
+      }
+    });
+    await distributionController.reconcileJob(mockNoMsgId.req, mockNoMsgId.res, mockNoMsgId.next);
+    assert.strictEqual(mockNoMsgId.getStatus(), 400);
+    assert.ok(mockNoMsgId.getData().message.includes('providerMessageId is mandatory'));
+
+    // 4. Reconcile with MARK_DELIVERED (with valid providerMessageId & notes)
     const jobForDelivery = await DeliveryJob.create({
       certificateId: cert._id,
       participantId: p._id,
@@ -648,7 +684,7 @@ async function runTestSuite() {
     assert.strictEqual(savedDelivered.providerMessageId, 'sg-msg-987654');
     assert.ok(savedDelivered.reconciliationNotes.includes('Verified received via SendGrid'));
 
-    // 3. Reconcile with RESET_FOR_RETRY
+    // 5. Reconcile with RESET_FOR_RETRY
     const jobForRetry = await DeliveryJob.create({
       certificateId: cert._id,
       participantId: p._id,
@@ -681,6 +717,47 @@ async function runTestSuite() {
     const mockRetry = mockReqRes({ admin, params: { id: jobForRetry._id } });
     await distributionController.retryJob(mockRetry.req, mockRetry.res, mockRetry.next);
     assert.strictEqual(mockRetry.getStatus(), 200);
+
+    // 6. ATOMIC RACE TEST: Two simultaneous reconcile calls on same DELIVERY_UNKNOWN job
+    const raceJob = await DeliveryJob.create({
+      certificateId: cert._id,
+      participantId: p._id,
+      recipientEmail: 'race-reconcile@example.com',
+      downloadToken: generate128BitToken(),
+      downloadTokenExpiresAt: new Date(Date.now() + 72 * 3600 * 1000),
+      status: 'DELIVERY_UNKNOWN',
+      adminOverrideNeeded: true,
+      attempts: 1,
+      providerIdempotencyKey: `noxira-dist-${cert._id}`
+    });
+
+    const raceCall1 = mockReqRes({
+      admin,
+      params: { id: raceJob._id },
+      body: {
+        resolution: 'RESET_FOR_RETRY',
+        reconciliationNotes: 'Admin 1 checked logs and confirmed not sent'
+      }
+    });
+
+    const raceCall2 = mockReqRes({
+      admin,
+      params: { id: raceJob._id },
+      body: {
+        resolution: 'MARK_DELIVERED',
+        reconciliationNotes: 'Admin 2 simultaneously claims verified delivered',
+        providerMessageId: 'sg-msg-concurrent-test'
+      }
+    });
+
+    await Promise.all([
+      distributionController.reconcileJob(raceCall1.req, raceCall1.res, raceCall1.next),
+      distributionController.reconcileJob(raceCall2.req, raceCall2.res, raceCall2.next)
+    ]);
+
+    const raceStatuses = [raceCall1.getStatus(), raceCall2.getStatus()].sort();
+    assert.strictEqual(raceStatuses[0], 200, 'Exactly one concurrent reconcile request must succeed');
+    assert.strictEqual(raceStatuses[1], 409, 'Concurrent conflicting reconcile request must be blocked with 409 Conflict');
   });
 
   // TEST 16: Partial Layout Robustness & Stable Idempotency Key

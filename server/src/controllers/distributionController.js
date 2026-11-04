@@ -134,9 +134,11 @@ exports.retryJob = async (req, res, next) => {
 
 /**
  * Reconcile a DELIVERY_UNKNOWN job after administrator checks provider gateway logs.
- * Allowed resolutions:
- * - MARK_DELIVERED: Provider confirmed email arrived; marks status DELIVERED.
- * - RESET_FOR_RETRY: Provider confirmed email never sent; resets status to FAILED so it can be retried cleanly.
+ * Strict Safety Requirements:
+ * - Atomic conditional state transition (findOneAndUpdate on status: DELIVERY_UNKNOWN) to prevent concurrent races.
+ * - Detailed reconciliationNotes (min 10 chars) are strictly required.
+ * - For MARK_DELIVERED: providerMessageId is mandatory proof from provider logs.
+ * - For RESET_FOR_RETRY: safely resets status to FAILED and clears override flags for clean retry.
  */
 exports.reconcileJob = async (req, res, next) => {
   try {
@@ -147,79 +149,106 @@ exports.reconcileJob = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid delivery job ID format' });
     }
 
-    const job = await DeliveryJob.findById(id);
-    if (!job) {
-      return res.status(404).json({ success: false, message: 'Delivery job not found' });
-    }
-
-    if (job.status !== 'DELIVERY_UNKNOWN') {
-      return res.status(400).json({
-        success: false,
-        message: `Job is currently in status "${job.status}". Only DELIVERY_UNKNOWN jobs require reconciliation.`
-      });
-    }
-
-    if (!['MARK_DELIVERED', 'RESET_FOR_RETRY'].includes(resolution)) {
+    // 1. Mandatory resolution validation
+    if (!resolution || !['MARK_DELIVERED', 'RESET_FOR_RETRY'].includes(resolution)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid resolution. Must be either "MARK_DELIVERED" or "RESET_FOR_RETRY".'
       });
     }
 
+    // 2. Mandatory detailed reconciliation evidence notes (prevents unverified arbitrary status flipping)
+    if (!reconciliationNotes || typeof reconciliationNotes !== 'string' || reconciliationNotes.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Detailed reconciliation notes are required (minimum 10 characters) citing evidence from the email provider gateway logs.'
+      });
+    }
+    const cleanNotes = reconciliationNotes.trim();
+
+    // 3. For MARK_DELIVERED: providerMessageId is mandatory concrete evidence of delivery
+    let cleanProviderMsgId = null;
+    if (resolution === 'MARK_DELIVERED') {
+      if (!providerMessageId || typeof providerMessageId !== 'string' || providerMessageId.trim().length < 3) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid providerMessageId is mandatory when marking a job as DELIVERED (e.g. message ID from SendGrid/SES/Postmark gateway logs).'
+        });
+      }
+      cleanProviderMsgId = providerMessageId.trim();
+    } else if (providerMessageId && typeof providerMessageId === 'string') {
+      cleanProviderMsgId = providerMessageId.trim();
+    }
+
+    // 4. Check existence and current status
+    const existingJob = await DeliveryJob.findById(id);
+    if (!existingJob) {
+      return res.status(404).json({ success: false, message: 'Delivery job not found' });
+    }
+
+    if (existingJob.status !== 'DELIVERY_UNKNOWN') {
+      return res.status(409).json({
+        success: false,
+        message: `Job is currently in status "${existingJob.status}". Only DELIVERY_UNKNOWN jobs can be reconciled.`
+      });
+    }
+
     const adminEmail = req.admin?.email || 'admin@noxira.com';
     const timestamp = new Date().toISOString();
 
+    const updateFields = {
+      adminOverrideNeeded: false,
+      lockId: null,
+      leaseExpiresAt: null
+    };
+
+    let actionSummary = '';
+    let auditAction = '';
+
     if (resolution === 'MARK_DELIVERED') {
-      job.status = 'DELIVERED';
-      job.adminOverrideNeeded = false;
-      job.lockId = null;
-      job.leaseExpiresAt = null;
-      if (providerMessageId) {
-        job.providerMessageId = providerMessageId;
-        job.gatewayMessageId = providerMessageId;
-      }
-      job.reconciliationNotes = (job.reconciliationNotes ? `${job.reconciliationNotes}\n` : '') +
-        `[RECONCILED: MARK_DELIVERED by ${adminEmail} at ${timestamp}]: ${reconciliationNotes || 'Verified delivered on email provider gateway.'}`;
-      await job.save();
+      updateFields.status = 'DELIVERED';
+      updateFields.providerMessageId = cleanProviderMsgId;
+      updateFields.gatewayMessageId = cleanProviderMsgId;
+      actionSummary = `[RECONCILED: MARK_DELIVERED by ${adminEmail} at ${timestamp} (Gateway ID: ${cleanProviderMsgId})]: ${cleanNotes}`;
+      auditAction = 'DELIVERY_RECONCILED_DELIVERED';
+    } else {
+      updateFields.status = 'FAILED';
+      actionSummary = `[RECONCILED: RESET_FOR_RETRY by ${adminEmail} at ${timestamp}]: ${cleanNotes}`;
+      auditAction = 'DELIVERY_RECONCILED_RESET';
+    }
 
-      await AuditLog.create({
-        actorId: req.admin?._id,
-        actorType: 'ADMIN',
-        action: 'DELIVERY_RECONCILED_DELIVERED',
-        targetEntity: 'DELIVERY_JOB',
-        summary: `Admin ${adminEmail} reconciled DELIVERY_UNKNOWN job ${job._id} as DELIVERED`
-      });
+    updateFields.reconciliationNotes = (existingJob.reconciliationNotes ? `${existingJob.reconciliationNotes}\n` : '') + actionSummary;
 
-      return res.json({
-        success: true,
-        message: 'Delivery job marked as DELIVERED after provider reconciliation.',
-        job
+    // 5. ATOMIC conditional update: strictly match where status is still DELIVERY_UNKNOWN
+    const updatedJob = await DeliveryJob.findOneAndUpdate(
+      { _id: id, status: 'DELIVERY_UNKNOWN' },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updatedJob) {
+      return res.status(409).json({
+        success: false,
+        message: 'Reconciliation conflict: This job was concurrently modified or already reconciled by another administrator.'
       });
     }
 
-    if (resolution === 'RESET_FOR_RETRY') {
-      job.status = 'FAILED';
-      job.adminOverrideNeeded = false;
-      job.lockId = null;
-      job.leaseExpiresAt = null;
-      job.reconciliationNotes = (job.reconciliationNotes ? `${job.reconciliationNotes}\n` : '') +
-        `[RECONCILED: RESET_FOR_RETRY by ${adminEmail} at ${timestamp}]: ${reconciliationNotes || 'Confirmed not delivered on provider. Safely unlocked for retry.'}`;
-      await job.save();
+    // 6. Audit Trail (only executed by the winning atomic update)
+    await AuditLog.create({
+      actorId: req.admin?._id,
+      actorType: 'ADMIN',
+      action: auditAction,
+      targetEntity: 'DELIVERY_JOB',
+      summary: `Admin ${adminEmail} reconciled DELIVERY_UNKNOWN job ${updatedJob._id} as ${updateFields.status}`
+    });
 
-      await AuditLog.create({
-        actorId: req.admin?._id,
-        actorType: 'ADMIN',
-        action: 'DELIVERY_RECONCILED_RESET',
-        targetEntity: 'DELIVERY_JOB',
-        summary: `Admin ${adminEmail} reset DELIVERY_UNKNOWN job ${job._id} to FAILED for retry`
-      });
-
-      return res.json({
-        success: true,
-        message: 'Delivery job reset to FAILED. It is now safely eligible for retry.',
-        job
-      });
-    }
+    res.json({
+      success: true,
+      message: resolution === 'MARK_DELIVERED'
+        ? 'Delivery job confirmed and marked as DELIVERED after provider gateway reconciliation.'
+        : 'Delivery job reset to FAILED. It is now safely eligible for retry.',
+      job: updatedJob
+    });
   } catch (error) {
     next(error);
   }
