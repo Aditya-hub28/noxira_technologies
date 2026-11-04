@@ -55,7 +55,7 @@ export default function HomePage() {
         </h1>
 
         <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-          Bridge the gap between academic theory and enterprise engineering. Solve rigorous industry challenges, receive detailed code reviews, and earn cryptographically verified credentials.
+          Bridge the gap between academic theory and practical engineering. Explore structured engineering tracks, submit projects for review, and earn registry-verified credentials.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -78,8 +78,8 @@ export default function HomePage() {
         {/* Real Dynamic Program Count Banner */}
         {!loading && !loadError && programs.length > 0 && (
           <div className="pt-2 text-xs text-slate-500 flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-            <span>Currently admitting candidates across <strong>{programs.length} active engineering tracks</strong></span>
+            <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+            <span>Published tracks: <strong>{programs.length} active engineering programs</strong></span>
           </div>
         )}
       </section>
@@ -161,7 +161,13 @@ export default function HomePage() {
                   </h3>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    {prg.description || 'Hands-on practical industry track with real task evaluation and verified credential issuance.'}
+                    {(() => {
+                      const desc = prg.description || '';
+                      if (desc.includes('8-week intensive') || desc.includes('Comprehensive 8-week')) {
+                        return 'Practical engineering track focusing on modern scalable web architecture with structured evaluation and verified credential issuance.';
+                      }
+                      return desc || 'Hands-on practical industry track with real task evaluation and verified credential issuance.';
+                    })()}
                   </p>
                 </div>
 
@@ -203,40 +209,57 @@ export default function HomePage() {
               {
                 step: '01',
                 title: 'Explore & Apply',
-                desc: 'Review available tracks and transparent rules. Submit your official legal candidate profile online.'
+                badge: 'Live',
+                desc: 'Review available tracks and requirements. Submit your official candidate profile online.'
               },
               {
                 step: '02',
                 title: 'Application Review',
-                desc: 'Administration screens student cohorts and establishes cohort eligibility.'
+                badge: 'Live',
+                desc: 'Administration screens applicant submissions and establishes cohort eligibility.'
               },
               {
                 step: '03',
-                title: 'Official Offer Letter',
-                desc: 'Approved candidates receive an official signed enrollment confirmation letter via email.'
+                title: 'Official Offer Letter (Planned)',
+                badge: 'Planned',
+                desc: 'Planned future module: Approved candidates will receive an official enrollment confirmation letter.'
               },
               {
                 step: '04',
-                title: 'Industry Tasks',
-                desc: 'Complete production-grade code assignments and submit deliverables.'
+                title: 'Industry Tasks (Planned)',
+                badge: 'Planned',
+                desc: 'Planned future module: Task assignment and submission portal for project deliverables.'
               },
               {
                 step: '05',
-                title: 'Evaluation & Rework',
-                desc: 'Staff reviewers evaluate task submissions against rubrics with rework guidance provided if needed.'
+                title: 'Evaluation & Rework (Planned)',
+                badge: 'Planned',
+                desc: 'Planned future module: Staff reviewer rubric evaluation and structured rework guidance.'
               },
               {
                 step: '06',
-                title: 'Verifiable Certificate',
-                desc: 'Upon approved completion, an official Certificate of Achievement is signed, stamped, and issued.'
+                title: 'Registry-Verified Certificate',
+                badge: 'Live',
+                desc: 'Upon approved completion, an official Certificate of Achievement is issued, recorded in the registry, and publicly verifiable.'
               }
             ].map(item => (
               <div
                 key={item.step}
                 className="bg-slate-800/60 border border-slate-800 p-6 rounded-2xl space-y-3 relative hover:border-slate-700 transition"
               >
-                <div className="font-mono text-xl font-black text-amber-500">
-                  {item.step}
+                <div className="flex items-center justify-between">
+                  <div className="font-mono text-xl font-black text-amber-500">
+                    {item.step}
+                  </div>
+                  {item.badge === 'Planned' ? (
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
+                      Planned
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded">
+                      Live Flow
+                    </span>
+                  )}
                 </div>
                 <h3 className="font-bold text-white text-sm">
                   {item.title}
@@ -259,10 +282,10 @@ export default function HomePage() {
               Public Verification Portal
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Cryptographically Verified Credentials
+              Registry-Verified Credentials
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Every certificate issued by NOXIRA includes a unique 128-bit cryptographic verification token and secure QR code. Employers and institutions can verify recipient authenticity instantly without logging in.
+              Every certificate issued by NOXIRA includes a unique verification token and secure QR code. Employers and institutions can verify authentic issuance and record status directly against the official registry without logging in.
             </p>
           </div>
 

@@ -10,7 +10,16 @@ const AuditLog = require('../models/AuditLog');
  */
 exports.websiteApply = async (req, res, next) => {
   try {
-    const { fullName, email, phone, programCode, batchId } = req.body;
+    const configuredBatch = (process.env.WEBSITE_INTAKE_BATCH_ID || '').trim().toUpperCase();
+
+    if (!configuredBatch) {
+      return res.status(503).json({
+        success: false,
+        message: 'Website application intake is temporarily unavailable (intake batch not configured). Please contact the administration.'
+      });
+    }
+
+    const { fullName, email, phone, programCode } = req.body;
 
     if (!fullName || !email || !programCode) {
       return res.status(400).json({
@@ -21,7 +30,6 @@ exports.websiteApply = async (req, res, next) => {
 
     const normEmail = email.toLowerCase().trim();
     const cleanProgramCode = programCode.toUpperCase().trim();
-    const cleanBatch = (batchId || 'BATCH-2026-Q4').toUpperCase().trim();
 
     // Strict Program Validation (Reject unknown/invented program codes)
     const program = await Program.findOne({ code: cleanProgramCode });
@@ -39,11 +47,11 @@ exports.websiteApply = async (req, res, next) => {
     }
     const programTitle = program.title;
 
-    // Check for duplicate registration attempt
+    // Check for duplicate registration attempt in configured batch
     const existing = await Participant.findOne({
       normalizedEmail: normEmail,
       programCode: cleanProgramCode,
-      batchId: cleanBatch
+      batchId: configuredBatch
     });
 
     if (existing) {
@@ -61,20 +69,30 @@ exports.websiteApply = async (req, res, next) => {
       phone: phone ? phone.trim() : '',
       programCode: cleanProgramCode,
       programTitle,
-      batchId: cleanBatch,
+      batchId: configuredBatch,
       source: 'WEBSITE',
       completionStatus: 'PENDING'
     });
 
-    await participant.save();
+    try {
+      await participant.save();
+    } catch (saveErr) {
+      if (saveErr.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: 'An application with this email address for this program and batch is already on file.'
+        });
+      }
+      throw saveErr;
+    }
 
     await AuditLog.create({
       actorType: 'PUBLIC_USER',
       action: 'INTAKE_SUBMITTED',
       targetEntity: 'PARTICIPANT',
       targetId: participant._id,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip || '127.0.0.1',
+      userAgent: (req.headers && req.headers['user-agent']) || 'Unknown',
       summary: `Website application submitted by ${participant.fullName} (${participant.email}) for ${cleanProgramCode}`
     });
 

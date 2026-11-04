@@ -47,18 +47,18 @@ export default function VerifyPage({ initialToken }) {
           Public Credential Verification
         </h1>
         <p className="mt-2 text-slate-600 text-sm max-w-lg mx-auto">
-          Cryptographically verify the authentic issuance and validity status of any NOXIRA credential.
+          Verify the authentic issuance and current validity status of any NOXIRA credential directly in the official registry.
         </p>
       </div>
 
       {/* Verification Lookup Input */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6 mb-8">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6 mb-3">
         <form onSubmit={(e) => { e.preventDefault(); handleVerify(); }} className="flex gap-2">
           <div className="relative flex-1">
             <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Enter Certificate ID (e.g. NOX-2026-FSD-0001) or 128-bit Token"
+              placeholder="Enter Certificate ID (e.g. NOX-2026-FSD-0001) or Verification Token"
               value={tokenInput}
               onChange={(e) => setTokenInput(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
@@ -72,6 +72,11 @@ export default function VerifyPage({ initialToken }) {
             {loading ? 'Verifying...' : 'Verify'}
           </button>
         </form>
+      </div>
+
+      {/* Registry Status Scope Notice */}
+      <div className="text-center text-xs text-slate-500 max-w-xl mx-auto mb-8 px-2">
+        This registry check confirms that the credential record exists and verifies its current status (VALID, REVOKED, or REPLACED). It confirms official issuance to the named recipient. It does not independently verify that an offline document's contents are unchanged without checking this portal.
       </div>
 
       {/* Error / Not Found */}
@@ -95,7 +100,7 @@ export default function VerifyPage({ initialToken }) {
                 <CheckCircle2 className="w-6 h-6" />
                 <div>
                   <h3 className="font-bold text-sm tracking-wide uppercase">Officially Verified & Authentic</h3>
-                  <p className="text-emerald-100 text-xs">Issued by NOXIRA Technologies Private Limited</p>
+                  <p className="text-emerald-100 text-xs">Issued by NOXIRA Technologies</p>
                 </div>
               </div>
               <span className="bg-emerald-700/60 px-3 py-1 rounded-full text-xs font-semibold tracking-wider">

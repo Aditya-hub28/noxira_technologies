@@ -1,75 +1,143 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { CheckCircle2, AlertCircle, Award, Send, ArrowRight, RotateCcw } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Award, Send, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react';
 
-export default function ApplyPage({ onNavigateToVerify }) {
+export default function ApplyPage() {
   const [searchParams] = useSearchParams();
-  const urlProgram = (searchParams.get('program') || '').toUpperCase().trim();
 
   const [programs, setPrograms] = useState([]);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
   const [programLoadError, setProgramLoadError] = useState(false);
 
+  // Accessible visible warnings for invalid/unknown query parameter or disappearing program
+  const [queryWarning, setQueryWarning] = useState('');
+  const [programDisappearedNotice, setProgramDisappearedNotice] = useState('');
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
-    programCode: 'FS-DEV',
-    batchId: 'BATCH-2026-Q4'
+    programCode: ''
   });
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
-  // Fetch active programs from server
-  const loadPrograms = async () => {
+  // Track latest request sequence to prevent stale query race conditions
+  const activeRequestIdRef = useRef(0);
+
+  const fetchAndResolvePrograms = async () => {
+    const currentRequestId = ++activeRequestIdRef.current;
     setLoadingPrograms(true);
     setProgramLoadError(false);
+
     try {
       const data = await api.getPrograms();
+      if (currentRequestId !== activeRequestIdRef.current) return;
+
       const fetched = data.programs || [];
       setPrograms(fetched);
 
-      // Check URL query param prefill
-      if (urlProgram && fetched.some(p => p.code === urlProgram)) {
-        setFormData(prev => ({ ...prev, programCode: urlProgram }));
-      } else if (fetched.length > 0) {
-        // Keep existing if valid, or default to first active program
-        setFormData(prev => ({
-          ...prev,
-          programCode: fetched.some(p => p.code === prev.programCode) ? prev.programCode : fetched[0].code
-        }));
+      // Check URL query param presence explicitly
+      const hasProgramParam = searchParams.has('program');
+      const rawQuery = hasProgramParam ? searchParams.get('program') : null;
+
+      if (hasProgramParam) {
+        if (!rawQuery || !rawQuery.trim()) {
+          // Supplied empty or whitespace-only ?program=
+          setQueryWarning('A program parameter was supplied in the link, but no program code was specified. Please select an active program below.');
+          setFormData(prev => ({ ...prev, programCode: '' }));
+        } else {
+          const queryCode = rawQuery.trim().toUpperCase();
+          const matched = fetched.find(p => p.code === queryCode);
+
+          if (matched) {
+            // Valid active program: preselect exactly that program and clear warning
+            setQueryWarning('');
+            setFormData(prev => ({ ...prev, programCode: matched.code }));
+          } else {
+            // Unknown, inactive, or malformed code: DO NOT silently substitute
+            setQueryWarning(`The requested program code "${queryCode}" is not available or inactive. Please choose an active program from the list below.`);
+            setFormData(prev => ({ ...prev, programCode: '' }));
+          }
+        }
+      } else {
+        // No program parameter supplied: preserve deliberate valid choice if still active, otherwise empty
+        setQueryWarning('');
+        setFormData(prev => {
+          if (prev.programCode) {
+            const stillActive = fetched.some(p => p.code === prev.programCode);
+            if (!stillActive) {
+              setProgramDisappearedNotice('Your previously selected program is no longer available. Please select another program.');
+              return { ...prev, programCode: '' };
+            }
+            return prev;
+          }
+          return { ...prev, programCode: '' };
+        });
       }
     } catch (err) {
+      if (currentRequestId !== activeRequestIdRef.current) return;
       console.warn('Failed to load active programs:', err);
       setProgramLoadError(true);
+      // Ensure stale submission cannot proceed on fetch failure
+      setFormData(prev => ({ ...prev, programCode: '' }));
     } finally {
-      setLoadingPrograms(false);
+      if (currentRequestId === activeRequestIdRef.current) {
+        setLoadingPrograms(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadPrograms();
-  }, [urlProgram]);
+    fetchAndResolvePrograms();
+  }, [searchParams]);
+
+  // Recovery: user deliberately selects an active program from dropdown
+  const handleProgramChange = (e) => {
+    const selectedCode = e.target.value;
+    setFormData(prev => ({ ...prev, programCode: selectedCode }));
+    if (selectedCode) {
+      // Clear URL warning and disappearance notice on explicit valid selection
+      setQueryWarning('');
+      setProgramDisappearedNotice('');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
     setResult(null);
 
+    // Validate active program membership before submission
+    if (!formData.programCode || !programs.some(p => p.code === formData.programCode)) {
+      setError('Please select an active certification program from the official list.');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const res = await api.submitApplication(formData);
+      const payload = {
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        programCode: formData.programCode
+      };
+
+      const res = await api.submitApplication(payload);
       setResult(res);
-      setFormData(prev => ({
+      // Reset form on success, keeping programCode unselected
+      setFormData({
         fullName: '',
         email: '',
         phone: '',
-        programCode: prev.programCode,
-        batchId: 'BATCH-2026-Q4'
-      }));
+        programCode: ''
+      });
+      setQueryWarning('');
+      setProgramDisappearedNotice('');
     } catch (err) {
       setError(err.message || 'Failed to submit application');
     } finally {
@@ -112,6 +180,36 @@ export default function ApplyPage({ onNavigateToVerify }) {
         <div className="mb-6 bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
           <p className="text-rose-800 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Visible Query Parameter Warning Banner */}
+      {queryWarning && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+        >
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-900">
+            <span className="font-semibold block mb-0.5">Program Selection Notice</span>
+            {queryWarning}
+          </div>
+        </div>
+      )}
+
+      {/* Selected Program Disappeared Banner */}
+      {programDisappearedNotice && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+        >
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-900">
+            <span className="font-semibold block mb-0.5">Program Updated</span>
+            {programDisappearedNotice}
+          </div>
         </div>
       )}
 
@@ -160,52 +258,50 @@ export default function ApplyPage({ onNavigateToVerify }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                Certification Program *
-              </label>
-              {loadingPrograms ? (
-                <div className="h-10 bg-slate-100 rounded-lg animate-pulse"></div>
-              ) : programLoadError ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-rose-600">Failed to load programs.</span>
-                  <button
-                    type="button"
-                    onClick={loadPrograms}
-                    className="text-xs text-slate-700 underline font-semibold flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" /> Retry
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={formData.programCode}
-                  onChange={(e) => setFormData({ ...formData, programCode: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition bg-white"
+          <div>
+            <label htmlFor="programSelect" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+              Certification Program *
+            </label>
+            {loadingPrograms ? (
+              <div className="h-10 bg-slate-100 rounded-lg animate-pulse"></div>
+            ) : programLoadError ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-rose-600">Failed to load programs.</span>
+                <button
+                  type="button"
+                  onClick={fetchAndResolvePrograms}
+                  className="text-xs text-slate-700 underline font-semibold flex items-center gap-1"
                 >
-                  {programs.map(p => (
-                    <option key={p.code} value={p.code}>{p.title} ({p.code})</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                Assigned Batch Cohort
-              </label>
-              <input
-                type="text"
-                value={formData.batchId}
-                onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
-              />
-            </div>
+                  <RotateCcw className="w-3 h-3" /> Retry
+                </button>
+              </div>
+            ) : (
+              <select
+                id="programSelect"
+                required
+                value={formData.programCode}
+                onChange={handleProgramChange}
+                disabled={loading || programs.length === 0}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition bg-white"
+              >
+                <option value="">-- Select an official program --</option>
+                {programs.map(p => (
+                  <option key={p.code} value={p.code}>
+                    {p.title} ({p.code})
+                  </option>
+                ))}
+              </select>
+            )}
+            {!loadingPrograms && !programLoadError && programs.length === 0 && (
+              <p className="text-xs text-slate-500 mt-1">
+                No active programs are currently published.
+              </p>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading || loadingPrograms || programLoadError}
+            disabled={loading || loadingPrograms || programLoadError || !formData.programCode || programs.length === 0}
             className="w-full mt-4 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
           >
             {loading ? 'Submitting Application...' : (

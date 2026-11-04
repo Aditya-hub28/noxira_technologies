@@ -187,7 +187,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <span className="font-bold text-white text-sm tracking-wider">NOXIRA TECHNOLOGIES</span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-md">
-                Industry-standard engineering internships and technical programs. Every candidate builds real-world production systems and receives cryptographically verifiable credentials.
+                Industry-standard engineering internships and technical programs. Every candidate builds practical software projects and receives registry-verified credentials.
               </p>
             </div>
 
@@ -203,25 +203,24 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               </ul>
             </div>
 
-            {/* Col 3: Contact & Authenticity */}
+            {/* Col 3: Authenticity & Verification */}
             <div>
-              <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Support & Verify</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li>Email: <a href="mailto:support@noxira.com" className="hover:text-amber-400">support@noxira.com</a></li>
-                <li>Portal: <span className="font-mono text-slate-300">noxira.com/verify</span></li>
-                <li className="pt-2 text-[11px] text-slate-500">
-                  Registered Enterprise Credential Issuer · Noida & Bengaluru, India
-                </li>
-              </ul>
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Verification</h4>
+              <p className="text-slate-400 text-xs leading-relaxed mb-3">
+                Verify certificate authenticity and current record status directly against the official registry.
+              </p>
+              <Link to="/verify" className="text-amber-400 hover:text-amber-300 font-semibold transition inline-flex items-center gap-1">
+                Registry Verification Portal <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
           </div>
 
           <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
             <div>
-              &copy; {new Date().getFullYear()} NOXIRA Technologies Private Limited. All rights reserved.
+              &copy; {new Date().getFullYear()} NOXIRA Technologies. All rights reserved.
             </div>
             <div className="flex items-center gap-4">
-              <span>Task Submission & Review Model</span>
+              <span>Technical Intake & Issuance Engine</span>
               <span>·</span>
               <Link to="/verify" className="text-amber-500/80 hover:text-amber-400">Public Verification</Link>
             </div>

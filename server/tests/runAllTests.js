@@ -29,6 +29,8 @@ function mockReqRes(options = {}) {
     body: options.body || {},
     params: options.params || {},
     query: options.query || {},
+    headers: options.headers || {},
+    ip: options.ip || '127.0.0.1',
     admin: options.admin || { _id: new mongoose.Types.ObjectId(), name: 'Test Admin', role: 'SUPER_ADMIN' }
   };
   let statusCode = 200;
@@ -832,7 +834,8 @@ async function runTestSuite() {
       assert.strictEqual(prg._id, undefined, '_id must be excluded');
     }
 
-    // 3. Attempt websiteApply on inactive program -> must be rejected with 400
+    // 3. Attempt websiteApply on inactive program with configured batch -> must be rejected with 400
+    process.env.WEBSITE_INTAKE_BATCH_ID = 'BATCH-TEST-2026';
     const mockApply = mockReqRes({
       body: {
         fullName: 'Applicant Tester',
@@ -844,6 +847,190 @@ async function runTestSuite() {
     await intakeController.websiteApply(mockApply.req, mockApply.res, mockApply.next);
     assert.strictEqual(mockApply.getStatus(), 400, 'Must reject application for inactive program with 400');
     assert.ok(mockApply.getData().message.includes('inactive and not accepting applications'));
+  });
+
+  // TEST 18: Website Intake Batch Resolution, Fail-Closed Security & Concurrency Safety
+  await test('Website Intake: Fails closed (503) without configured batch, ignores client batchId, enforces unique index & handles concurrency cleanly', async () => {
+    // 1. Unset WEBSITE_INTAKE_BATCH_ID -> Must fail closed with 503 and create zero records
+    delete process.env.WEBSITE_INTAKE_BATCH_ID;
+    const initialCount = await Participant.countDocuments();
+    const initialAuditCount = await AuditLog.countDocuments();
+
+    const mockUnconfigured = mockReqRes({
+      body: {
+        fullName: 'Unconfigured Batch Tester',
+        email: 'unconfigured@example.com',
+        programCode: 'FS-DEV'
+      }
+    });
+
+    await intakeController.websiteApply(mockUnconfigured.req, mockUnconfigured.res, mockUnconfigured.next);
+    assert.strictEqual(mockUnconfigured.getStatus(), 503, 'Must return 503 Service Unavailable when batch is unconfigured');
+    assert.ok(mockUnconfigured.getData().message.includes('intake batch not configured'));
+    
+    // Ensure zero records created
+    const afterCount = await Participant.countDocuments();
+    const afterAuditCount = await AuditLog.countDocuments();
+    assert.strictEqual(afterCount, initialCount, 'Zero participant records must be created on 503');
+    assert.strictEqual(afterAuditCount, initialAuditCount, 'Zero audit records must be created on 503');
+
+    // 2. Set authoritative server-side intake batch
+    const realConfiguredBatch = 'BATCH-SYNTHETIC-2026-X1';
+    process.env.WEBSITE_INTAKE_BATCH_ID = realConfiguredBatch;
+
+    // Attacker sends crafted batchId 'MALICIOUS-BATCH-OVERRIDE'
+    const mockAttacker = mockReqRes({
+      body: {
+        fullName: 'Attacker Tester',
+        email: 'attacker@example.com',
+        programCode: 'FS-DEV',
+        batchId: 'MALICIOUS-BATCH-OVERRIDE'
+      }
+    });
+
+    await intakeController.websiteApply(mockAttacker.req, mockAttacker.res, mockAttacker.next);
+    assert.strictEqual(mockAttacker.getStatus(), 201, 'Should accept valid application');
+
+    const createdAttacker = await Participant.findOne({ email: 'attacker@example.com' });
+    assert.ok(createdAttacker, 'Participant record should be created');
+    assert.strictEqual(createdAttacker.batchId, realConfiguredBatch, 'Must use server configured batch, ignoring client-supplied batchId');
+
+    // 3. Normalized duplicate registration in same batch -> 409 Conflict
+    const mockDuplicate = mockReqRes({
+      body: {
+        fullName: 'Attacker Tester Different Case',
+        email: 'ATTACKER@EXAMPLE.COM', // uppercase to verify normalization
+        programCode: 'FS-DEV'
+      }
+    });
+
+    await intakeController.websiteApply(mockDuplicate.req, mockDuplicate.res, mockDuplicate.next);
+    assert.strictEqual(mockDuplicate.getStatus(), 409, 'Must return 409 Conflict for duplicate normalized email/program/batch');
+    assert.ok(mockDuplicate.getData().message.includes('already on file'));
+
+    // 4. Same participant in a different legitimate batch -> allowed and distinct
+    process.env.WEBSITE_INTAKE_BATCH_ID = 'BATCH-SYNTHETIC-2026-X2';
+    const mockNewBatch = mockReqRes({
+      body: {
+        fullName: 'Attacker Tester',
+        email: 'attacker@example.com',
+        programCode: 'FS-DEV'
+      }
+    });
+
+    await intakeController.websiteApply(mockNewBatch.req, mockNewBatch.res, mockNewBatch.next);
+    assert.strictEqual(mockNewBatch.getStatus(), 201, 'Same email/program in a different batch should succeed');
+    const newBatchRecord = await Participant.findOne({ email: 'attacker@example.com', batchId: 'BATCH-SYNTHETIC-2026-X2' });
+    assert.ok(newBatchRecord, 'Record in separate batch should exist');
+
+    // 5. Concurrency Race Test: 2 simultaneous duplicate requests in the same batch
+    process.env.WEBSITE_INTAKE_BATCH_ID = 'BATCH-RACE-2026';
+    const raceEmail = 'race.candidate@example.com';
+
+    const reqRes1 = mockReqRes({
+      body: { fullName: 'Race Candidate 1', email: raceEmail, programCode: 'FS-DEV' }
+    });
+    const reqRes2 = mockReqRes({
+      body: { fullName: 'Race Candidate 2', email: raceEmail, programCode: 'FS-DEV' }
+    });
+
+    // Fire both requests concurrently
+    await Promise.all([
+      intakeController.websiteApply(reqRes1.req, reqRes1.res, reqRes1.next),
+      intakeController.websiteApply(reqRes2.req, reqRes2.res, reqRes2.next)
+    ]);
+
+    const statuses = [reqRes1.getStatus(), reqRes2.getStatus()].sort();
+    assert.deepStrictEqual(statuses, [201, 409], 'Simultaneous duplicates must result in exactly one 201 and one 409');
+
+    const totalRaceRecords = await Participant.countDocuments({ normalizedEmail: raceEmail });
+    assert.strictEqual(totalRaceRecords, 1, 'Exactly one participant record must exist after race');
+  });
+
+  // TEST 19: Seed Admin Hygiene, Missing Secret Protection & No Accidental Overwrite
+  await test('Admin Seed Hygiene: Refuses missing secret, avoids plaintext leaks, preserves existing admin without --force-reset', async () => {
+    const { seedAdmin } = require('../src/scripts/seedAdmin');
+    const originalEnvPass = process.env.INITIAL_ADMIN_PASSWORD;
+    const originalExit = process.exit;
+    const originalError = console.error;
+    const originalLog = console.log;
+
+    let exitCode = null;
+    let loggedErrors = [];
+    let loggedMessages = [];
+
+    process.exit = (code) => { exitCode = code; throw new Error(`EXIT_${code}`); };
+    console.error = (...args) => loggedErrors.push(args.join(' '));
+    console.log = (...args) => loggedMessages.push(args.join(' '));
+
+    try {
+      // 1. Missing INITIAL_ADMIN_PASSWORD -> Must exit 1 with redacted error
+      delete process.env.INITIAL_ADMIN_PASSWORD;
+      exitCode = null;
+      try {
+        await seedAdmin();
+      } catch (e) {
+        assert.strictEqual(e.message, 'EXIT_1');
+      }
+      assert.strictEqual(exitCode, 1, 'Must exit with code 1 when INITIAL_ADMIN_PASSWORD is missing');
+      assert.ok(loggedErrors.some(m => m.includes('[ERROR] INITIAL_ADMIN_PASSWORD environment variable is required.')));
+
+      // 2. Safe execution with password -> creates new admin and never logs password
+      process.env.INITIAL_ADMIN_PASSWORD = 'SyntheticSecretForTestsOnly123!';
+      process.env.INITIAL_ADMIN_EMAIL = 'hygiene-admin@example.com';
+      exitCode = null;
+      loggedMessages = [];
+
+      // Intercept connectDB/disconnectDB since we are already connected to mongod in this test process
+      const dbModule = require('../src/config/db');
+      const origConnect = dbModule.connectDB;
+      const origDisconnect = dbModule.disconnectDB;
+      dbModule.connectDB = async () => {};
+      dbModule.disconnectDB = async () => {};
+
+      try {
+        await seedAdmin();
+      } catch (e) {
+        assert.strictEqual(e.message, 'EXIT_0');
+      }
+      assert.strictEqual(exitCode, 0, 'Must exit 0 on successful seeding');
+
+      const seededAdmin = await Admin.findOne({ email: 'hygiene-admin@example.com' });
+      assert.ok(seededAdmin, 'Admin must be created in DB');
+      const passValid = await seededAdmin.comparePassword('SyntheticSecretForTestsOnly123!');
+      assert.ok(passValid, 'Password must be correctly hashed');
+
+      // Check logs to ensure password was never logged
+      const anyLeak = loggedMessages.some(m => m.includes('SyntheticSecretForTestsOnly123!'));
+      assert.strictEqual(anyLeak, false, 'Plaintext password must NEVER be logged to console');
+
+      // 3. Existing admin run without --force-reset -> Must NOT overwrite password
+      process.env.INITIAL_ADMIN_PASSWORD = 'DifferentNewPassword456!';
+      const oldHash = seededAdmin.passwordHash;
+      exitCode = null;
+
+      try {
+        await seedAdmin();
+      } catch (e) {
+        assert.strictEqual(e.message, 'EXIT_0');
+      }
+
+      const unchangedAdmin = await Admin.findOne({ email: 'hygiene-admin@example.com' });
+      assert.strictEqual(unchangedAdmin.passwordHash, oldHash, 'Password must NOT be overwritten without --force-reset');
+
+      // Restore mocks
+      dbModule.connectDB = origConnect;
+      dbModule.disconnectDB = origDisconnect;
+    } finally {
+      process.exit = originalExit;
+      console.error = originalError;
+      console.log = originalLog;
+      if (originalEnvPass) {
+        process.env.INITIAL_ADMIN_PASSWORD = originalEnvPass;
+      } else {
+        delete process.env.INITIAL_ADMIN_PASSWORD;
+      }
+    }
   });
 
   // Cleanup
