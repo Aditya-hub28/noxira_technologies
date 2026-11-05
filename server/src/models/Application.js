@@ -81,6 +81,10 @@ const ApplicationSchema = new mongoose.Schema(
       default: 'NONE',
       index: true
     },
+    offerError: {
+      type: String,
+      trim: true
+    },
     history: [
       {
         fromStatus: String,

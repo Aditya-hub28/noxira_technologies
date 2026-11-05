@@ -187,8 +187,12 @@ async function processClaimedJob(jobId, workerLockId) {
   const downloadLink = `${env.API_BASE_URL || env.VERIFY_BASE_URL}/api/v1/public/download/${job.downloadToken}`;
   const verificationLink = `${env.VERIFY_BASE_URL}/verify/${cert.publicVerificationToken}`;
 
+  const senderAddress = (env.SMTP && env.SMTP.FROM && env.SMTP.FROM.trim())
+    ? (env.SMTP.FROM.includes('<') ? env.SMTP.FROM : `"NOXIRA Credentials" <${env.SMTP.FROM}>`)
+    : 'NOXIRA Dev Mock <mock@localhost.invalid>';
+
   const mailOptions = {
-    from: `"NOXIRA Credentials" <${env.SMTP.FROM}>`,
+    from: senderAddress,
     to: job.recipientEmail,
     subject: `Your Certificate of Achievement: ${cert.programTitle} [${cert.certificateNumber}]`,
     headers: {

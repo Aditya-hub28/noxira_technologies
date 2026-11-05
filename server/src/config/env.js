@@ -17,7 +17,7 @@ const config = {
     PORT: parseInt(process.env.SMTP_PORT || '587', 10),
     USER: process.env.SMTP_USER || '',
     PASS: process.env.SMTP_PASS || '',
-    FROM: process.env.SMTP_FROM || 'certificates@noxira.com'
+    FROM: process.env.SMTP_FROM || ''
   }
 };
 
@@ -42,6 +42,9 @@ function validateEnv(conf = config) {
     }
     if (!conf.SMTP || !conf.SMTP.PASS || conf.SMTP.PASS.trim() === '' || conf.SMTP.PASS === 'password') {
       errors.push('SMTP_PASS is required in production.');
+    }
+    if (!conf.SMTP || !conf.SMTP.FROM || conf.SMTP.FROM.trim() === '') {
+      errors.push('SMTP_FROM environment variable is required in production.');
     }
 
     if (errors.length > 0) {

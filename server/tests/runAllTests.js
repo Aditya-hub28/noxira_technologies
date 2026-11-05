@@ -566,7 +566,8 @@ async function runTestSuite() {
         SMTP: {
           HOST: 'smtp.sendgrid.net',
           USER: 'apikey',
-          PASS: 'SG.valid_production_api_key_here_123456789'
+          PASS: 'SG.valid_production_api_key_here_123456789',
+          FROM: 'admissions@noxira.com'
         }
       });
     });
@@ -1962,7 +1963,9 @@ async function runTestSuite() {
     assert.strictEqual(customRefreshed.isActive, true);
 
     // 10. Process Blocked Backlog with newly active custom template
-    const mockUnblock = mockReqRes({});
+    const mockUnblock = mockReqRes({
+      body: { applicationIds: [appBeta.applicationId] }
+    });
     await adminApplicationController.sendBlockedApplications(mockUnblock.req, mockUnblock.res, mockUnblock.next);
     assert.strictEqual(mockUnblock.getStatus(), 200);
     assert.ok(mockUnblock.getData().processedCount >= 1, 'Must unblock and process blocked applications');
@@ -2305,6 +2308,295 @@ async function runTestSuite() {
     assert.strictEqual(blockedCand.fullName, 'Blocked Queue Candidate');
     assert.strictEqual(blockedCand.email, 'blocked.queue@example.org');
     assert.strictEqual(blockedCand.programCode, 'FS-DEV');
+  });
+
+  // TEST 27: Module 4 Follow-up Fixes: Real PDF canvas endpoint, pure coordinate mapping, fail-closed missing PDF, configured sender, targeted blocked dispatch, field validation 400s, and admin recovery flow
+  await test('Module 4 Follow-up: PDF endpoint, US Letter point-pixel math, fail-closed PDF guard, SMTP_FROM validation, targeted blocked queue, field validation 400s, name correction & offer retry', async () => {
+    const { pointToPixel, pixelToPoint } = require('../src/utils/pdfCoordinates');
+    const env = require('../src/config/env');
+
+    // 1. Pure-function test: Point to Pixel and Pixel to Point conversions on non-A4 page (US Letter: 612 x 792 pt)
+    const letterPage = { width: 612, height: 792 };
+    const displayBox = { width: 400, height: 517.647 }; // 400 display width scaled proportionally
+
+    // Top-left corner (0, 0)
+    const pTopLeft = pointToPixel({ x: 0, y: 0 }, letterPage, displayBox);
+    assert.strictEqual(Math.round(pTopLeft.pixelX), 0);
+    assert.strictEqual(Math.round(pTopLeft.pixelY), 0);
+    const revTopLeft = pixelToPoint({ pixelX: pTopLeft.pixelX, pixelY: pTopLeft.pixelY }, letterPage, displayBox);
+    assert.strictEqual(revTopLeft.x, 0);
+    assert.strictEqual(revTopLeft.y, 0);
+
+    // Bottom-right corner (612, 792)
+    const pBottomRight = pointToPixel({ x: 612, y: 792 }, letterPage, displayBox);
+    assert.strictEqual(Math.round(pBottomRight.pixelX), Math.round(displayBox.width));
+    assert.strictEqual(Math.round(pBottomRight.pixelY), Math.round(displayBox.height));
+    const revBottomRight = pixelToPoint({ pixelX: pBottomRight.pixelX, pixelY: pBottomRight.pixelY }, letterPage, displayBox);
+    assert.strictEqual(revBottomRight.x, 612);
+    assert.strictEqual(revBottomRight.y, 792);
+
+    // Center (306, 396)
+    const pCenter = pointToPixel({ x: 306, y: 396 }, letterPage, displayBox);
+    assert.strictEqual(Math.round(pCenter.pixelX), Math.round(displayBox.width / 2));
+    assert.strictEqual(Math.round(pCenter.pixelY), Math.round(displayBox.height / 2));
+    const revCenter = pixelToPoint({ pixelX: pCenter.pixelX, pixelY: pCenter.pixelY }, letterPage, displayBox);
+    assert.strictEqual(revCenter.x, 306);
+    assert.strictEqual(revCenter.y, 396);
+
+    // 2. Admin PDF Endpoint: GET /api/v1/admin/offer-templates/:id/pdf
+    const sampleTpl = await OfferLetterTemplate.findOne({ isSample: true });
+    assert.ok(sampleTpl, 'Sample template must exist');
+
+    const mockPdfReq = mockReqRes({ params: { id: sampleTpl._id } });
+    await adminOfferTemplateController.getTemplatePdf(mockPdfReq.req, mockPdfReq.res, mockPdfReq.next);
+    assert.strictEqual(mockPdfReq.getStatus(), 200);
+    assert.strictEqual(mockPdfReq.getHeaders()['content-type'], 'application/pdf');
+    assert.ok(mockPdfReq.getHeaders()['cache-control'].includes('no-store'));
+    assert.ok(Buffer.isBuffer(mockPdfReq.getData()) && mockPdfReq.getData().length > 500, 'Must return valid PDF buffer');
+
+    const activeCustomTpl = await OfferLetterTemplate.findOne({ isSample: false, isActive: true });
+    assert.ok(activeCustomTpl, 'Active custom template must exist');
+
+    // 3. Sender must be configured, not invented
+    // Production without SMTP_FROM throws critical config error
+    assert.throws(
+      () => {
+        validateEnv({
+          NODE_ENV: 'production',
+          MONGODB_URI: 'mongodb+srv://user:pass@cluster.mongodb.net/prod',
+          JWT_SECRET: 'a_very_long_secure_jwt_secret_with_more_than_32_characters_123456789',
+          SMTP: {
+            HOST: 'smtp.sendgrid.net',
+            USER: 'apikey',
+            PASS: 'SG.valid_production_api_key_here_123456789',
+            FROM: ''
+          }
+        });
+      },
+      /SMTP_FROM environment variable is required in production/
+    );
+
+    // Non-production uses dev mock sender when unconfigured
+    const origEnvFrom = env.SMTP.FROM;
+    env.SMTP.FROM = '';
+
+    const pSenderTest = await Participant.create({
+      fullName: 'Sender Test Candidate',
+      email: 'sendertest@example.com',
+      programTitle: 'Full Stack Web Development',
+      programCode: 'FS-DEV',
+      batchId: 'BATCH-2026-A',
+      source: 'WEBSITE'
+    });
+    const appSenderTest = await Application.create({
+      applicationId: 'NOX-2026-SND-0001',
+      participantId: pSenderTest._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      status: 'APPROVED'
+    });
+
+    try {
+      const senderGenRes = await offerService.generateOfferForApplication(appSenderTest.applicationId, { forceRegenerate: true });
+      assert.ok(senderGenRes.offerLetter, 'Offer letter generated');
+      await offerService.processOfferDeliveryJob(senderGenRes.deliveryJob._id);
+      const captured = offerService.getLastCapturedOfferMail();
+      assert.ok(captured, 'Email must have been captured');
+      assert.strictEqual(
+        captured.from,
+        'NOXIRA Dev Mock <mock@localhost.invalid>',
+        `Sender in non-prod when unconfigured must be labelled as mock, got: ${captured.from}`
+      );
+    } finally {
+      env.SMTP.FROM = origEnvFrom;
+    }
+
+    // 4. Template Field Validation: Returns 400 with specific field name on invalid inputs
+    // Missing field label -> 400
+    const mockInvalidLabel = mockReqRes({
+      params: { id: activeCustomTpl._id },
+      body: {
+        fields: [
+          { id: 'studentName', label: '   ', page: 1, x: 50, y: 100, fontSize: 12, alignment: 'left', maxWidth: 400 }
+        ]
+      }
+    });
+    await adminOfferTemplateController.updateTemplate(mockInvalidLabel.req, mockInvalidLabel.res, mockInvalidLabel.next);
+    assert.strictEqual(mockInvalidLabel.getStatus(), 400);
+    assert.ok(mockInvalidLabel.getData().message.includes('studentName') && mockInvalidLabel.getData().message.includes('label'));
+
+    // Page number out of bounds -> 400
+    const mockInvalidPage = mockReqRes({
+      params: { id: activeCustomTpl._id },
+      body: {
+        fields: [
+          { id: 'studentName', label: 'Student Name', page: 99, x: 50, y: 100, fontSize: 12, alignment: 'left', maxWidth: 400 }
+        ]
+      }
+    });
+    await adminOfferTemplateController.updateTemplate(mockInvalidPage.req, mockInvalidPage.res, mockInvalidPage.next);
+    assert.strictEqual(mockInvalidPage.getStatus(), 400);
+    assert.ok(mockInvalidPage.getData().message.includes('page') || mockInvalidPage.getData().message.includes('pageCount'));
+
+    // Invalid alignment -> 400
+    const mockInvalidAlign = mockReqRes({
+      params: { id: activeCustomTpl._id },
+      body: {
+        fields: [
+          { id: 'studentName', label: 'Student Name', page: 1, x: 50, y: 100, fontSize: 12, alignment: 'justify', maxWidth: 400 }
+        ]
+      }
+    });
+    await adminOfferTemplateController.updateTemplate(mockInvalidAlign.req, mockInvalidAlign.res, mockInvalidAlign.next);
+    assert.strictEqual(mockInvalidAlign.getStatus(), 400);
+    assert.ok(mockInvalidAlign.getData().message.includes('alignment') || mockInvalidAlign.getData().message.includes('align'));
+
+    // 5. Blocked Queue Targeted Dispatch: Only previewed IDs processed; empty body returns 400; ineligible returned as SKIPPED
+    // Empty body -> 400
+    const mockEmptyBlocked = mockReqRes({ body: {} });
+    await adminApplicationController.sendBlockedApplications(mockEmptyBlocked.req, mockEmptyBlocked.res, mockEmptyBlocked.next);
+    assert.strictEqual(mockEmptyBlocked.getStatus(), 400, 'Empty applicationIds in sendBlockedApplications must return 400');
+
+    // Create 3 blocked applications
+    const pB1 = await Participant.create({ fullName: 'Blocked 1', email: 'b1@example.com', programTitle: 'Full Stack', programCode: 'FS-DEV', batchId: 'B-2026', source: 'WEBSITE' });
+    const pB2 = await Participant.create({ fullName: 'Blocked 2', email: 'b2@example.com', programTitle: 'Full Stack', programCode: 'FS-DEV', batchId: 'B-2026', source: 'WEBSITE' });
+    const pB3 = await Participant.create({ fullName: 'Blocked 3', email: 'b3@example.com', programTitle: 'Full Stack', programCode: 'FS-DEV', batchId: 'B-2026', source: 'WEBSITE' });
+
+    const appB1 = await Application.create({ applicationId: 'NOX-2026-TGT-0001', participantId: pB1._id, programCode: 'FS-DEV', status: 'APPROVED', offerDeliveryState: 'BLOCKED_TEMPLATE' });
+    const appB2 = await Application.create({ applicationId: 'NOX-2026-TGT-0002', participantId: pB2._id, programCode: 'FS-DEV', status: 'APPROVED', offerDeliveryState: 'BLOCKED_TEMPLATE' });
+    const appB3 = await Application.create({ applicationId: 'NOX-2026-TGT-0003', participantId: pB3._id, programCode: 'FS-DEV', status: 'APPROVED', offerDeliveryState: 'BLOCKED_TEMPLATE' });
+
+    // Client passes ONLY appB1 and appB2, plus an ineligible non-blocked ID
+    const mockTargetedBlocked = mockReqRes({
+      body: {
+        applicationIds: [appB1.applicationId, appB2.applicationId, 'NOX-NON-EXISTENT-9999']
+      }
+    });
+    await adminApplicationController.sendBlockedApplications(mockTargetedBlocked.req, mockTargetedBlocked.res, mockTargetedBlocked.next);
+    assert.strictEqual(mockTargetedBlocked.getStatus(), 200);
+    const targetedData = mockTargetedBlocked.getData();
+    assert.strictEqual(targetedData.processedCount, 2, 'Exactly 2 confirmed applications must be processed');
+    assert.strictEqual(targetedData.skippedCount, 1, 'Ineligible ID must be reported as SKIPPED');
+
+    // Check appB3 was untouched and remains BLOCKED_TEMPLATE
+    const appB3Fresh = await Application.findById(appB3._id);
+    assert.strictEqual(appB3Fresh.offerDeliveryState, 'BLOCKED_TEMPLATE', 'Unconfirmed application must remain untouched in blocked state');
+
+    // 6. Fail-Closed Missing Offer PDF: Missing file marks job FAILED (OFFER_PDF_MISSING), no email sent, honest status
+    const pFailClosed = await Participant.create({
+      fullName: 'Fail Closed Candidate',
+      email: 'failclosed@example.com',
+      programTitle: 'Full Stack Web Development',
+      programCode: 'FS-DEV',
+      batchId: 'BATCH-2026-A',
+      source: 'WEBSITE'
+    });
+    const appFailClosed = await Application.create({
+      applicationId: 'NOX-2026-FC-0001',
+      participantId: pFailClosed._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      status: 'APPROVED'
+    });
+
+    const fcGenRes = await offerService.generateOfferForApplication(appFailClosed.applicationId, { forceRegenerate: true });
+    const offerLetterFC = fcGenRes.offerLetter;
+    const jobFC = fcGenRes.deliveryJob;
+
+    // Delete the generated PDF from disk so it becomes missing
+    const fs = require('fs');
+    if (fs.existsSync(offerLetterFC.pdfPath)) {
+      fs.unlinkSync(offerLetterFC.pdfPath);
+    }
+
+    const processRes = await offerService.processOfferDeliveryJob(jobFC._id);
+    assert.strictEqual(processRes.success, false);
+    assert.ok(processRes.reason.includes('OFFER_PDF_MISSING'));
+
+    const refreshedJobFC = await OfferDeliveryJob.findById(jobFC._id);
+    assert.strictEqual(refreshedJobFC.status, 'FAILED');
+    assert.ok(refreshedJobFC.lastError.includes('OFFER_PDF_MISSING'));
+
+    const refreshedAppFC = await Application.findById(appFailClosed._id);
+    assert.strictEqual(refreshedAppFC.offerDeliveryState, 'FAILED');
+
+    // 7. Admin Recovery Path: Correct Candidate Name & Retry Offer
+    // Candidate with unsupported glyph
+    const pUnsupported = await Participant.create({
+      fullName: 'Unsupported 🌟 Name',
+      email: 'unsupported.name@example.com',
+      programTitle: 'Full Stack',
+      programCode: 'FS-DEV',
+      batchId: 'B-2026',
+      source: 'WEBSITE'
+    });
+    const appRecovery = await Application.create({
+      applicationId: 'NOX-2026-RCV-0001',
+      participantId: pUnsupported._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      status: 'APPROVED',
+      offerDeliveryState: 'FAILED',
+      offerError: 'Unsupported character in Candidate Name: 🌟'
+    });
+
+    // 7a. Non-failed application rejects retry with 409
+    const pNotFailed = await Participant.create({
+      fullName: 'Successful Candidate',
+      email: 'ok.candidate@example.com',
+      programTitle: 'Full Stack',
+      programCode: 'FS-DEV',
+      batchId: 'B-2026',
+      source: 'WEBSITE'
+    });
+    const appNotFailed = await Application.create({
+      applicationId: 'NOX-2026-OK-0001',
+      participantId: pNotFailed._id,
+      programCode: 'FS-DEV',
+      status: 'APPROVED',
+      offerDeliveryState: 'PROVIDER_ACCEPTED'
+    });
+    const mockRetryNotFailed = mockReqRes({ params: { id: appNotFailed.applicationId } });
+    await adminApplicationController.retryOffer(mockRetryNotFailed.req, mockRetryNotFailed.res, mockRetryNotFailed.next);
+    assert.strictEqual(mockRetryNotFailed.getStatus(), 409, 'Cannot retry offer when delivery is not in FAILED state');
+
+    // 7b. Correct candidate name with another invalid glyph -> 400
+    const mockBadName = mockReqRes({
+      params: { id: appRecovery.applicationId },
+      body: { fullName: 'Another 🚫 Emoji' }
+    });
+    await adminApplicationController.correctCandidateName(mockBadName.req, mockBadName.res, mockBadName.next);
+    assert.strictEqual(mockBadName.getStatus(), 400);
+    assert.ok(mockBadName.getData().message.includes('unsupported') || mockBadName.getData().message.includes('Candidate name'));
+
+    // 7c. Correct candidate name to valid string -> 200 & Audit log
+    const mockGoodName = mockReqRes({
+      params: { id: appRecovery.applicationId },
+      body: { fullName: 'Aryan Sharma' }
+    });
+    await adminApplicationController.correctCandidateName(mockGoodName.req, mockGoodName.res, mockGoodName.next);
+    assert.strictEqual(mockGoodName.getStatus(), 200);
+    assert.strictEqual(mockGoodName.getData().fullName, 'Aryan Sharma');
+
+    const freshParticipant = await Participant.findById(pUnsupported._id);
+    assert.strictEqual(freshParticipant.fullName, 'Aryan Sharma');
+
+    const nameAudit = await AuditLog.findOne({
+      action: 'CANDIDATE_NAME_CORRECTED',
+      targetId: pUnsupported._id
+    });
+    assert.ok(nameAudit, 'Audit log must record candidate name correction');
+
+    // 7d. Retry offer on corrected application -> 200 & new offer generated
+    const mockRetrySuccess = mockReqRes({ params: { id: appRecovery.applicationId } });
+    await adminApplicationController.retryOffer(mockRetrySuccess.req, mockRetrySuccess.res, mockRetrySuccess.next);
+    assert.strictEqual(mockRetrySuccess.getStatus(), 200);
+
+    const freshAppRecovery = await Application.findById(appRecovery._id);
+    assert.ok(
+      freshAppRecovery.offerDeliveryState === 'PROVIDER_ACCEPTED' || freshAppRecovery.offerDeliveryState === 'SIMULATED',
+      'Offer must be regenerated and dispatched successfully'
+    );
   });
 
   // Cleanup

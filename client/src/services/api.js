@@ -88,12 +88,15 @@ export const api = {
   adminUpdateApplicationStatus: (id, payload) => request(`/admin/applications/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminBatchReviewApplications: (payload) => request('/admin/applications/batch-review', { method: 'POST', body: JSON.stringify(payload) }),
   adminRenewOfferLink: (id) => request(`/admin/applications/${encodeURIComponent(id)}/renew-offer-link`, { method: 'POST' }),
+  adminRetryOffer: (id) => request(`/admin/applications/${encodeURIComponent(id)}/retry-offer`, { method: 'POST' }),
+  adminCorrectCandidateName: (id, payload) => request(`/admin/applications/${encodeURIComponent(id)}/candidate-name`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminGetBlockedPreview: (params = '') => request(`/admin/applications/blocked-preview?${params}`),
   adminSendBlockedApplications: (payload = {}) => request('/admin/applications/send-blocked', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Admin Offer Templates
   adminGetOfferTemplates: () => request('/admin/offer-templates'),
   adminGetOfferTemplateDetail: (id) => request(`/admin/offer-templates/${encodeURIComponent(id)}`),
+  adminGetOfferTemplatePdf: (id) => fetch(`${BASE_URL}/admin/offer-templates/${encodeURIComponent(id)}/pdf`, { credentials: 'include' }),
   adminUploadOfferTemplate: (formData) => request('/admin/offer-templates/upload', { method: 'POST', body: formData }),
   adminUpdateOfferTemplate: (id, payload) => request(`/admin/offer-templates/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) }),
   adminPreviewOfferTemplate: (id, payload) => fetch(`${BASE_URL}/admin/offer-templates/${encodeURIComponent(id)}/preview`, {

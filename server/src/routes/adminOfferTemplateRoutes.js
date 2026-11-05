@@ -20,6 +20,7 @@ router.use(requireAuth);
 
 router.get('/', adminOfferTemplateController.getTemplates);
 router.get('/:id', adminOfferTemplateController.getTemplateDetail);
+router.get('/:id/pdf', adminOfferTemplateController.getTemplatePdf);
 router.post('/upload', pdfUpload.single('templatePdf'), adminOfferTemplateController.uploadTemplate);
 router.put('/:id', adminOfferTemplateController.updateTemplate);
 router.post('/:id/preview', adminOfferTemplateController.previewTemplate);

@@ -43,29 +43,39 @@ function validateGlyphsForFont(text, fieldLabel, parsedFont) {
   }
 }
 
+/**
+ * Validates candidate name glyphs against the bundled bold font.
+ */
+function validateCandidateNameGlyphs(name) {
+  const { bold } = getParsedFontkitFonts();
+  if (bold) {
+    validateGlyphsForFont(name, 'Candidate Legal Name', bold);
+  }
+}
+
 const DEFAULT_SAMPLE_FIELDS = [
   {
     id: 'issueDate',
     label: 'Issue Date',
     page: 1,
     x: 72,
-    y: 155,
+    y: 140,
     fontSize: 10,
     fontColor: '#475569',
     alignment: 'left',
-    maxWidth: 160,
+    maxWidth: 180,
     isRequired: true
   },
   {
     id: 'applicationId',
     label: 'Application ID',
     page: 1,
-    x: 360,
-    y: 155,
+    x: 350,
+    y: 140,
     fontSize: 11,
     fontColor: '#0f172a',
     alignment: 'right',
-    maxWidth: 160,
+    maxWidth: 170,
     isRequired: true
   },
   {
@@ -73,7 +83,7 @@ const DEFAULT_SAMPLE_FIELDS = [
     label: 'Candidate Legal Name',
     page: 1,
     x: 72,
-    y: 230,
+    y: 210,
     fontSize: 14,
     fontColor: '#0f172a',
     alignment: 'left',
@@ -85,7 +95,7 @@ const DEFAULT_SAMPLE_FIELDS = [
     label: 'Programme Title',
     page: 1,
     x: 72,
-    y: 310,
+    y: 280,
     fontSize: 13,
     fontColor: '#0f172a',
     alignment: 'left',
@@ -97,7 +107,7 @@ const DEFAULT_SAMPLE_FIELDS = [
     label: 'Cohort Batch',
     page: 1,
     x: 72,
-    y: 345,
+    y: 350,
     fontSize: 11,
     fontColor: '#334155',
     alignment: 'left',
@@ -108,12 +118,12 @@ const DEFAULT_SAMPLE_FIELDS = [
     id: 'durationWeeks',
     label: 'Duration (Weeks)',
     page: 1,
-    x: 280,
-    y: 345,
+    x: 320,
+    y: 350,
     fontSize: 11,
     fontColor: '#334155',
     alignment: 'left',
-    maxWidth: 150,
+    maxWidth: 180,
     isRequired: false
   },
   {
@@ -121,11 +131,11 @@ const DEFAULT_SAMPLE_FIELDS = [
     label: 'Task Review Fee',
     page: 1,
     x: 72,
-    y: 380,
+    y: 420,
     fontSize: 11,
     fontColor: '#334155',
     alignment: 'left',
-    maxWidth: 300,
+    maxWidth: 250,
     isRequired: false
   }
 ];
@@ -507,5 +517,7 @@ module.exports = {
   DEFAULT_SAMPLE_FIELDS,
   generateSampleOfferTemplatePdf,
   validateUploadedOfferPdf,
-  renderOfferPdf
+  renderOfferPdf,
+  validateGlyphsForFont,
+  validateCandidateNameGlyphs
 };

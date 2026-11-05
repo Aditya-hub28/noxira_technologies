@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { api } from '../services/api';
+import { pointToPixel, pixelToPoint } from '../utils/pdfCoordinates';
 import {
   FileText,
   Upload,
@@ -14,6 +17,10 @@ import {
   ExternalLink,
   ChevronRight
 } from 'lucide-react';
+
+if (pdfjsLib.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+}
 
 export default function AdminOfferTemplatesPage() {
   const [templates, setTemplates] = useState([]);
@@ -37,6 +44,12 @@ export default function AdminOfferTemplatesPage() {
   const [activePage, setActivePage] = useState(1);
   const [draggingIndex, setDraggingIndex] = useState(null);
   const canvasRef = useRef(null);
+  const pdfCanvasRef = useRef(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  const pdfDocRef = useRef(null);
+  const loadedTemplateIdRef = useRef(null);
+  const renderTaskRef = useRef(null);
 
   // Activation modal
   const [showActivateModal, setShowActivateModal] = useState(false);
@@ -44,6 +57,14 @@ export default function AdminOfferTemplatesPage() {
 
   // Preview state
   const [previewing, setPreviewing] = useState(false);
+
+  // Resolved dimensions for the currently viewed page
+  const currentPageDimensions =
+    (selectedTemplate?.pageDimensions &&
+      selectedTemplate.pageDimensions.find((p) => p.pageNumber === activePage)) ||
+    { width: 595.28, height: 841.89 };
+  const pageWidth = currentPageDimensions.width || 595.28;
+  const pageHeight = currentPageDimensions.height || 841.89;
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -77,6 +98,81 @@ export default function AdminOfferTemplatesPage() {
     setSaveMessage('');
   };
 
+  useEffect(() => {
+    let isCancelled = false;
+    if (!selectedTemplate?._id) {
+      pdfDocRef.current = null;
+      loadedTemplateIdRef.current = null;
+      return;
+    }
+
+    const loadAndRender = async () => {
+      setPdfLoading(true);
+      setPdfError('');
+
+      try {
+        if (loadedTemplateIdRef.current !== selectedTemplate._id || !pdfDocRef.current) {
+          const res = await api.adminGetOfferTemplatePdf(selectedTemplate._id);
+          if (!res.ok) {
+            throw new Error(`Failed to load template PDF (HTTP ${res.status})`);
+          }
+          const buf = await res.arrayBuffer();
+          if (isCancelled) return;
+          const loadingTask = pdfjsLib.getDocument({ data: buf });
+          const doc = await loadingTask.promise;
+          if (isCancelled) return;
+          pdfDocRef.current = doc;
+          loadedTemplateIdRef.current = selectedTemplate._id;
+        }
+
+        if (pdfDocRef.current && pdfCanvasRef.current) {
+          const page = await pdfDocRef.current.getPage(activePage);
+          if (isCancelled) return;
+
+          if (renderTaskRef.current) {
+            try {
+              renderTaskRef.current.cancel();
+            } catch (_) {}
+          }
+
+          const canvas = pdfCanvasRef.current;
+          const viewport = page.getViewport({ scale: 2 });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+          };
+          const task = page.render(renderContext);
+          renderTaskRef.current = task;
+          await task.promise;
+        }
+      } catch (err) {
+        if (err?.name !== 'RenderingCancelledException' && !isCancelled) {
+          console.error('PDF rendering failed:', err);
+          setPdfError(err.message || 'Failed to render PDF page on canvas.');
+        }
+      } finally {
+        if (!isCancelled) setPdfLoading(false);
+      }
+    };
+
+    loadAndRender();
+
+    return () => {
+      isCancelled = true;
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch (_) {}
+      }
+    };
+  }, [selectedTemplate?._id, activePage]);
+
   const handleFieldChange = (index, key, val) => {
     const updated = [...fields];
     updated[index][key] = val;
@@ -90,11 +186,17 @@ export default function AdminOfferTemplatesPage() {
     const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY);
     if (clientX === undefined || clientY === undefined) return;
 
-    const rawX = ((clientX - rect.left) / rect.width) * 595.28;
-    const rawY = ((clientY - rect.top) / rect.height) * 841.89;
+    const pixelX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const pixelY = Math.max(0, Math.min(rect.height, clientY - rect.top));
 
-    const clampedX = Math.max(10, Math.min(550, Math.round(rawX)));
-    const clampedY = Math.max(10, Math.min(820, Math.round(rawY)));
+    const { x, y } = pixelToPoint(
+      { pixelX, pixelY },
+      { width: pageWidth, height: pageHeight },
+      { width: rect.width, height: rect.height }
+    );
+
+    const clampedX = Math.max(10, Math.min(Math.round(pageWidth - 20), x));
+    const clampedY = Math.max(10, Math.min(Math.round(pageHeight - 20), y));
 
     handleFieldChange(draggingIndex, 'x', clampedX);
     handleFieldChange(draggingIndex, 'y', clampedY);
@@ -398,7 +500,7 @@ export default function AdminOfferTemplatesPage() {
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-700">
                     <Sliders className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Visual A4 Canvas &amp; Drag Placement</span>
+                    <span>Visual Page Canvas &amp; Drag Placement</span>
                   </div>
                   {selectedTemplate.pageCount > 1 && (
                     <div className="flex items-center gap-1 text-[11px]">
@@ -429,14 +531,31 @@ export default function AdminOfferTemplatesPage() {
                     onPointerMove={handleCanvasPointerMove}
                     onPointerUp={handleCanvasPointerUp}
                     onPointerLeave={handleCanvasPointerUp}
-                    className="relative w-full max-w-[340px] aspect-[595.28/841.89] bg-white border-2 border-slate-300 rounded shadow-md overflow-hidden select-none cursor-crosshair"
+                    className="relative w-full max-w-[360px] bg-white border-2 border-slate-300 rounded shadow-md overflow-hidden select-none cursor-crosshair"
                     style={{
-                      backgroundImage: 'radial-gradient(circle, #cbd5e1 0.75px, transparent 0.75px)',
-                      backgroundSize: '16px 16px'
+                      aspectRatio: `${pageWidth} / ${pageHeight}`
                     }}
                   >
-                    <div className="absolute top-2 left-2 text-[9px] font-mono text-slate-400 pointer-events-none">
-                      A4 (595 &times; 842 pt) · Page {activePage}
+                    {/* Underlying PDF page rendering */}
+                    <canvas
+                      ref={pdfCanvasRef}
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                    />
+
+                    {pdfLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-20 text-xs text-slate-600 font-medium">
+                        Loading PDF page {activePage}...
+                      </div>
+                    )}
+
+                    {pdfError && (
+                      <div className="absolute inset-x-2 top-2 z-20 p-2 bg-rose-50 border border-rose-200 rounded text-[11px] text-rose-700">
+                        {pdfError}
+                      </div>
+                    )}
+
+                    <div className="absolute top-2 left-2 text-[9px] font-mono text-slate-600 bg-white/80 px-1.5 py-0.5 rounded shadow-xs pointer-events-none z-10">
+                      {Math.round(pageWidth)} &times; {Math.round(pageHeight)} pt · Page {activePage}
                     </div>
 
                     {fields
@@ -444,9 +563,9 @@ export default function AdminOfferTemplatesPage() {
                       .filter((f) => (f.page || 1) === activePage)
                       .map((f) => {
                         const isSelected = selectedFieldIndex === f.origIdx;
-                        const leftPercent = (f.x / 595.28) * 100;
-                        const topPercent = (f.y / 841.89) * 100;
-                        const widthPercent = Math.min(100 - leftPercent, ((f.maxWidth || 400) / 595.28) * 100);
+                        const leftPercent = (f.x / pageWidth) * 100;
+                        const topPercent = (f.y / pageHeight) * 100;
+                        const widthPercent = Math.min(100 - leftPercent, ((f.maxWidth || 400) / pageWidth) * 100);
 
                         return (
                           <div
@@ -461,7 +580,7 @@ export default function AdminOfferTemplatesPage() {
                               top: `${topPercent}%`,
                               width: `${widthPercent}%`
                             }}
-                            className={`absolute -translate-y-1/2 p-1 rounded border text-[10px] font-mono select-none transition-shadow ${
+                            className={`absolute p-1 rounded border text-[10px] font-mono select-none transition-shadow ${
                               isSelected
                                 ? 'bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-300 z-30'
                                 : 'bg-white/95 text-slate-800 border-slate-300 shadow-xs hover:border-amber-400 z-10'
@@ -484,10 +603,10 @@ export default function AdminOfferTemplatesPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                    Numeric Field Coordinate Mappings (A4 Points)
+                    Numeric Field Coordinate Mappings ({Math.round(pageWidth)} &times; {Math.round(pageHeight)} pt)
                   </h3>
                   <span className="text-[11px] text-slate-400">
-                    A4 page size: 595 &times; 842 pt
+                    Page size: {Math.round(pageWidth)} &times; {Math.round(pageHeight)} pt
                   </span>
                 </div>
 

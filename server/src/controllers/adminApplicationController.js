@@ -5,6 +5,7 @@ const OfferDeliveryJob = require('../models/OfferDeliveryJob');
 const OfferLetterTemplate = require('../models/OfferLetterTemplate');
 const AuditLog = require('../models/AuditLog');
 const offerService = require('../services/offerService');
+const offerPdfService = require('../services/offerPdfService');
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -479,7 +480,21 @@ exports.getBlockedPreview = async (req, res, next) => {
  */
 exports.sendBlockedApplications = async (req, res, next) => {
   try {
-    const { programCode, batchId } = req.body || {};
+    const { applicationIds } = req.body || {};
+
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'applicationIds must be a non-empty array of confirmed candidate IDs.'
+      });
+    }
+
+    if (applicationIds.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum 100 application IDs allowed per batch unblock request.'
+      });
+    }
 
     const activeTemplate = await OfferLetterTemplate.findOne({ isActive: true, isSample: false });
     if (!activeTemplate) {
@@ -489,24 +504,26 @@ exports.sendBlockedApplications = async (req, res, next) => {
       });
     }
 
-    const query = {
-      status: 'APPROVED',
-      $or: [
-        { offerState: 'BLOCKED_TEMPLATE' },
-        { offerDeliveryState: 'BLOCKED_TEMPLATE' }
-      ]
-    };
-
-    if (programCode) query.programCode = programCode.trim().toUpperCase();
-    if (batchId) query.batchId = batchId.trim().toUpperCase();
-
-    const blockedApps = await Application.find(query).limit(100);
-
+    const requestedIds = applicationIds.map((id) => String(id).trim().toUpperCase());
     const results = [];
-    for (const app of blockedApps) {
+
+    for (const appId of requestedIds) {
+      const app = await Application.findOne({ applicationId: appId });
+      if (!app) {
+        results.push({ applicationId: appId, status: 'SKIPPED', reason: 'Application not found' });
+        continue;
+      }
+      if (app.status !== 'APPROVED') {
+        results.push({ applicationId: appId, status: 'SKIPPED', reason: `Status is ${app.status}, must be APPROVED` });
+        continue;
+      }
+      const isBlocked = app.offerState === 'BLOCKED_TEMPLATE' || app.offerDeliveryState === 'BLOCKED_TEMPLATE';
+      if (!isBlocked) {
+        results.push({ applicationId: appId, status: 'SKIPPED', reason: `Offer state is ${app.offerState || 'NONE'}, not BLOCKED_TEMPLATE` });
+        continue;
+      }
+
       try {
-        // Regenerate with the now-active non-sample template
-        // Reset state so generateOfferForApplication regenerates with the real template
         app.offerState = 'GENERATING';
         await app.save();
 
@@ -521,19 +538,174 @@ exports.sendBlockedApplications = async (req, res, next) => {
       }
     }
 
+    const processedCount = results.filter((r) => r.status === 'PROCESSED').length;
+    const skippedCount = results.filter((r) => r.status === 'SKIPPED').length;
+    const failedCount = results.filter((r) => r.status === 'FAILED').length;
+
     await AuditLog.create({
       actorId: req.admin._id,
       actorType: 'ADMIN',
       action: 'UNBLOCK_APPLICATIONS_DELIVERY',
       targetEntity: 'OFFER_DELIVERY_JOB',
-      summary: `Unblocked and processed ${results.filter(r => r.status === 'PROCESSED').length} applications using template v${activeTemplate.version}`
+      summary: `Unblocked and processed ${processedCount} applications using template v${activeTemplate.version}`
     });
 
     res.json({
       success: true,
-      processedCount: results.filter((r) => r.status === 'PROCESSED').length,
-      failedCount: results.filter((r) => r.status === 'FAILED').length,
+      processedCount,
+      skippedCount,
+      failedCount,
       results
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retries offer generation and delivery for an APPROVED application with a FAILED offer state.
+ */
+exports.retryOffer = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const cleanId = id.trim().toUpperCase();
+
+    const application = await Application.findOne({
+      $or: [{ applicationId: cleanId }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }]
+    }).populate('participantId');
+
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    if (application.status !== 'APPROVED') {
+      return res.status(409).json({
+        success: false,
+        message: `Only APPROVED applications can have offer generation retried (current status: ${application.status}).`
+      });
+    }
+
+    const isFailed = application.offerState === 'FAILED' || application.offerDeliveryState === 'FAILED';
+    if (!isFailed) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot retry offer: Application offer state is not FAILED (current state: ${application.offerState || application.offerDeliveryState}).`
+      });
+    }
+
+    // Reset failure state and re-attempt generation
+    application.offerState = 'GENERATING';
+    application.offerError = undefined;
+    await application.save();
+
+    const offerResult = await offerService.generateOfferForApplication(application.applicationId, { forceRegenerate: true });
+    if (offerResult && offerResult.deliveryJob && !offerResult.isSample) {
+      await offerService.processOfferDeliveryJob(offerResult.deliveryJob._id);
+    }
+
+    const updatedApp = await Application.findById(application._id).populate('participantId');
+
+    await AuditLog.create({
+      actorId: req.admin._id,
+      actorType: 'ADMIN',
+      action: 'OFFER_RETRY',
+      targetEntity: 'APPLICATION',
+      targetId: application._id,
+      summary: `Admin retried offer generation for application ${application.applicationId}`
+    });
+
+    res.json({
+      success: true,
+      message: `Offer generation retried successfully for ${application.applicationId}.`,
+      application: updatedApp,
+      offerResult
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Corrects candidate legal name on an APPROVED application whose offer generation FAILED.
+ * Validates non-empty, trimmed, length capped, and glyph check before saving.
+ */
+exports.correctCandidateName = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { fullName } = req.body;
+    const cleanId = id.trim().toUpperCase();
+
+    const application = await Application.findOne({
+      $or: [{ applicationId: cleanId }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }]
+    }).populate('participantId');
+
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    if (application.status !== 'APPROVED') {
+      return res.status(409).json({
+        success: false,
+        message: 'Candidate name can only be corrected for APPROVED applications with a FAILED offer.'
+      });
+    }
+
+    const isFailed = application.offerState === 'FAILED' || application.offerDeliveryState === 'FAILED';
+    if (!isFailed) {
+      return res.status(409).json({
+        success: false,
+        message: 'Candidate name can only be corrected for applications with a FAILED offer.'
+      });
+    }
+
+    if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'fullName is required and cannot be empty.'
+      });
+    }
+
+    const cleanName = fullName.trim();
+    if (cleanName.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'fullName cannot exceed 100 characters.'
+      });
+    }
+
+    // Run glyph check to ensure the new name can be rendered
+    try {
+      offerPdfService.validateCandidateNameGlyphs(cleanName);
+    } catch (glyphErr) {
+      return res.status(400).json({
+        success: false,
+        message: glyphErr.message
+      });
+    }
+
+    const participant = await Participant.findById(application.participantId._id || application.participantId);
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'Participant record not found' });
+    }
+
+    const oldName = participant.fullName;
+    participant.fullName = cleanName;
+    participant.normalizedName = cleanName.toLowerCase().trim();
+    await participant.save();
+
+    await AuditLog.create({
+      actorId: req.admin._id,
+      actorType: 'ADMIN',
+      action: 'CANDIDATE_NAME_CORRECTED',
+      targetEntity: 'PARTICIPANT',
+      targetId: participant._id,
+      summary: `Corrected candidate name for application ${application.applicationId} from "${oldName}" to "${cleanName}"`
+    });
+
+    res.json({
+      success: true,
+      message: `Candidate name corrected from "${oldName}" to "${cleanName}".`,
+      fullName: cleanName
     });
   } catch (error) {
     next(error);

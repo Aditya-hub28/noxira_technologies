@@ -231,6 +231,7 @@ async function generateOfferForApplication(applicationId, options = {}) {
 
     application.offerState = 'FAILED';
     application.offerDeliveryState = 'FAILED';
+    application.offerError = err.message;
     await application.save();
 
     throw err;
@@ -281,9 +282,12 @@ async function processOfferDeliveryJob(jobId) {
   const { token } = createOfferDownloadToken(offerLetter._id, job.applicationId, offerLetter.downloadToken);
   const downloadUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/api/v1/offers/download/${token}`;
 
-  const fromSender = env.SMTP && env.SMTP.FROM;
+  let fromSender = env.SMTP && env.SMTP.FROM;
   if (!fromSender || !fromSender.trim()) {
-    throw new Error('[CONFIGURATION_ERROR] Configured sender address (SMTP_FROM) is required for sending offer emails.');
+    if (env.NODE_ENV === 'production') {
+      throw new Error('[CONFIGURATION_ERROR] Configured sender address (SMTP_FROM) is required for sending offer emails.');
+    }
+    fromSender = 'NOXIRA Dev Mock <mock@localhost.invalid>';
   }
 
   const safeAppId = escapeHtml(application.applicationId);
@@ -293,26 +297,80 @@ async function processOfferDeliveryJob(jobId) {
   // Attach personalized offer letter PDF for custom templates
   const isCustom = template && !template.isSample;
   const attachments = [];
-  if (isCustom && offerLetter.pdfPath && fs.existsSync(offerLetter.pdfPath)) {
+  let hasAttachment = false;
+
+  if (isCustom) {
+    if (!offerLetter.pdfPath || !fs.existsSync(offerLetter.pdfPath)) {
+      job.status = 'FAILED';
+      job.lastError = 'OFFER_PDF_MISSING: Stored offer letter PDF file does not exist on disk';
+      job.lastAttemptAt = new Date();
+      await job.save();
+
+      application.offerDeliveryState = 'FAILED';
+      application.offerError = job.lastError;
+      await application.save();
+
+      return { success: false, reason: job.lastError };
+    }
+
+    const stat = fs.statSync(offerLetter.pdfPath);
+    if (stat.size === 0) {
+      job.status = 'FAILED';
+      job.lastError = 'OFFER_PDF_EMPTY: Stored offer letter PDF file is 0 bytes';
+      job.lastAttemptAt = new Date();
+      await job.save();
+
+      application.offerDeliveryState = 'FAILED';
+      application.offerError = job.lastError;
+      await application.save();
+
+      return { success: false, reason: job.lastError };
+    }
+
+    if (offerLetter.pdfSha256 && offerLetter.pdfSha256 !== 'pending') {
+      const fileBytes = fs.readFileSync(offerLetter.pdfPath);
+      const computedHash = crypto.createHash('sha256').update(fileBytes).digest('hex');
+      if (computedHash !== offerLetter.pdfSha256) {
+        job.status = 'FAILED';
+        job.lastError = 'OFFER_PDF_HASH_MISMATCH: Stored PDF SHA256 does not match recorded offer snapshot';
+        job.lastAttemptAt = new Date();
+        await job.save();
+
+        application.offerDeliveryState = 'FAILED';
+        application.offerError = job.lastError;
+        await application.save();
+
+        return { success: false, reason: job.lastError };
+      }
+    }
+
     const safeFilename = `NOXIRA_Offer_${application.applicationId.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
     attachments.push({
       filename: safeFilename,
       path: offerLetter.pdfPath,
       contentType: 'application/pdf'
     });
+    hasAttachment = true;
   }
+
+  const attachNoticeText = hasAttachment
+    ? 'Your official offer letter is attached to this email. You can also access your offer letter at the secure link below:'
+    : 'You can access your official offer letter at the secure link below:';
+  const attachNoticeHtml = hasAttachment
+    ? '<p>Your official offer letter is attached to this email as a PDF document. You can also view or download it directly using the secure link below:</p>'
+    : '<p>You can view or download your official offer letter directly using the secure link below:</p>';
 
   const mailOptions = {
     from: fromSender.trim(),
     to: job.recipientEmail,
     subject: `NOXIRA Internship Offer: ${application.programTitle || application.programCode}`,
-    text: `Congratulations ${offerLetter.recipientSnapshot?.fullName || 'Candidate'}!\n\nYour application ${application.applicationId} for ${application.programTitle || application.programCode} has been approved.\n\nYour official offer letter is attached to this email. You can also access your offer letter at the secure link below:\n${downloadUrl}\n\nNote: This secure link is valid for 72 hours.`,
+    text: `Congratulations ${offerLetter.recipientSnapshot?.fullName || 'Candidate'}!\n\nYour application ${application.applicationId} for ${application.programTitle || application.programCode} has been approved.\n\n${attachNoticeText}\n${downloadUrl}\n\nNote: This secure link is valid for 72 hours.`,
     html: `
       <div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;">
         <h2>NOXIRA Internship Offer</h2>
         <p>Dear <strong>${safeCandidateName}</strong>,</p>
         <p>Congratulations! Your application (<strong>${safeAppId}</strong>) for <strong>${safeProgram}</strong> has been approved.</p>
-        <p>Your official offer letter is attached to this email as a PDF document. You can also view or download it directly using the secure link below:</p>
+        ${attachNoticeHtml}
         <p><a href="${downloadUrl}" style="background-color: #0f172a; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block;">Download Offer Letter (PDF)</a></p>
         <p style="font-size: 13px; color: #64748b;">This secure download link is valid for 72 hours.</p>
       </div>
