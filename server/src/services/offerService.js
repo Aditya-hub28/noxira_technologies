@@ -13,11 +13,15 @@ const storageService = require('./storageService');
 const offerPdfService = require('./offerPdfService');
 const nodemailer = require('nodemailer');
 
-let transporter = null;
+let customTransporter = null;
 let lastCapturedOfferMail = null;
 
 function getLastCapturedOfferMail() {
   return lastCapturedOfferMail;
+}
+
+function clearLastCapturedOfferMail() {
+  lastCapturedOfferMail = null;
 }
 
 function escapeHtml(str) {
@@ -30,48 +34,110 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-function getOfferTransporter() {
-  if (!transporter) {
-    if (env.NODE_ENV === 'production') {
-      if (!env.SMTP.USER || !env.SMTP.PASS || env.SMTP.HOST === 'smtp.ethereal.email' || env.SMTP.USER === 'test@example.com') {
-        throw new Error('[CRITICAL] SMTP transporter unconfigured or using insecure placeholders in production mode.');
-      }
-      transporter = nodemailer.createTransport({
-        host: env.SMTP.HOST,
-        port: env.SMTP.PORT,
-        secure: env.SMTP.PORT === 465,
-        auth: {
-          user: env.SMTP.USER,
-          pass: env.SMTP.PASS
-        }
-      });
-    } else if (process.env.NODE_ENV !== 'test' && env.SMTP.USER && env.SMTP.PASS && env.SMTP.USER !== 'test@example.com') {
-      transporter = nodemailer.createTransport({
-        host: env.SMTP.HOST,
-        port: env.SMTP.PORT,
-        secure: env.SMTP.PORT === 465,
-        auth: {
-          user: env.SMTP.USER,
-          pass: env.SMTP.PASS
-        }
-      });
-    } else {
-      transporter = {
-        sendMail: async (mailOptions) => {
-          lastCapturedOfferMail = mailOptions;
-          return {
-            messageId: `mock-offer-msg-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
-            response: '250 OK: Simulated offer email acceptance'
-          };
-        }
-      };
-    }
+/**
+ * Single source of truth predicate deciding offer email dispatch mode & transport type.
+ * Used by getOfferTransporter(), getOfferDispatchMode(), and test suites.
+ */
+function resolveOfferDispatchMode(envConfig = env, recipientEmail = '', activeTemplate = undefined) {
+  // 1. Template check: If activeTemplate is supplied and is missing or a sample template, delivery is BLOCKED
+  if (activeTemplate !== undefined && (!activeTemplate || activeTemplate.isSample)) {
+    return {
+      mode: 'BLOCKED',
+      transportType: 'BLOCKED',
+      canSend: false,
+      isProductionInvalid: false,
+      line: 'Sending is currently blocked - the retry will stay queued until a custom offer template is activated',
+      reason: 'No custom offer template is active',
+      activeTemplate: activeTemplate ? { name: activeTemplate.name, version: activeTemplate.version, isSample: true } : null
+    };
   }
-  return transporter;
+
+  const isProd = envConfig.NODE_ENV === 'production';
+  const smtp = envConfig.SMTP || {};
+  const host = (smtp.HOST || '').trim();
+  const user = (smtp.USER || '').trim();
+  const pass = (smtp.PASS || '').trim();
+
+  // 2. Empty, missing, or placeholder SMTP credentials MUST default to simulated mock
+  const isPlaceholderOrEmpty = (
+    !user ||
+    !pass ||
+    user === 'test@example.com' ||
+    pass === 'password'
+  );
+
+  if (isPlaceholderOrEmpty) {
+    return {
+      mode: 'SIMULATED',
+      transportType: 'MOCK',
+      canSend: true,
+      isProductionInvalid: isProd,
+      line: 'Email sending is currently simulated - no real email will be sent',
+      activeTemplate: activeTemplate ? { name: activeTemplate.name, version: activeTemplate.version, isSample: false } : undefined
+    };
+  }
+
+  // 3. Ethereal host with non-placeholder credentials is an external test capture service
+  if (host === 'smtp.ethereal.email') {
+    return {
+      mode: 'EXTERNAL_TEST',
+      transportType: 'ETHEREAL',
+      canSend: true,
+      isProductionInvalid: isProd,
+      line: 'Email will be sent to an external test capture service (Ethereal) - the candidate will not receive it in their inbox.',
+      activeTemplate: activeTemplate ? { name: activeTemplate.name, version: activeTemplate.version, isSample: false } : undefined
+    };
+  }
+
+  // 4. Live external SMTP dispatch
+  return {
+    mode: 'LIVE',
+    transportType: 'REAL',
+    canSend: true,
+    isProductionInvalid: false,
+    line: recipientEmail ? `A real email will be sent to ${recipientEmail}` : 'A real email will be sent to the recipient email address',
+    activeTemplate: activeTemplate ? { name: activeTemplate.name, version: activeTemplate.version, isSample: false } : undefined
+  };
 }
 
-function setOfferTransporter(customTransporter) {
-  transporter = customTransporter;
+function getOfferTransporter(customEnv = env) {
+  if (customTransporter) {
+    return customTransporter;
+  }
+
+  const dispatch = resolveOfferDispatchMode(customEnv);
+
+  if (dispatch.isProductionInvalid) {
+    throw new Error('[CRITICAL] SMTP transporter unconfigured or using insecure placeholders in production mode.');
+  }
+
+  if (dispatch.transportType === 'REAL' || dispatch.transportType === 'ETHEREAL') {
+    return nodemailer.createTransport({
+      host: customEnv.SMTP.HOST,
+      port: customEnv.SMTP.PORT,
+      secure: customEnv.SMTP.PORT === 465,
+      auth: {
+        user: customEnv.SMTP.USER,
+        pass: customEnv.SMTP.PASS
+      }
+    });
+  }
+
+  // MOCK transport (SIMULATED mode)
+  return {
+    isMock: true,
+    sendMail: async (mailOptions) => {
+      lastCapturedOfferMail = mailOptions;
+      return {
+        messageId: `mock-offer-msg-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+        response: '250 OK: Simulated offer email acceptance'
+      };
+    }
+  };
+}
+
+function setOfferTransporter(transporterInstance) {
+  customTransporter = transporterInstance;
 }
 
 /**
@@ -490,48 +556,16 @@ async function renewOfferDownloadLink(offerLetterId, adminId) {
 }
 
 /**
- * Resolves current server-side offer dispatch mode (LIVE, SIMULATED, or BLOCKED).
+ * Resolves current server-side offer dispatch mode (LIVE, EXTERNAL_TEST, SIMULATED, or BLOCKED).
+ * Single source of truth driven by resolveOfferDispatchMode.
  */
-async function getOfferDispatchMode(recipientEmail = '') {
-  const activeTemplate = await OfferLetterTemplate.findOne({ isActive: true }).lean();
+async function getOfferDispatchMode(recipientEmail = '', options = {}) {
+  const activeTemplate = options.template !== undefined
+    ? options.template
+    : await OfferLetterTemplate.findOne({ isActive: true }).lean();
 
-  if (!activeTemplate || activeTemplate.isSample) {
-    return {
-      mode: 'BLOCKED',
-      canSend: false,
-      line: 'Sending is currently blocked - the retry will stay queued until a custom offer template is activated',
-      reason: 'No custom offer template is active',
-      activeTemplate: activeTemplate ? { name: activeTemplate.name, version: activeTemplate.version, isSample: true } : null
-    };
-  }
-
-  const isProd = env.NODE_ENV === 'production';
-  const hasRealSmtp = Boolean(
-    env.SMTP &&
-    env.SMTP.USER &&
-    env.SMTP.PASS &&
-    env.SMTP.USER !== 'test@example.com' &&
-    env.SMTP.PASS !== 'password' &&
-    env.SMTP.HOST !== 'smtp.ethereal.email'
-  );
-
-  const isLive = isProd || (process.env.NODE_ENV !== 'test' && hasRealSmtp);
-
-  if (isLive) {
-    return {
-      mode: 'LIVE',
-      canSend: true,
-      line: recipientEmail ? `A real email will be sent to ${recipientEmail}` : 'A real email will be sent to the recipient email address',
-      activeTemplate: { name: activeTemplate.name, version: activeTemplate.version, isSample: false }
-    };
-  }
-
-  return {
-    mode: 'SIMULATED',
-    canSend: true,
-    line: 'Email sending is currently simulated - no real email will be sent',
-    activeTemplate: { name: activeTemplate.name, version: activeTemplate.version, isSample: false }
-  };
+  const envConfig = options.envConfig || env;
+  return resolveOfferDispatchMode(envConfig, recipientEmail, activeTemplate);
 }
 
 module.exports = {
@@ -543,6 +577,8 @@ module.exports = {
   getOfferTransporter,
   setOfferTransporter,
   getLastCapturedOfferMail,
+  clearLastCapturedOfferMail,
   getOfferDispatchMode,
+  resolveOfferDispatchMode,
   escapeHtml
 };

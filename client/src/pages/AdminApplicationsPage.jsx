@@ -287,10 +287,15 @@ export default function AdminApplicationsPage() {
       // Format honest, truthful outcome line
       const deliveryState = res.deliveryOutcome || res.application?.offerDeliveryState;
       const recipientEmail = res.application?.participantId?.email || '';
+      const mode = res.dispatchMode?.mode;
       let outcomeMessage = '';
 
       if (deliveryState === 'PROVIDER_ACCEPTED') {
-        outcomeMessage = `Offer regenerated successfully. Real email dispatched to ${recipientEmail || 'candidate'}.`;
+        if (mode === 'EXTERNAL_TEST') {
+          outcomeMessage = 'Offer regenerated successfully. Email dispatched to external test capture service (Ethereal) - the candidate will not receive it in their inbox.';
+        } else {
+          outcomeMessage = `Offer regenerated successfully. Real email dispatched to ${recipientEmail || 'candidate'}.`;
+        }
       } else if (deliveryState === 'SIMULATED') {
         outcomeMessage = 'Offer regenerated successfully. Email sending was simulated (development mock mode) - no real email was sent.';
       } else if (deliveryState === 'BLOCKED_TEMPLATE') {
@@ -305,6 +310,7 @@ export default function AdminApplicationsPage() {
         type: deliveryState === 'FAILED' ? 'error' : 'success',
         applicationId: appId,
         outcome: deliveryState,
+        mode,
         message: outcomeMessage
       });
     } catch (err) {
@@ -428,6 +434,8 @@ export default function AdminApplicationsPage() {
             ? 'bg-rose-50 border-rose-200 text-rose-900'
             : retryFeedback.outcome === 'BLOCKED_TEMPLATE'
             ? 'bg-purple-50 border-purple-200 text-purple-900'
+            : retryFeedback.mode === 'EXTERNAL_TEST'
+            ? 'bg-blue-50 border-blue-200 text-blue-900'
             : retryFeedback.outcome === 'SIMULATED'
             ? 'bg-teal-50 border-teal-200 text-teal-900'
             : 'bg-emerald-50 border-emerald-200 text-emerald-900'
@@ -1088,6 +1096,8 @@ export default function AdminApplicationsPage() {
                         ? 'bg-rose-50 border-rose-200 text-rose-900'
                         : retryFeedback.outcome === 'BLOCKED_TEMPLATE'
                         ? 'bg-purple-50 border-purple-200 text-purple-900'
+                        : retryFeedback.mode === 'EXTERNAL_TEST'
+                        ? 'bg-blue-50 border-blue-200 text-blue-900'
                         : retryFeedback.outcome === 'SIMULATED'
                         ? 'bg-teal-50 border-teal-200 text-teal-900'
                         : 'bg-emerald-50 border-emerald-200 text-emerald-900'
@@ -1333,18 +1343,18 @@ export default function AdminApplicationsPage() {
             </div>
 
             {/* Recipient, Programme, and Application ID details */}
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Application ID:</span>
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center gap-3">
+                <span className="text-slate-500 shrink-0">Application ID:</span>
                 <span className="font-mono font-bold text-slate-900">{retryConfirmModal.app?.applicationId}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Recipient Email:</span>
-                <span className="font-semibold text-slate-900">{retryConfirmModal.app?.participantId?.email || 'N/A'}</span>
+              <div className="flex justify-between items-center gap-3">
+                <span className="text-slate-500 shrink-0">Recipient Email:</span>
+                <span className="font-semibold text-slate-900 break-all text-right">{retryConfirmModal.app?.participantId?.email || 'N/A'}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Programme:</span>
-                <span className="font-semibold text-slate-900 text-right truncate max-w-[220px]" title={retryConfirmModal.app?.programTitle || retryConfirmModal.app?.programCode}>
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-slate-500 shrink-0 mt-0.5">Programme:</span>
+                <span className="font-semibold text-slate-900 text-right break-words leading-relaxed flex-1">
                   {retryConfirmModal.app?.programTitle || retryConfirmModal.app?.programCode || 'N/A'}
                 </span>
               </div>
@@ -1360,12 +1370,16 @@ export default function AdminApplicationsPage() {
               <div className={`p-3 rounded-lg border text-xs flex items-start gap-2 ${
                 retryConfirmModal.dispatchMode.mode === 'LIVE'
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : retryConfirmModal.dispatchMode.mode === 'EXTERNAL_TEST'
+                  ? 'bg-blue-50 border-blue-200 text-blue-900'
                   : retryConfirmModal.dispatchMode.mode === 'SIMULATED'
                   ? 'bg-teal-50 border-teal-200 text-teal-900'
                   : 'bg-amber-50 border-amber-200 text-amber-900'
               }`}>
                 {retryConfirmModal.dispatchMode.mode === 'LIVE' ? (
                   <Send className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : retryConfirmModal.dispatchMode.mode === 'EXTERNAL_TEST' ? (
+                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                 ) : retryConfirmModal.dispatchMode.mode === 'SIMULATED' ? (
                   <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                 ) : (
@@ -1375,16 +1389,14 @@ export default function AdminApplicationsPage() {
                   <span className="font-bold block">
                     {retryConfirmModal.dispatchMode.mode === 'LIVE'
                       ? 'Live Email Dispatch'
+                      : retryConfirmModal.dispatchMode.mode === 'EXTERNAL_TEST'
+                      ? 'External Test Capture (Ethereal)'
                       : retryConfirmModal.dispatchMode.mode === 'SIMULATED'
                       ? 'Simulated Mock Mode'
                       : 'Delivery Blocked'}
                   </span>
                   <p className="text-[11px] leading-relaxed">
-                    {retryConfirmModal.dispatchMode.mode === 'LIVE'
-                      ? `A real email will be sent to ${retryConfirmModal.app?.participantId?.email || 'the recipient'}`
-                      : retryConfirmModal.dispatchMode.mode === 'SIMULATED'
-                      ? 'Email sending is currently simulated - no real email will be sent'
-                      : (retryConfirmModal.dispatchMode.line || 'Sending is currently blocked - the retry will stay queued until a custom offer template is activated')}
+                    {retryConfirmModal.dispatchMode.line}
                   </p>
                 </div>
               </div>

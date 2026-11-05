@@ -2637,9 +2637,11 @@ async function runTestSuite() {
       await OfferLetterTemplate.updateOne({ _id: activeCustom._id }, { $set: { isActive: true } });
     }
 
-    // 4. In production mode with configured SMTP, dispatchMode resolves to LIVE with recipient email
+    // 4. In production mode with configured real SMTP, dispatchMode resolves to LIVE with recipient email
     const origEnv = env.NODE_ENV;
+    const origSmtp = { ...env.SMTP };
     env.NODE_ENV = 'production';
+    env.SMTP = { HOST: 'smtp.sendgrid.net', USER: 'prod_user', PASS: 'prod_pass', FROM: 'admissions@noxira.com' };
     try {
       const liveMode = await offerService.getOfferDispatchMode('test.applicant@example.com');
       assert.strictEqual(liveMode.mode, 'LIVE');
@@ -2647,6 +2649,178 @@ async function runTestSuite() {
       assert.strictEqual(liveMode.line, 'A real email will be sent to test.applicant@example.com');
     } finally {
       env.NODE_ENV = origEnv;
+      env.SMTP = origSmtp;
+    }
+  });
+
+  // TEST 29: Dispatch Mode Single Source of Truth: Proves label can never diverge from actual transport behavior across (a)-(f)
+  await test('Dispatch Mode Single Source of Truth: Deterministic zero-network verification across configs (a)-(f)', async () => {
+    const nodemailer = require('nodemailer');
+    const origCreateTransport = nodemailer.createTransport;
+    const createdTransports = [];
+
+    nodemailer.createTransport = (opts) => {
+      const stub = {
+        isNodemailerStub: true,
+        opts,
+        sendMail: async (mailOptions) => ({
+          messageId: `stub-msg-${Date.now()}`,
+          response: '250 OK: Stub transport response'
+        })
+      };
+      createdTransports.push(stub);
+      return stub;
+    };
+
+    const activeCustomTemplate = {
+      _id: new mongoose.Types.ObjectId(),
+      name: 'Custom Offer Letter',
+      version: 2,
+      isSample: false,
+      isActive: true
+    };
+    const sampleTemplate = {
+      _id: new mongoose.Types.ObjectId(),
+      name: 'Sample Letter',
+      version: 1,
+      isSample: true,
+      isActive: true
+    };
+
+    try {
+      // (a) Empty SMTP -> mock + SIMULATED
+      const envA = {
+        NODE_ENV: 'development',
+        SMTP: { HOST: '', PORT: 587, USER: '', PASS: '', FROM: '' }
+      };
+      const modeA = await offerService.getOfferDispatchMode('test@example.com', { envConfig: envA, template: activeCustomTemplate });
+      assert.strictEqual(modeA.mode, 'SIMULATED');
+      assert.strictEqual(modeA.canSend, true);
+      assert.strictEqual(modeA.line, 'Email sending is currently simulated - no real email will be sent');
+
+      offerService.clearLastCapturedOfferMail();
+      const transportA = offerService.getOfferTransporter(envA);
+      const sendResA = await transportA.sendMail({ to: 'candidateA@noxira.com', subject: 'Offer A' });
+      assert.ok(sendResA.messageId.startsWith('mock-'), 'Must use mock transporter for empty SMTP');
+      assert.strictEqual(offerService.getLastCapturedOfferMail().to, 'candidateA@noxira.com');
+      assert.strictEqual(offerService.getLastCapturedOfferMail().subject, 'Offer A');
+      assert.strictEqual(modeA.transportType, 'MOCK');
+
+      // (b) USER test@example.com -> mock + SIMULATED
+      const envB = {
+        NODE_ENV: 'development',
+        SMTP: { HOST: 'smtp.sendgrid.net', PORT: 587, USER: 'test@example.com', PASS: 'secret123', FROM: 'admissions@noxira.com' }
+      };
+      const modeB = await offerService.getOfferDispatchMode('test@example.com', { envConfig: envB, template: activeCustomTemplate });
+      assert.strictEqual(modeB.mode, 'SIMULATED');
+      assert.strictEqual(modeB.canSend, true);
+      assert.strictEqual(modeB.line, 'Email sending is currently simulated - no real email will be sent');
+
+      offerService.clearLastCapturedOfferMail();
+      const transportB = offerService.getOfferTransporter(envB);
+      const sendResB = await transportB.sendMail({ to: 'candidateB@noxira.com', subject: 'Offer B' });
+      assert.ok(sendResB.messageId.startsWith('mock-'), 'Must use mock transporter for test@example.com');
+      assert.strictEqual(offerService.getLastCapturedOfferMail().to, 'candidateB@noxira.com');
+      assert.strictEqual(modeB.transportType, 'MOCK');
+
+      // (c) PASS 'password' placeholder with any other user -> mock + SIMULATED (mismatch A fix)
+      const envC = {
+        NODE_ENV: 'development',
+        SMTP: { HOST: 'smtp.gmail.com', PORT: 587, USER: 'u@gmail.com', PASS: 'password', FROM: 'admissions@noxira.com' }
+      };
+      const modeC = await offerService.getOfferDispatchMode('test@example.com', { envConfig: envC, template: activeCustomTemplate });
+      assert.strictEqual(modeC.mode, 'SIMULATED');
+      assert.strictEqual(modeC.canSend, true);
+      assert.strictEqual(modeC.line, 'Email sending is currently simulated - no real email will be sent');
+
+      offerService.clearLastCapturedOfferMail();
+      const countBeforeC = createdTransports.length;
+      const transportC = offerService.getOfferTransporter(envC);
+      const sendResC = await transportC.sendMail({ to: 'candidateC@noxira.com', subject: 'Offer C' });
+      assert.ok(sendResC.messageId.startsWith('mock-'), 'Must use mock transporter for password placeholder');
+      assert.strictEqual(createdTransports.length, countBeforeC, 'Must NOT create real nodemailer transport when PASS is password');
+      assert.strictEqual(offerService.getLastCapturedOfferMail().to, 'candidateC@noxira.com');
+      assert.strictEqual(modeC.transportType, 'MOCK');
+
+      // (d) smtp.ethereal.email host with real-looking credentials -> Ethereal transport + EXTERNAL_TEST
+      const envD = {
+        NODE_ENV: 'development',
+        SMTP: { HOST: 'smtp.ethereal.email', PORT: 587, USER: 'ethereal.user.1@ethereal.email', PASS: 'ethereal_secret', FROM: 'admissions@noxira.com' }
+      };
+      const modeD = await offerService.getOfferDispatchMode('test@example.com', { envConfig: envD, template: activeCustomTemplate });
+      assert.strictEqual(modeD.mode, 'EXTERNAL_TEST');
+      assert.strictEqual(modeD.canSend, true);
+      assert.strictEqual(modeD.transportType, 'ETHEREAL');
+      assert.ok(modeD.line.includes('Ethereal'));
+      assert.strictEqual(modeD.line, 'Email will be sent to an external test capture service (Ethereal) - the candidate will not receive it in their inbox.');
+      assert.ok(!modeD.line.toLowerCase().includes('no real email will be sent'), 'Ethereal must not claim no real email will be sent');
+
+      const countBeforeD = createdTransports.length;
+      const transportD = offerService.getOfferTransporter(envD);
+      assert.ok(transportD.isNodemailerStub, 'Must create nodemailer transport for Ethereal');
+      assert.strictEqual(createdTransports.length, countBeforeD + 1);
+      assert.strictEqual(createdTransports[createdTransports.length - 1].opts.host, 'smtp.ethereal.email');
+      assert.strictEqual(createdTransports[createdTransports.length - 1].opts.auth.user, 'ethereal.user.1@ethereal.email');
+
+      // (e) full real SMTP in development -> real transport + LIVE
+      const envE = {
+        NODE_ENV: 'development',
+        SMTP: { HOST: 'smtp.sendgrid.net', PORT: 587, USER: 'apikey', PASS: 'SG.realKey123', FROM: 'admissions@noxira.com' }
+      };
+      const modeE = await offerService.getOfferDispatchMode('candidateE@noxira.com', { envConfig: envE, template: activeCustomTemplate });
+      assert.strictEqual(modeE.mode, 'LIVE');
+      assert.strictEqual(modeE.canSend, true);
+      assert.strictEqual(modeE.transportType, 'REAL');
+      assert.strictEqual(modeE.line, 'A real email will be sent to candidateE@noxira.com');
+
+      const countBeforeE = createdTransports.length;
+      const transportE = offerService.getOfferTransporter(envE);
+      assert.ok(transportE.isNodemailerStub, 'Must create real nodemailer transport for live SMTP');
+      assert.strictEqual(createdTransports.length, countBeforeE + 1);
+      assert.strictEqual(createdTransports[createdTransports.length - 1].opts.host, 'smtp.sendgrid.net');
+      assert.strictEqual(createdTransports[createdTransports.length - 1].opts.auth.user, 'apikey');
+
+      // (f) no active custom template -> BLOCKED regardless of SMTP
+      const modeF1 = await offerService.getOfferDispatchMode('candidateF@noxira.com', { envConfig: envE, template: sampleTemplate });
+      assert.strictEqual(modeF1.mode, 'BLOCKED');
+      assert.strictEqual(modeF1.canSend, false);
+      assert.strictEqual(modeF1.transportType, 'BLOCKED');
+      assert.ok(modeF1.line.includes('blocked'));
+
+      const modeF2 = await offerService.getOfferDispatchMode('candidateF@noxira.com', { envConfig: envE, template: null });
+      assert.strictEqual(modeF2.mode, 'BLOCKED');
+      assert.strictEqual(modeF2.canSend, false);
+      assert.strictEqual(modeF2.transportType, 'BLOCKED');
+      assert.ok(modeF2.line.includes('blocked'));
+
+      // Assert shared consistency across all configurations (send path and mode never disagree)
+      const allCases = [
+        { name: 'empty', env: envA, tmpl: activeCustomTemplate, expectedMode: 'SIMULATED', expectedTransport: 'MOCK' },
+        { name: 'test_user', env: envB, tmpl: activeCustomTemplate, expectedMode: 'SIMULATED', expectedTransport: 'MOCK' },
+        { name: 'password_pass', env: envC, tmpl: activeCustomTemplate, expectedMode: 'SIMULATED', expectedTransport: 'MOCK' },
+        { name: 'ethereal', env: envD, tmpl: activeCustomTemplate, expectedMode: 'EXTERNAL_TEST', expectedTransport: 'ETHEREAL' },
+        { name: 'live', env: envE, tmpl: activeCustomTemplate, expectedMode: 'LIVE', expectedTransport: 'REAL' },
+        { name: 'blocked_sample', env: envE, tmpl: sampleTemplate, expectedMode: 'BLOCKED', expectedTransport: 'BLOCKED' },
+        { name: 'blocked_null', env: envE, tmpl: null, expectedMode: 'BLOCKED', expectedTransport: 'BLOCKED' }
+      ];
+
+      for (const tc of allCases) {
+        const res = offerService.resolveOfferDispatchMode(tc.env, 'test@example.com', tc.tmpl);
+        assert.strictEqual(res.mode, tc.expectedMode, `Mode mismatch for case: ${tc.name}`);
+        assert.strictEqual(res.transportType, tc.expectedTransport, `Transport mismatch for case: ${tc.name}`);
+
+        if (tc.expectedTransport === 'MOCK') {
+          const t = offerService.getOfferTransporter(tc.env);
+          assert.ok(t.isMock, `Expected mock transport for case: ${tc.name}`);
+        } else if (tc.expectedTransport === 'REAL' || tc.expectedTransport === 'ETHEREAL') {
+          const t = offerService.getOfferTransporter(tc.env);
+          assert.ok(t.isNodemailerStub, `Expected nodemailer stub transport for case: ${tc.name}`);
+        }
+      }
+    } finally {
+      nodemailer.createTransport = origCreateTransport;
+      offerService.setOfferTransporter(null);
+      offerService.clearLastCapturedOfferMail();
     }
   });
 
