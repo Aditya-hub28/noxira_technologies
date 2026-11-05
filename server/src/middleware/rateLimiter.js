@@ -36,8 +36,21 @@ const loginRateLimiter = rateLimit({
   }
 });
 
+// Public status check rate limiter: max 10 requests per 15 minutes per IP
+const statusRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many status check requests from this IP. Please try again after 15 minutes.'
+  }
+});
+
 module.exports = {
   intakeRateLimiter,
   verifyRateLimiter,
-  loginRateLimiter
+  loginRateLimiter,
+  statusRateLimiter
 };

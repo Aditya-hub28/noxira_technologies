@@ -37,6 +37,7 @@ export const api = {
   getPrograms: () => request('/programs'),
   getProgramDetail: (code) => request(`/programs/${encodeURIComponent(code)}`),
   submitApplication: (payload) => request('/intake/website-apply', { method: 'POST', body: JSON.stringify(payload) }),
+  getApplicationStatus: (email, id) => request(`/intake/status?email=${encodeURIComponent(email)}&id=${encodeURIComponent(id)}`),
 
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),

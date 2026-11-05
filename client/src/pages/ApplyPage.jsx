@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { CheckCircle2, AlertCircle, Award, Send, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Award, Send, ArrowRight, RotateCcw, AlertTriangle, Copy, Check } from 'lucide-react';
 
 export default function ApplyPage() {
   const [searchParams] = useSearchParams();
@@ -20,10 +20,12 @@ export default function ApplyPage() {
     phone: '',
     programCode: ''
   });
+  const [feeAcknowledged, setFeeAcknowledged] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [copiedId, setCopiedId] = useState(false);
 
   // Track latest request sequence to prevent stale query race conditions
   const activeRequestIdRef = useRef(0);
@@ -117,6 +119,12 @@ export default function ApplyPage() {
       return;
     }
 
+    // Validate fee disclosure acknowledgment
+    if (!feeAcknowledged) {
+      setError('You must acknowledge the fee disclosure and application rules before submitting.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -124,7 +132,8 @@ export default function ApplyPage() {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
-        programCode: formData.programCode
+        programCode: formData.programCode,
+        feeAcknowledged: true
       };
 
       const res = await api.submitApplication(payload);
@@ -136,6 +145,7 @@ export default function ApplyPage() {
         phone: '',
         programCode: ''
       });
+      setFeeAcknowledged(false);
       setQueryWarning('');
       setProgramDisappearedNotice('');
     } catch (err) {
@@ -144,6 +154,8 @@ export default function ApplyPage() {
       setLoading(false);
     }
   };
+
+  const selectedProgram = programs.find(p => p.code === formData.programCode);
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-4">
@@ -164,13 +176,61 @@ export default function ApplyPage() {
       </div>
 
       {result && (
-        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-start gap-4">
-          <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-emerald-900">Application Received</h3>
-            <p className="text-emerald-800 text-sm mt-1">{result.message}</p>
-            <p className="text-xs text-emerald-700 mt-2">
-              Candidate status is currently <span className="font-bold underline">PENDING</span>. Our administration reviews technical completion before issuing verified credentials.
+        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-6 flex items-start gap-4 shadow-xs">
+          <CheckCircle2 className="w-7 h-7 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-3 flex-1">
+            <div>
+              <h3 className="text-base font-bold text-emerald-950">Application Received</h3>
+              <p className="text-emerald-900 text-xs sm:text-sm mt-0.5">{result.message}</p>
+            </div>
+
+            {result.application?.applicationId && (
+              <div className="bg-white border border-emerald-300/80 rounded-xl p-4 space-y-3 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider font-extrabold text-slate-500">
+                      Official Application ID
+                    </div>
+                    <div className="font-mono text-xl sm:text-2xl font-black text-slate-900 tracking-wider mt-0.5">
+                      {result.application.applicationId}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(result.application.applicationId);
+                        setCopiedId(true);
+                        setTimeout(() => setCopiedId(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 transition"
+                    >
+                      {copiedId ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" /> Copy ID
+                        </>
+                      )}
+                    </button>
+                    <Link
+                      to={`/status?email=${encodeURIComponent(result.participant?.email || formData.email || '')}&id=${encodeURIComponent(result.application.applicationId)}`}
+                      className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition shadow-xs"
+                    >
+                      Check Status <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
+                    </Link>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Please save this Application ID. You will need it together with your registered email to track review progress on the public status page.
+                </p>
+              </div>
+            )}
+
+            <p className="text-xs text-emerald-800 leading-relaxed">
+              ⚠️ Notice: Registration alone never automatically grants or issues a certificate. Candidate eligibility and task evaluation must be recorded by administration before any credential issuance.
             </p>
           </div>
         </div>
@@ -310,10 +370,38 @@ export default function ApplyPage() {
             )}
           </div>
 
+          {/* Fee Disclosure Box & Mandatory Acknowledgment */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            <div className="text-xs text-slate-700 leading-relaxed">
+              {selectedProgram && selectedProgram.feeInr !== undefined && selectedProgram.feeInr !== null && !isNaN(Number(selectedProgram.feeInr)) ? (
+                <span>
+                  Task Submission &amp; Review Fee: ₹{selectedProgram.feeInr} - payable only at task submission, after your application is approved. Applying is free.
+                </span>
+              ) : (
+                <span>
+                  Applying is free. NOXIRA will publish the Task Submission &amp; Review Fee for this programme before any payment is due.
+                </span>
+              )}
+            </div>
+
+            <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-slate-200">
+              <input
+                type="checkbox"
+                required
+                checked={feeAcknowledged}
+                onChange={(e) => setFeeAcknowledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="text-xs font-medium text-slate-800">
+                I have read and understood the fee disclosure and application rules.
+              </span>
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading || loadingPrograms || programLoadError || !formData.programCode || programs.length === 0}
-            className="w-full mt-4 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
+            disabled={loading || loadingPrograms || programLoadError || !formData.programCode || !feeAcknowledged || programs.length === 0}
+            className="w-full mt-2 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
           >
             {loading ? 'Submitting Application...' : (
               <>

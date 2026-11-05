@@ -40,6 +40,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Programmes
             </Link>
+            <Link
+              to="/status"
+              className={`hover:text-amber-400 transition ${location.pathname.startsWith('/status') ? 'text-amber-400 font-bold' : ''}`}
+            >
+              Check Status
+            </Link>
             <a
               href="/#journey"
               className="hover:text-amber-400 transition"
@@ -126,6 +132,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Programmes
             </Link>
+            <Link
+              to="/status"
+              onClick={closeMobileMenu}
+              className="block py-2 text-sm font-semibold text-slate-200 hover:text-amber-400"
+            >
+              Check Status
+            </Link>
             <a
               href="/#journey"
               onClick={closeMobileMenu}
@@ -199,6 +212,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <li><Link to="/programs" className="hover:text-amber-400 transition">All Programmes</Link></li>
                 <li><a href="/#journey" className="hover:text-amber-400 transition">6-Step Process</a></li>
                 <li><Link to="/apply" className="hover:text-amber-400 transition">Candidate Application</Link></li>
+                <li><Link to="/status" className="hover:text-amber-400 transition">Check Application Status</Link></li>
                 <li><Link to="/verify" className="hover:text-amber-400 transition">Public Verification Portal</Link></li>
               </ul>
             </div>

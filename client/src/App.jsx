@@ -20,6 +20,7 @@ import HomePage from './pages/HomePage';
 import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
 import ApplyPage from './pages/ApplyPage';
+import StatusPage from './pages/StatusPage';
 import VerifyPage from './pages/VerifyPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import DashboardOverview from './pages/DashboardOverview';
@@ -196,6 +197,7 @@ function AppContent() {
         <Route path="/programs" element={<ProgramsPage />} />
         <Route path="/programs/:code" element={<ProgramDetailPage />} />
         <Route path="/apply" element={<ApplyPage />} />
+        <Route path="/status" element={<StatusPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/verify/:token" element={<VerifyPage />} />
       </Route>

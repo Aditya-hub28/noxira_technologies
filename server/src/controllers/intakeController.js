@@ -4,6 +4,8 @@ const Participant = require('../models/Participant');
 const Program = require('../models/Program');
 const ImportBatch = require('../models/ImportBatch');
 const AuditLog = require('../models/AuditLog');
+const Application = require('../models/Application');
+const { generateApplicationId } = require('../models/Application');
 
 /**
  * Public Website Application Intake
@@ -19,7 +21,7 @@ exports.websiteApply = async (req, res, next) => {
       });
     }
 
-    const { fullName, email, phone, programCode } = req.body;
+    const { fullName, email, phone, programCode, feeAcknowledged } = req.body;
 
     if (!fullName || !email || !programCode) {
       return res.status(400).json({
@@ -46,6 +48,14 @@ exports.websiteApply = async (req, res, next) => {
       });
     }
     const programTitle = program.title;
+
+    // Fee Disclosure Acknowledgment Validation (Mandatory boolean check)
+    if (feeAcknowledged !== true) {
+      return res.status(400).json({
+        success: false,
+        message: 'Fee disclosure acknowledgment is mandatory before submitting your application.'
+      });
+    }
 
     // Check for duplicate registration attempt in configured batch
     const existing = await Participant.findOne({
@@ -86,6 +96,34 @@ exports.websiteApply = async (req, res, next) => {
       throw saveErr;
     }
 
+    // Persist human-friendly Application with retry for rare unique-index collisions
+    let application = null;
+    let attempts = 0;
+    while (!application && attempts < 5) {
+      attempts++;
+      const candidateAppId = generateApplicationId();
+      try {
+        application = new Application({
+          applicationId: candidateAppId,
+          participantId: participant._id,
+          programCode: participant.programCode,
+          programTitle: participant.programTitle,
+          batchId: participant.batchId,
+          status: 'APPLIED',
+          feeLocked: (program.feeInr !== undefined && program.feeInr !== null && !isNaN(Number(program.feeInr)))
+            ? Number(program.feeInr)
+            : null
+        });
+        await application.save();
+      } catch (appSaveErr) {
+        if (appSaveErr.code === 11000 && attempts < 5) {
+          application = null;
+          continue;
+        }
+        throw appSaveErr;
+      }
+    }
+
     await AuditLog.create({
       actorType: 'PUBLIC_USER',
       action: 'INTAKE_SUBMITTED',
@@ -96,6 +134,16 @@ exports.websiteApply = async (req, res, next) => {
       summary: `Website application submitted by ${participant.fullName} (${participant.email}) for ${cleanProgramCode}`
     });
 
+    await AuditLog.create({
+      actorType: 'PUBLIC_USER',
+      action: 'APPLICATION_CREATED',
+      targetEntity: 'APPLICATION',
+      targetId: application._id,
+      ipAddress: req.ip || '127.0.0.1',
+      userAgent: (req.headers && req.headers['user-agent']) || 'Unknown',
+      summary: `Application ${application.applicationId} created for ${participant.fullName} (${participant.email}) in ${cleanProgramCode}`
+    });
+
     res.status(201).json({
       success: true,
       message: 'Application submitted successfully. Status is currently pending admin review.',
@@ -104,7 +152,75 @@ exports.websiteApply = async (req, res, next) => {
         fullName: participant.fullName,
         programTitle: participant.programTitle,
         completionStatus: participant.completionStatus
+      },
+      application: {
+        applicationId: application.applicationId,
+        status: application.status,
+        appliedAt: application.appliedAt,
+        programTitle: application.programTitle
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Public Application Status Lookup
+ * Requires email and id query params.
+ * Compares normalized email against application's participant.
+ * Returns identical generic 404 on any lookup failure to prevent enumeration.
+ */
+exports.getApplicationStatus = async (req, res, next) => {
+  try {
+    const { email, id } = req.query;
+
+    if (!email || !id || !email.trim() || !id.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both email and application ID are required.'
+      });
+    }
+
+    const cleanId = id.trim().toUpperCase();
+    const normEmail = email.trim().toLowerCase();
+
+    const application = await Application.findOne({ applicationId: cleanId }).populate('participantId');
+
+    // On ANY failure - unknown id, missing participant, email mismatch - return identical generic 404
+    if (!application || !application.participantId) {
+      return res.status(404).json({
+        success: false,
+        message: 'No application found for the details provided.'
+      });
+    }
+
+    const participantEmail = (application.participantId.normalizedEmail || application.participantId.email || '').toLowerCase().trim();
+    if (participantEmail !== normEmail) {
+      return res.status(404).json({
+        success: false,
+        message: 'No application found for the details provided.'
+      });
+    }
+
+    const appData = {
+      applicationId: application.applicationId,
+      programTitle: application.programTitle,
+      status: application.status,
+      appliedAt: application.appliedAt
+    };
+
+    if (application.decidedAt) {
+      appData.decidedAt = application.decidedAt;
+    }
+
+    if (application.feeLocked !== undefined && application.feeLocked !== null) {
+      appData.feeLocked = application.feeLocked;
+    }
+
+    return res.status(200).json({
+      success: true,
+      application: appData
     });
   } catch (error) {
     next(error);
