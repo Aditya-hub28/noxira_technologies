@@ -149,13 +149,18 @@ export default function ApplyPage() {
       setQueryWarning('');
       setProgramDisappearedNotice('');
     } catch (err) {
-      setError(err.message || 'Failed to submit application');
+      if (err.data?.code === 'FEE_NOT_SET' || (err.message && err.message.includes('FEE_NOT_SET'))) {
+        setError('Applications for this programme are not open yet. NOXIRA has not published its Task Submission & Review Fee.');
+      } else {
+        setError(err.message || 'Failed to submit application');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const selectedProgram = programs.find(p => p.code === formData.programCode);
+  const isFeeSet = selectedProgram && selectedProgram.feeInr !== undefined && selectedProgram.feeInr !== null;
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-4">
@@ -373,24 +378,33 @@ export default function ApplyPage() {
           {/* Fee Disclosure Box & Mandatory Acknowledgment */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <div className="text-xs text-slate-700 leading-relaxed">
-              {selectedProgram && selectedProgram.feeInr !== undefined && selectedProgram.feeInr !== null && !isNaN(Number(selectedProgram.feeInr)) ? (
+              {!formData.programCode ? (
+                <span className="text-slate-500">
+                  Please select a programme above to review its Task Submission &amp; Review Fee and application rules.
+                </span>
+              ) : !isFeeSet ? (
+                <span className="font-medium text-amber-900">
+                  Applications for this programme are not open yet. NOXIRA has not published its Task Submission &amp; Review Fee.
+                </span>
+              ) : selectedProgram.feeInr === 0 ? (
                 <span>
-                  Task Submission &amp; Review Fee: ₹{selectedProgram.feeInr} - payable only at task submission, after your application is approved. Applying is free.
+                  Task Submission &amp; Review Fee: ₹0 (free programme). No payment is required.
                 </span>
               ) : (
                 <span>
-                  Applying is free. NOXIRA will publish the Task Submission &amp; Review Fee for this programme before any payment is due.
+                  Task Submission &amp; Review Fee: ₹{selectedProgram.feeInr} - payable only at task submission, after your application is approved. Your fee is locked at the amount shown when you apply.
                 </span>
               )}
             </div>
 
-            <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-slate-200">
+            <label className={`flex items-start gap-2.5 pt-2 border-t border-slate-200 ${!isFeeSet ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 required
-                checked={feeAcknowledged}
+                disabled={!isFeeSet || loading}
+                checked={feeAcknowledged && isFeeSet}
                 onChange={(e) => setFeeAcknowledged(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 disabled:cursor-not-allowed"
               />
               <span className="text-xs font-medium text-slate-800">
                 I have read and understood the fee disclosure and application rules.
@@ -400,7 +414,7 @@ export default function ApplyPage() {
 
           <button
             type="submit"
-            disabled={loading || loadingPrograms || programLoadError || !formData.programCode || !feeAcknowledged || programs.length === 0}
+            disabled={loading || loadingPrograms || programLoadError || !formData.programCode || !isFeeSet || !feeAcknowledged || programs.length === 0}
             className="w-full mt-2 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
           >
             {loading ? 'Submitting Application...' : (

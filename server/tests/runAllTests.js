@@ -883,6 +883,7 @@ async function runTestSuite() {
     // 2. Set authoritative server-side intake batch
     const realConfiguredBatch = 'BATCH-SYNTHETIC-2026-X1';
     process.env.WEBSITE_INTAKE_BATCH_ID = realConfiguredBatch;
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { feeInr: 499 } });
 
     // Attacker sends crafted batchId 'MALICIOUS-BATCH-OVERRIDE'
     const mockAttacker = mockReqRes({
@@ -1432,10 +1433,12 @@ async function runTestSuite() {
     const appAudit = await AuditLog.findOne({ action: 'APPLICATION_CREATED', targetId: savedApp._id });
     assert.ok(appAudit, 'Audit log for APPLICATION_CREATED must be recorded');
 
-    // 3. Successful Application with unset fee (feeLocked defaults to null)
+    // 3. Unset fee returns 400 FEE_NOT_SET and creates zero Participant / Application records
     await Program.updateOne({ code: 'APP-DEV' }, { $unset: { feeInr: '' } });
+    const preUnsetCount = await Participant.countDocuments({ email: 'nofee@example.com' });
+    const preUnsetAppCount = await Application.countDocuments();
 
-    const mockNoFeeSuccess = mockReqRes({
+    const mockNoFeeAttempt = mockReqRes({
       body: {
         fullName: 'No Fee Candidate',
         email: 'nofee@example.com',
@@ -1443,12 +1446,15 @@ async function runTestSuite() {
         feeAcknowledged: true
       }
     });
-    await intakeController.websiteApply(mockNoFeeSuccess.req, mockNoFeeSuccess.res, mockNoFeeSuccess.next);
-    assert.strictEqual(mockNoFeeSuccess.getStatus(), 201);
+    await intakeController.websiteApply(mockNoFeeAttempt.req, mockNoFeeAttempt.res, mockNoFeeAttempt.next);
+    assert.strictEqual(mockNoFeeAttempt.getStatus(), 400, 'Unset fee must return 400');
+    assert.strictEqual(mockNoFeeAttempt.getData().code, 'FEE_NOT_SET');
+    assert.ok(mockNoFeeAttempt.getData().message.includes('has not published its Task Submission & Review Fee'));
 
-    const savedNoFeeApp = await Application.findOne({ applicationId: mockNoFeeSuccess.getData().application.applicationId });
-    assert.ok(savedNoFeeApp);
-    assert.strictEqual(savedNoFeeApp.feeLocked, null, 'feeLocked must be null when program fee is unset');
+    const postUnsetCount = await Participant.countDocuments({ email: 'nofee@example.com' });
+    const postUnsetAppCount = await Application.countDocuments();
+    assert.strictEqual(postUnsetCount, preUnsetCount, 'No Participant must be created when fee is unset');
+    assert.strictEqual(postUnsetAppCount, preUnsetAppCount, 'No Application must be created when fee is unset');
 
     // 4. Duplicate apply returns 409 and creates NO second Application record
     const preDuplicateAppCount = await Application.countDocuments();
@@ -1527,10 +1533,175 @@ async function runTestSuite() {
 
     // 7. Status Rate Limiter: Verified configured at 10 requests per 15 minutes
     assert.ok(statusRateLimiter, 'statusRateLimiter must be exported');
-    // express-rate-limit middleware configuration check
-    const mockRateReq = { ip: '127.0.0.1', headers: {} };
-    const mockRateRes = { setHeader: () => {}, status: () => ({ json: () => {} }) };
     assert.strictEqual(typeof statusRateLimiter, 'function', 'statusRateLimiter must be a middleware function');
+
+    // 8. FIX 1(a): Forced Application save failure triggers compensating rollback (deletes stranded participant) and allows retry
+    const originalSave = Application.prototype.save;
+    let failApplicationSave = true;
+    Application.prototype.save = async function (...args) {
+      if (failApplicationSave) {
+        failApplicationSave = false;
+        throw new Error('Simulated database write error during Application creation');
+      }
+      return originalSave.apply(this, args);
+    };
+
+    const mockCrash = mockReqRes({
+      body: {
+        fullName: 'Crash Candidate',
+        email: 'crash.candidate@example.com',
+        programCode: 'FS-DEV',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockCrash.req, mockCrash.res, mockCrash.next);
+    assert.strictEqual(mockCrash.getStatus(), 500, 'Application save failure must return 500');
+
+    // Participant must be cleanly deleted by compensating rollback
+    const strandedParticipant = await Participant.findOne({ email: 'crash.candidate@example.com' });
+    assert.strictEqual(strandedParticipant, null, 'Stranded participant must be deleted on Application creation failure');
+
+    // Immediate retry succeeds with 201 and fresh Application ID
+    const mockRetry = mockReqRes({
+      body: {
+        fullName: 'Crash Candidate',
+        email: 'crash.candidate@example.com',
+        programCode: 'FS-DEV',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockRetry.req, mockRetry.res, mockRetry.next);
+    assert.strictEqual(mockRetry.getStatus(), 201, 'Immediate retry after crash rollback must succeed');
+    assert.ok(mockRetry.getData().application?.applicationId, 'Retry must yield valid Application ID');
+
+    // Restore prototype save
+    Application.prototype.save = originalSave;
+
+    // 9. FIX 1(b): Self-heal on duplicate path for WEBSITE participant lacking an Application
+    const strandedWeb = await Participant.create({
+      fullName: 'Stranded Web Candidate',
+      email: 'stranded.web@example.com',
+      normalizedEmail: 'stranded.web@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M3-ACCEPTANCE',
+      source: 'WEBSITE',
+      completionStatus: 'PENDING'
+    });
+    assert.strictEqual(await Application.findOne({ participantId: strandedWeb._id }), null);
+
+    const mockSelfHeal = mockReqRes({
+      body: {
+        fullName: 'Stranded Web Candidate',
+        email: 'stranded.web@example.com',
+        programCode: 'FS-DEV',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockSelfHeal.req, mockSelfHeal.res, mockSelfHeal.next);
+    assert.strictEqual(mockSelfHeal.getStatus(), 201, 'Self-heal must return 201 with newly created Application');
+    const healedAppId = mockSelfHeal.getData().application?.applicationId;
+    assert.ok(healedAppId, 'Must return created Application ID');
+
+    // Subsequent apply returns 409 now that Application exists
+    const mockApplyAgain = mockReqRes({
+      body: {
+        fullName: 'Stranded Web Candidate',
+        email: 'stranded.web@example.com',
+        programCode: 'FS-DEV',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockApplyAgain.req, mockApplyAgain.res, mockApplyAgain.next);
+    assert.strictEqual(mockApplyAgain.getStatus(), 409, 'Subsequent apply after heal must return 409 Conflict');
+
+    // 10. FIX 1(c): CSV-source participant without Application still returns 409
+    await Participant.create({
+      fullName: 'CSV Imported Candidate',
+      email: 'csv.candidate@example.com',
+      normalizedEmail: 'csv.candidate@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M3-ACCEPTANCE',
+      source: 'CSV_IMPORT',
+      completionStatus: 'PENDING'
+    });
+
+    const mockCsvApply = mockReqRes({
+      body: {
+        fullName: 'CSV Imported Candidate',
+        email: 'csv.candidate@example.com',
+        programCode: 'FS-DEV',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockCsvApply.req, mockCsvApply.res, mockCsvApply.next);
+    assert.strictEqual(mockCsvApply.getStatus(), 409, 'CSV-source participant must still return 409');
+    assert.ok(mockCsvApply.getData().message.includes('already on file'));
+
+    // 11. FIX 2: Type validation guards on status endpoint (arrays, objects, over-long)
+    const mockArrayEmail = mockReqRes({ query: { email: ['candidate@example.com'], id: 'NOX-123456' } });
+    await intakeController.getApplicationStatus(mockArrayEmail.req, mockArrayEmail.res, mockArrayEmail.next);
+    assert.strictEqual(mockArrayEmail.getStatus(), 400, 'Array email must return 400');
+
+    const mockArrayId = mockReqRes({ query: { email: 'feelock@example.com', id: ['NOX-123456'] } });
+    await intakeController.getApplicationStatus(mockArrayId.req, mockArrayId.res, mockArrayId.next);
+    assert.strictEqual(mockArrayId.getStatus(), 400, 'Array ID must return 400');
+
+    const mockObjId = mockReqRes({ query: { email: 'feelock@example.com', id: { $ne: 'x' } } });
+    await intakeController.getApplicationStatus(mockObjId.req, mockObjId.res, mockObjId.next);
+    assert.strictEqual(mockObjId.getStatus(), 400, 'Object ID must return 400');
+
+    const longEmail = 'a'.repeat(250) + '@example.com';
+    const mockLongEmail = mockReqRes({ query: { email: longEmail, id: 'NOX-123456' } });
+    await intakeController.getApplicationStatus(mockLongEmail.req, mockLongEmail.res, mockLongEmail.next);
+    assert.strictEqual(mockLongEmail.getStatus(), 400, 'Over-long email must return 400');
+
+    const longId = 'NOX-' + 'A'.repeat(35);
+    const mockLongId = mockReqRes({ query: { email: 'feelock@example.com', id: longId } });
+    await intakeController.getApplicationStatus(mockLongId.req, mockLongId.res, mockLongId.next);
+    assert.strictEqual(mockLongId.getStatus(), 400, 'Over-long ID must return 400');
+
+    // Non-string on websiteApply returns 400 (not 500)
+    const mockObjApply = mockReqRes({
+      body: {
+        fullName: { name: 'Injection' },
+        email: 'obj@example.com',
+        programCode: 'FS-DEV',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockObjApply.req, mockObjApply.res, mockObjApply.next);
+    assert.strictEqual(mockObjApply.getStatus(), 400, 'Non-string fullName must return 400');
+
+    // 12. FIX 3: Fee 0 is valid and creates application with feeLocked === 0
+    await Program.updateOne({ code: 'JAVA-PROG' }, { $set: { feeInr: 0, isActive: true } });
+    const mockFreeApply = mockReqRes({
+      body: {
+        fullName: 'Free Java Learner',
+        email: 'free.java@example.com',
+        programCode: 'JAVA-PROG',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockFreeApply.req, mockFreeApply.res, mockFreeApply.next);
+    assert.strictEqual(mockFreeApply.getStatus(), 201, 'Fee 0 must succeed with 201');
+    const freeApp = await Application.findOne({ applicationId: mockFreeApply.getData().application.applicationId });
+    assert.strictEqual(freeApp.feeLocked, 0, 'feeLocked must be explicitly 0 for free programme');
+
+    const mockFreeStatus = mockReqRes({
+      query: { email: 'free.java@example.com', id: freeApp.applicationId }
+    });
+    await intakeController.getApplicationStatus(mockFreeStatus.req, mockFreeStatus.res, mockFreeStatus.next);
+    assert.strictEqual(mockFreeStatus.getStatus(), 200);
+    assert.strictEqual(mockFreeStatus.getData().application.feeLocked, 0, 'feeLocked: 0 must be included in status response');
+
+    // 13. Unique index on Application.participantId exists
+    await Application.init(); // Ensure indexes are compiled
+    const appIndexes = await Application.collection.indexes();
+    const participantIdx = appIndexes.find(idx => idx.key && idx.key.participantId === 1);
+    assert.ok(participantIdx, 'Application must have an index on participantId');
+    assert.strictEqual(participantIdx.unique, true, 'participantId index on Application must be unique');
   });
 
   // Cleanup

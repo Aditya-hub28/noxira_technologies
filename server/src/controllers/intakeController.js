@@ -23,7 +23,16 @@ exports.websiteApply = async (req, res, next) => {
 
     const { fullName, email, phone, programCode, feeAcknowledged } = req.body;
 
-    if (!fullName || !email || !programCode) {
+    // Strict string-only input validation (prevents non-string injection)
+    if (
+      typeof fullName !== 'string' ||
+      typeof email !== 'string' ||
+      typeof programCode !== 'string' ||
+      !fullName.trim() ||
+      !email.trim() ||
+      !programCode.trim() ||
+      (phone !== undefined && phone !== null && typeof phone !== 'string')
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Full name, email, and program code are required.'
@@ -47,6 +56,16 @@ exports.websiteApply = async (req, res, next) => {
         message: `Program "${program.title}" is currently inactive and not accepting applications.`
       });
     }
+
+    // FIX 3: Fee must be explicitly set before anyone can apply (0 is a valid free programme)
+    if (program.feeInr === undefined || program.feeInr === null) {
+      return res.status(400).json({
+        success: false,
+        code: 'FEE_NOT_SET',
+        message: 'Applications for this programme are not open yet. NOXIRA has not published its Task Submission & Review Fee.'
+      });
+    }
+
     const programTitle = program.title;
 
     // Fee Disclosure Acknowledgment Validation (Mandatory boolean check)
@@ -65,6 +84,73 @@ exports.websiteApply = async (req, res, next) => {
     });
 
     if (existing) {
+      // FIX 1: Self-heal on duplicate path for stranded WEBSITE participants lacking an Application
+      if (existing.source === 'WEBSITE') {
+        const existingApp = await Application.findOne({ participantId: existing._id });
+        if (!existingApp) {
+          let healedApp = null;
+          let healAttempts = 0;
+          while (!healedApp && healAttempts < 5) {
+            healAttempts++;
+            const candidateAppId = generateApplicationId();
+            try {
+              healedApp = new Application({
+                applicationId: candidateAppId,
+                participantId: existing._id,
+                programCode: existing.programCode,
+                programTitle: existing.programTitle,
+                batchId: existing.batchId,
+                status: 'APPLIED',
+                feeLocked: Number(program.feeInr)
+              });
+              await healedApp.save();
+            } catch (healErr) {
+              if (healErr.code === 11000) {
+                const racedApp = await Application.findOne({ participantId: existing._id });
+                if (racedApp) {
+                  healedApp = racedApp;
+                  break;
+                }
+                if (healAttempts < 5) {
+                  healedApp = null;
+                  continue;
+                }
+              }
+              throw healErr;
+            }
+          }
+
+          if (healedApp) {
+            await AuditLog.create({
+              actorType: 'PUBLIC_USER',
+              action: 'APPLICATION_CREATED',
+              targetEntity: 'APPLICATION',
+              targetId: healedApp._id,
+              ipAddress: req.ip || '127.0.0.1',
+              userAgent: (req.headers && req.headers['user-agent']) || 'Unknown',
+              summary: `Application ${healedApp.applicationId} self-healed for existing website participant ${existing.fullName} (${existing.email}) in ${cleanProgramCode}`
+            });
+
+            return res.status(201).json({
+              success: true,
+              message: 'Application submitted successfully. Status is currently pending admin review.',
+              participant: {
+                id: existing._id,
+                fullName: existing.fullName,
+                programTitle: existing.programTitle,
+                completionStatus: existing.completionStatus
+              },
+              application: {
+                applicationId: healedApp.applicationId,
+                status: healedApp.status,
+                appliedAt: healedApp.appliedAt,
+                programTitle: healedApp.programTitle
+              }
+            });
+          }
+        }
+      }
+
       // Return 409 Conflict - Do NOT silently overwrite
       return res.status(409).json({
         success: false,
@@ -97,31 +183,55 @@ exports.websiteApply = async (req, res, next) => {
     }
 
     // Persist human-friendly Application with retry for rare unique-index collisions
+    // FIX 1: Compensating rollback on failure deleting just-created participant
     let application = null;
     let attempts = 0;
-    while (!application && attempts < 5) {
-      attempts++;
-      const candidateAppId = generateApplicationId();
-      try {
-        application = new Application({
-          applicationId: candidateAppId,
-          participantId: participant._id,
-          programCode: participant.programCode,
-          programTitle: participant.programTitle,
-          batchId: participant.batchId,
-          status: 'APPLIED',
-          feeLocked: (program.feeInr !== undefined && program.feeInr !== null && !isNaN(Number(program.feeInr)))
-            ? Number(program.feeInr)
-            : null
-        });
-        await application.save();
-      } catch (appSaveErr) {
-        if (appSaveErr.code === 11000 && attempts < 5) {
-          application = null;
-          continue;
+    try {
+      while (!application && attempts < 5) {
+        attempts++;
+        const candidateAppId = generateApplicationId();
+        try {
+          application = new Application({
+            applicationId: candidateAppId,
+            participantId: participant._id,
+            programCode: participant.programCode,
+            programTitle: participant.programTitle,
+            batchId: participant.batchId,
+            status: 'APPLIED',
+            feeLocked: Number(program.feeInr)
+          });
+          await application.save();
+        } catch (appSaveErr) {
+          if (appSaveErr.code === 11000) {
+            // Check if duplicate key was on participantId (race)
+            const racedApp = await Application.findOne({ participantId: participant._id });
+            if (racedApp) {
+              application = racedApp;
+              break;
+            }
+            if (attempts < 5) {
+              application = null;
+              continue;
+            }
+          }
+          throw appSaveErr;
         }
-        throw appSaveErr;
       }
+
+      if (!application) {
+        throw new Error('Failed to create unique Application after retries.');
+      }
+    } catch (appCreationErr) {
+      console.error('[INTAKE_ROLLBACK] Application creation failed, removing stranded participant:', appCreationErr);
+      try {
+        await Participant.deleteOne({ _id: participant._id });
+      } catch (rollbackErr) {
+        console.error('[INTAKE_ROLLBACK_ERROR] Failed to delete stranded participant:', rollbackErr);
+      }
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to complete application registration. Please retry.'
+      });
     }
 
     await AuditLog.create({
@@ -167,7 +277,7 @@ exports.websiteApply = async (req, res, next) => {
 
 /**
  * Public Application Status Lookup
- * Requires email and id query params.
+ * Requires email and id query params as strings.
  * Compares normalized email against application's participant.
  * Returns identical generic 404 on any lookup failure to prevent enumeration.
  */
@@ -175,7 +285,15 @@ exports.getApplicationStatus = async (req, res, next) => {
   try {
     const { email, id } = req.query;
 
-    if (!email || !id || !email.trim() || !id.trim()) {
+    // FIX 2: Strict string-only check and length caps (prevents object/array query injections)
+    if (
+      typeof email !== 'string' ||
+      typeof id !== 'string' ||
+      !email.trim() ||
+      !id.trim() ||
+      email.trim().length > 254 ||
+      id.trim().length > 32
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Both email and application ID are required.'
@@ -214,7 +332,7 @@ exports.getApplicationStatus = async (req, res, next) => {
       appData.decidedAt = application.decidedAt;
     }
 
-    if (application.feeLocked !== undefined && application.feeLocked !== null) {
+    if (typeof application.feeLocked === 'number') {
       appData.feeLocked = application.feeLocked;
     }
 

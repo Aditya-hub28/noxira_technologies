@@ -264,8 +264,8 @@ export default function StatusPage() {
               </div>
             )}
 
-            {/* Fee Locked Disclosure (only rendered when feeLocked is set) */}
-            {application.feeLocked !== undefined && application.feeLocked !== null && (
+            {/* Fee Locked Disclosure (only rendered when feeLocked is a valid number, including 0) */}
+            {typeof application.feeLocked === 'number' && (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-xs text-amber-900 space-y-1">
                 <span className="font-bold block text-slate-900">
                   Task Submission &amp; Review Fee (locked at your application): ₹{application.feeLocked}

@@ -26,6 +26,7 @@ const ApplicationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Participant',
       required: true,
+      unique: true,
       index: true
     },
     programCode: {
@@ -50,6 +51,8 @@ const ApplicationSchema = new mongoose.Schema(
       default: 'APPLIED',
       index: true
     },
+    // Locked fee amount copied from Program.feeInr at apply time.
+    // Always a number (>= 0) for applications created under fee rules; default null for legacy records.
     feeLocked: {
       type: Number,
       default: null
