@@ -11,15 +11,19 @@ import {
   History,
   LogOut,
   ArrowLeft,
-  Shield
+  Shield,
+  BookOpen
 } from 'lucide-react';
 
 import PublicLayout from './components/PublicLayout';
 import HomePage from './pages/HomePage';
+import ProgramsPage from './pages/ProgramsPage';
+import ProgramDetailPage from './pages/ProgramDetailPage';
 import ApplyPage from './pages/ApplyPage';
 import VerifyPage from './pages/VerifyPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import DashboardOverview from './pages/DashboardOverview';
+import AdminProgramsPage from './pages/AdminProgramsPage';
 import ParticipantsPage from './pages/ParticipantsPage';
 import CsvImportPage from './pages/CsvImportPage';
 import TemplatePreviewPage from './pages/TemplatePreviewPage';
@@ -35,6 +39,7 @@ function AdminConsole({ admin, onLogout }) {
 
   const tabs = [
     { id: 'dashboard', label: 'Overview', icon: ShieldCheck },
+    { id: 'programs', label: 'Programmes', icon: BookOpen },
     { id: 'participants', label: 'Participants & Review', icon: Users },
     { id: 'import', label: 'CSV Import', icon: FileSpreadsheet },
     { id: 'templates', label: 'Template Studio', icon: Sliders },
@@ -116,6 +121,9 @@ function AdminConsole({ admin, onLogout }) {
         {adminTab === 'dashboard' && (
           <DashboardOverview onNavigate={(view) => setAdminTab(view)} />
         )}
+        {adminTab === 'programs' && (
+          <AdminProgramsPage />
+        )}
         {adminTab === 'participants' && (
           <ParticipantsPage onNavigateToIssuance={() => setAdminTab('issuance')} />
         )}
@@ -185,6 +193,8 @@ function AppContent() {
         }
       >
         <Route path="/" element={<HomePage />} />
+        <Route path="/programs" element={<ProgramsPage />} />
+        <Route path="/programs/:code" element={<ProgramDetailPage />} />
         <Route path="/apply" element={<ApplyPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/verify/:token" element={<VerifyPage />} />

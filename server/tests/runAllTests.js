@@ -21,7 +21,10 @@ const participantController = require('../src/controllers/participantController'
 const distributionController = require('../src/controllers/distributionController');
 const intakeController = require('../src/controllers/intakeController');
 const templateController = require('../src/controllers/templateController');
-const { getPublicPrograms } = require('../src/routes/programRoutes');
+const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/programRoutes');
+const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('../src/routes/adminProgramRoutes');
+const { CATALOGUE_PROGRAMS, PROGRAM_CATEGORIES, seedProgramCatalogue } = require('../src/config/programsCatalogue');
+const { requireRole } = require('../src/middleware/auth');
 
 // Helper to mock express req, res, next for controller integration testing
 function mockReqRes(options = {}) {
@@ -1123,6 +1126,228 @@ async function runTestSuite() {
       const dbDescAfter = (await Program.findOne({ code: 'FS-DEV' })).description;
       assert.strictEqual(dbDescAfter, dbDescBefore, 'Database record must remain unmutated by presentation resolver');
     }
+  });
+
+  // TEST 21: Full 31-Program Catalogue Seeding, Schema Integrity & Idempotency
+  await test('Program Catalogue: 31 programmes seeded additively, strictly preserves owner edits upon re-seed, with safe public listing', async () => {
+    // 1. Seed the catalogue
+    await seedProgramCatalogue();
+
+    // Verify exactly 31 catalogue programs exist in DB
+    const catalogueCodes = CATALOGUE_PROGRAMS.map(p => p.code);
+    assert.strictEqual(catalogueCodes.length, 31, 'Catalogue must have exactly 31 programs defined');
+
+    const inDb = await Program.find({ code: { $in: catalogueCodes } });
+    assert.strictEqual(inDb.length, 31, 'All 31 catalogue programs must exist in the database');
+
+    // Verify all categories belong to official PROGRAM_CATEGORIES
+    for (const p of inDb) {
+      assert.ok(p.category, `Program ${p.code} must have a category`);
+      assert.ok(PROGRAM_CATEGORIES.includes(p.category), `Category ${p.category} must be valid`);
+      assert.strictEqual(p.isActive, true, `Program ${p.code} must default to active`);
+    }
+
+    // 2. Owner customizes an existing program (e.g. FS-DEV)
+    await Program.updateOne(
+      { code: 'FS-DEV' },
+      {
+        $set: {
+          title: 'Full Stack Web Engineering (Owner Title)',
+          description: 'Owner authored custom description.',
+          durationWeeks: 12,
+          feeInr: 499,
+          seats: 50,
+          syllabus: ['React Deep Dive', 'Node.js Microservices', 'CI/CD Pipelines'],
+          tasks: ['Build Authentication', 'Deploy on Kubernetes']
+        }
+      }
+    );
+
+    // 3. Re-run seedProgramCatalogue() - MUST be strictly idempotent and NOT overwrite owner edits
+    await seedProgramCatalogue();
+
+    const preservedFsDev = await Program.findOne({ code: 'FS-DEV' });
+    assert.strictEqual(preservedFsDev.title, 'Full Stack Web Engineering (Owner Title)', 'Re-seed must not overwrite customized title');
+    assert.strictEqual(preservedFsDev.description, 'Owner authored custom description.', 'Re-seed must not overwrite customized description');
+    assert.strictEqual(preservedFsDev.durationWeeks, 12, 'Re-seed must not overwrite customized durationWeeks');
+    assert.strictEqual(preservedFsDev.feeInr, 499, 'Re-seed must not overwrite customized feeInr');
+    assert.strictEqual(preservedFsDev.seats, 50, 'Re-seed must not overwrite customized seats');
+    assert.deepStrictEqual(preservedFsDev.syllabus, ['React Deep Dive', 'Node.js Microservices', 'CI/CD Pipelines'], 'Re-seed must not overwrite customized syllabus');
+    assert.deepStrictEqual(preservedFsDev.tasks, ['Build Authentication', 'Deploy on Kubernetes'], 'Re-seed must not overwrite customized tasks');
+
+    // 4. Verify public GET /api/v1/programs sorting and field safety
+    const mockReq = mockReqRes();
+    await getPublicPrograms(mockReq.req, mockReq.res, mockReq.next);
+    assert.strictEqual(mockReq.getStatus(), 200);
+
+    const { programs } = mockReq.getData();
+    assert.ok(programs.length >= 31, 'Public listing must return all active programs');
+
+    // Verify safe fields only
+    for (const prg of programs) {
+      assert.ok(prg.code, 'Must include code');
+      assert.ok(prg.title, 'Must include title');
+      assert.strictEqual(prg.defaultBatch, undefined, 'Must not leak defaultBatch');
+      assert.strictEqual(prg.defaultStartDate, undefined, 'Must not leak defaultStartDate');
+      assert.strictEqual(prg.defaultEndDate, undefined, 'Must not leak defaultEndDate');
+      assert.strictEqual(prg._id, undefined, 'Must not leak _id');
+    }
+
+    // Verify sorting order: category ascending, then title ascending
+    for (let i = 1; i < programs.length; i++) {
+      const prev = programs[i - 1];
+      const curr = programs[i];
+      if (prev.category === curr.category) {
+        assert.ok(prev.title.localeCompare(curr.title) <= 0, `Within same category, titles must be sorted ascending: "${prev.title}" <= "${curr.title}"`);
+      } else {
+        assert.ok((prev.category || '').localeCompare(curr.category || '') <= 0, `Categories must be sorted ascending: "${prev.category}" <= "${curr.category}"`);
+      }
+    }
+  });
+
+  // TEST 22: Public Program Detail Endpoint (GET /api/v1/programs/:code)
+  await test('Public Program Detail: Returns safe fields for active program, normalizes code case, and returns 404 for unknown or inactive codes', async () => {
+    // 1. Valid active program
+    const mockDetail = mockReqRes({ params: { code: 'fs-dev' } }); // lowercase to test case insensitivity
+    await getPublicProgramByCode(mockDetail.req, mockDetail.res, mockDetail.next);
+    assert.strictEqual(mockDetail.getStatus(), 200);
+
+    const { program } = mockDetail.getData();
+    assert.ok(program, 'Program data must be present');
+    assert.strictEqual(program.code, 'FS-DEV');
+    assert.strictEqual(program.durationWeeks, 12);
+    assert.strictEqual(program.feeInr, 499);
+    assert.strictEqual(program.defaultBatch, undefined, 'Must not leak defaultBatch in detail');
+    assert.strictEqual(program._id, undefined, 'Must not leak _id in detail');
+
+    // 2. Unknown program code -> 404
+    const mockUnknown = mockReqRes({ params: { code: 'NONEXISTENT-TRACK' } });
+    await getPublicProgramByCode(mockUnknown.req, mockUnknown.res, mockUnknown.next);
+    assert.strictEqual(mockUnknown.getStatus(), 404, 'Unknown program code must return 404');
+    assert.strictEqual(mockUnknown.getData().success, false);
+    assert.ok(mockUnknown.getData().message.includes('not found or is currently inactive'));
+
+    // 3. Inactive program code -> 404
+    await Program.updateOne({ code: 'C-PROG' }, { $set: { isActive: false } });
+    const mockInactive = mockReqRes({ params: { code: 'C-PROG' } });
+    await getPublicProgramByCode(mockInactive.req, mockInactive.res, mockInactive.next);
+    assert.strictEqual(mockInactive.getStatus(), 404, 'Inactive program must return 404');
+    assert.strictEqual(mockInactive.getData().success, false);
+  });
+
+  // TEST 23: Admin Program Manager API (Auth, Role, Validations, Create, Update, Immutability)
+  await test('Admin Program Manager: Enforces roles, validates schema inputs, supports creation & updates, and preserves immutable code', async () => {
+    // 1. Role enforcement
+    const roleMiddleware = requireRole(['SUPER_ADMIN', 'ISSUER']);
+    const mockViewer = mockReqRes({ admin: { role: 'VIEWER' } });
+    roleMiddleware(mockViewer.req, mockViewer.res, mockViewer.next);
+    assert.strictEqual(mockViewer.getStatus(), 403, 'VIEWER role must be rejected with 403 Forbidden');
+
+    const mockSuperAdmin = mockReqRes({ admin: { role: 'SUPER_ADMIN' } });
+    let passedMiddleware = false;
+    roleMiddleware(mockSuperAdmin.req, mockSuperAdmin.res, () => { passedMiddleware = true; });
+    assert.strictEqual(passedMiddleware, true, 'SUPER_ADMIN role must pass role middleware');
+
+    // 2. Admin List Programs (includes inactive)
+    const mockAdminList = mockReqRes();
+    await adminGetPrograms(mockAdminList.req, mockAdminList.res, mockAdminList.next);
+    assert.strictEqual(mockAdminList.getStatus(), 200);
+    const { programs: adminPrograms } = mockAdminList.getData();
+    const inactiveFound = adminPrograms.find(p => p.code === 'C-PROG');
+    assert.ok(inactiveFound, 'Admin programs listing must include inactive programs');
+    assert.strictEqual(inactiveFound.isActive, false);
+
+    // 3. Admin Create Program: Validation checks
+    // Empty code
+    const mockEmptyCode = mockReqRes({ body: { title: 'Test Program' } });
+    await adminCreateProgram(mockEmptyCode.req, mockEmptyCode.res, mockEmptyCode.next);
+    assert.strictEqual(mockEmptyCode.getStatus(), 400, 'Empty code must return 400');
+
+    // Duplicate code
+    const mockDupCode = mockReqRes({ body: { code: 'FS-DEV', title: 'Duplicate' } });
+    await adminCreateProgram(mockDupCode.req, mockDupCode.res, mockDupCode.next);
+    assert.strictEqual(mockDupCode.getStatus(), 409, 'Duplicate code must return 409 Conflict');
+
+    // Invalid category
+    const mockInvalidCat = mockReqRes({ body: { code: 'NEW-PRG', title: 'New Track', category: 'InvalidCategory' } });
+    await adminCreateProgram(mockInvalidCat.req, mockInvalidCat.res, mockInvalidCat.next);
+    assert.strictEqual(mockInvalidCat.getStatus(), 400, 'Invalid category must return 400');
+
+    // Negative durationWeeks
+    const mockNegDuration = mockReqRes({ body: { code: 'NEW-PRG', title: 'New Track', durationWeeks: -2 } });
+    await adminCreateProgram(mockNegDuration.req, mockNegDuration.res, mockNegDuration.next);
+    assert.strictEqual(mockNegDuration.getStatus(), 400, 'Negative duration must return 400');
+
+    // Negative feeInr
+    const mockNegFee = mockReqRes({ body: { code: 'NEW-PRG', title: 'New Track', feeInr: -50 } });
+    await adminCreateProgram(mockNegFee.req, mockNegFee.res, mockNegFee.next);
+    assert.strictEqual(mockNegFee.getStatus(), 400, 'Negative fee must return 400');
+
+    // End date before start date
+    const mockBadDates = mockReqRes({
+      body: {
+        code: 'NEW-PRG',
+        title: 'New Track',
+        startDate: '2026-12-01',
+        endDate: '2026-11-01'
+      }
+    });
+    await adminCreateProgram(mockBadDates.req, mockBadDates.res, mockBadDates.next);
+    assert.strictEqual(mockBadDates.getStatus(), 400, 'End date before start date must return 400');
+
+    // Valid Program Creation
+    const mockCreateSuccess = mockReqRes({
+      body: {
+        code: 'QUANT-FIN',
+        title: 'Quantitative Finance & Algorithmic Trading',
+        category: 'Business',
+        description: 'Mathematical modeling and algorithmic execution.',
+        durationWeeks: 8,
+        feeInr: 799,
+        seats: 25,
+        startDate: '2026-11-15',
+        endDate: '2027-01-15',
+        syllabus: 'Stochastic Calculus\nPortfolio Optimization\nOrder Execution',
+        tasks: 'Task 1: Black-Scholes Pricer\nTask 2: Backtesting Engine'
+      }
+    });
+    await adminCreateProgram(mockCreateSuccess.req, mockCreateSuccess.res, mockCreateSuccess.next);
+    assert.strictEqual(mockCreateSuccess.getStatus(), 201, 'Valid program creation must return 201');
+
+    const created = await Program.findOne({ code: 'QUANT-FIN' });
+    assert.ok(created, 'Created program must be saved in DB');
+    assert.strictEqual(created.category, 'Business');
+    assert.strictEqual(created.syllabus.length, 3);
+    assert.strictEqual(created.tasks.length, 2);
+
+    // 4. Admin Update Program: Validation & Execution
+    // 404 for unknown
+    const mockUpdate404 = mockReqRes({ params: { code: 'NONEXISTENT' }, body: { title: 'Updated' } });
+    await adminUpdateProgram(mockUpdate404.req, mockUpdate404.res, mockUpdate404.next);
+    assert.strictEqual(mockUpdate404.getStatus(), 404, 'Updating unknown program must return 404');
+
+    // Empty title
+    const mockEmptyUpdateTitle = mockReqRes({ params: { code: 'QUANT-FIN' }, body: { title: '   ' } });
+    await adminUpdateProgram(mockEmptyUpdateTitle.req, mockEmptyUpdateTitle.res, mockEmptyUpdateTitle.next);
+    assert.strictEqual(mockEmptyUpdateTitle.getStatus(), 400, 'Empty title on update must return 400');
+
+    // Successful update with active toggle
+    const mockUpdateSuccess = mockReqRes({
+      params: { code: 'QUANT-FIN' },
+      body: {
+        title: 'Quantitative Finance & Algorithmic Trading (Updated)',
+        seats: 40,
+        isActive: false
+      }
+    });
+    await adminUpdateProgram(mockUpdateSuccess.req, mockUpdateSuccess.res, mockUpdateSuccess.next);
+    assert.strictEqual(mockUpdateSuccess.getStatus(), 200, 'Successful update must return 200');
+
+    const updated = await Program.findOne({ code: 'QUANT-FIN' });
+    assert.strictEqual(updated.title, 'Quantitative Finance & Algorithmic Trading (Updated)');
+    assert.strictEqual(updated.seats, 40);
+    assert.strictEqual(updated.isActive, false, 'Must update isActive toggle');
+    assert.strictEqual(updated.code, 'QUANT-FIN', 'Code must remain unchanged (immutable)');
   });
 
   // Cleanup

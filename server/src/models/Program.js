@@ -33,6 +33,32 @@ const ProgramSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  category: {
+    type: String,
+    trim: true,
+    enum: ['Development', 'Programming', 'AI & Data Science', 'Design', 'Business', 'Engineering']
+  },
+  durationWeeks: {
+    type: Number
+  },
+  feeInr: {
+    type: Number
+  },
+  seats: {
+    type: Number
+  },
+  startDate: {
+    type: Date
+  },
+  endDate: {
+    type: Date
+  },
+  syllabus: {
+    type: [String]
+  },
+  tasks: {
+    type: [String]
   }
 }, {
   timestamps: true

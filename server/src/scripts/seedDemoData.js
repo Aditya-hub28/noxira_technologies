@@ -2,13 +2,18 @@ const { connectDB, disconnectDB } = require('../config/db');
 const Program = require('../models/Program');
 const Template = require('../models/Template');
 const Participant = require('../models/Participant');
+const { seedProgramCatalogue } = require('../config/programsCatalogue');
 
 async function seedDemoData() {
   await connectDB();
 
   console.log('🌱 Seeding demo programs, templates, and participants...');
 
-  // 1. Program
+  // 1. Seed full 31-program catalogue additively and idempotently
+  await seedProgramCatalogue(Program);
+  console.log('✅ Seeded 31-program catalogue');
+
+  // Ensure FS-DEV demo has default batch/dates if created
   let program = await Program.findOne({ code: 'FS-DEV' });
   if (!program) {
     program = await Program.create({

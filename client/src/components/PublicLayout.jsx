@@ -34,12 +34,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Home
             </Link>
-            <a
-              href="/#programs"
-              className="hover:text-amber-400 transition"
+            <Link
+              to="/programs"
+              className={`hover:text-amber-400 transition ${location.pathname.startsWith('/programs') ? 'text-amber-400 font-bold' : ''}`}
             >
-              Programs
-            </a>
+              Programmes
+            </Link>
             <a
               href="/#journey"
               className="hover:text-amber-400 transition"
@@ -119,13 +119,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Home
             </Link>
-            <a
-              href="/#programs"
+            <Link
+              to="/programs"
               onClick={closeMobileMenu}
               className="block py-2 text-sm font-semibold text-slate-200 hover:text-amber-400"
             >
-              Programs
-            </a>
+              Programmes
+            </Link>
             <a
               href="/#journey"
               onClick={closeMobileMenu}
@@ -196,7 +196,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Quick Navigation</h4>
               <ul className="space-y-2">
                 <li><Link to="/" className="hover:text-amber-400 transition">Home Overview</Link></li>
-                <li><a href="/#programs" className="hover:text-amber-400 transition">Active Cohorts</a></li>
+                <li><Link to="/programs" className="hover:text-amber-400 transition">All Programmes</Link></li>
                 <li><a href="/#journey" className="hover:text-amber-400 transition">6-Step Process</a></li>
                 <li><Link to="/apply" className="hover:text-amber-400 transition">Candidate Application</Link></li>
                 <li><Link to="/verify" className="hover:text-amber-400 transition">Public Verification Portal</Link></li>

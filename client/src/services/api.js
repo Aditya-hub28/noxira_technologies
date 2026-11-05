@@ -35,7 +35,13 @@ export const api = {
 
   // Public Intake & Programs
   getPrograms: () => request('/programs'),
+  getProgramDetail: (code) => request(`/programs/${encodeURIComponent(code)}`),
   submitApplication: (payload) => request('/intake/website-apply', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Admin Programs Management
+  adminGetPrograms: () => request('/admin/programs'),
+  adminCreateProgram: (payload) => request('/admin/programs', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpdateProgram: (code, payload) => request(`/admin/programs/${encodeURIComponent(code)}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   
   // CSV Import Wizard
   previewCsv: (formData) => request('/intake/csv-preview', { method: 'POST', body: formData }),

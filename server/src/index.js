@@ -18,6 +18,7 @@ const verifyRoutes = require('./routes/verifyRoutes');
 const distributionRoutes = require('./routes/distributionRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const programRoutes = require('./routes/programRoutes');
+const adminProgramRoutes = require('./routes/adminProgramRoutes');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/v1/public', verifyRoutes);
 app.use('/api/v1/distribution', distributionRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/programs', programRoutes);
+app.use('/api/v1/admin/programs', adminProgramRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
@@ -96,24 +98,44 @@ async function autoSeedIfEmpty() {
       console.log('💡 Tip: Set INITIAL_ADMIN_PASSWORD in server/.env to configure a static development password.');
     }
 
-    await Program.create([
+    const { seedProgramCatalogue } = require('./config/programsCatalogue');
+
+    // Provision initial dev demo programs if not yet existing
+    await Program.updateOne(
+      { code: 'FS-DEV' },
       {
-        code: 'FS-DEV',
-        title: 'Full Stack Web Development & Cloud Systems',
-        description: 'Engineering track covering modern web architecture.',
-        defaultBatch: 'BATCH-2026-Q4',
-        defaultStartDate: new Date('2026-09-01'),
-        defaultEndDate: new Date('2026-10-31')
+        $setOnInsert: {
+          code: 'FS-DEV',
+          title: 'Full Stack Web Development & Cloud Systems',
+          description: 'Engineering track covering modern web architecture.',
+          defaultBatch: 'BATCH-2026-Q4',
+          defaultStartDate: new Date('2026-09-01'),
+          defaultEndDate: new Date('2026-10-31'),
+          category: 'Development',
+          isActive: true
+        }
       },
+      { upsert: true }
+    );
+    await Program.updateOne(
+      { code: 'AI-ENG' },
       {
-        code: 'AI-ENG',
-        title: 'Applied Artificial Intelligence & LLM Engineering',
-        description: 'Deep dive into LLM agent workflows, fine-tuning, and scalable neural architectures.',
-        defaultBatch: 'BATCH-2026-Q4',
-        defaultStartDate: new Date('2026-09-15'),
-        defaultEndDate: new Date('2026-11-01')
-      }
-    ]);
+        $setOnInsert: {
+          code: 'AI-ENG',
+          title: 'Applied Artificial Intelligence & LLM Engineering',
+          description: 'Deep dive into LLM agent workflows, fine-tuning, and scalable neural architectures.',
+          defaultBatch: 'BATCH-2026-Q4',
+          defaultStartDate: new Date('2026-09-15'),
+          defaultEndDate: new Date('2026-11-01'),
+          category: 'AI & Data Science',
+          isActive: true
+        }
+      },
+      { upsert: true }
+    );
+
+    // Seed full 31-program catalogue additively and idempotently
+    await seedProgramCatalogue(Program);
 
     await Template.create({
       title: 'Official NOXIRA Certificate Template v1',

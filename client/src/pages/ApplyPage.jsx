@@ -285,10 +285,21 @@ export default function ApplyPage() {
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition bg-white"
               >
                 <option value="">-- Select an official program --</option>
-                {programs.map(p => (
-                  <option key={p.code} value={p.code}>
-                    {p.title} ({p.code})
-                  </option>
+                {Object.entries(
+                  programs.reduce((acc, p) => {
+                    const cat = p.category || 'Other';
+                    if (!acc[cat]) acc[cat] = [];
+                    acc[cat].push(p);
+                    return acc;
+                  }, {})
+                ).map(([catName, progs]) => (
+                  <optgroup key={catName} label={catName}>
+                    {progs.map(p => (
+                      <option key={p.code} value={p.code}>
+                        {p.title} ({p.code})
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             )}
