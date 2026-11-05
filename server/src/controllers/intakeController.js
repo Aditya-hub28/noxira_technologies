@@ -332,6 +332,22 @@ exports.getApplicationStatus = async (req, res, next) => {
       appData.decidedAt = application.decidedAt;
     }
 
+    if (application.status === 'REJECTED' && application.rejectionReason) {
+      appData.rejectionReason = application.rejectionReason;
+    }
+
+    if (application.status === 'APPROVED') {
+      if (application.offerDeliveryState === 'PROVIDER_ACCEPTED' || application.offerDeliveryState === 'SIMULATED') {
+        appData.offerStatus = 'Offer letter issued and sent to your registered email.';
+      } else if (application.offerDeliveryState === 'BLOCKED_TEMPLATE' || application.offerState === 'BLOCKED_TEMPLATE') {
+        appData.offerStatus = 'Offer letter is being prepared by admissions.';
+      } else if (application.offerState === 'GENERATED') {
+        appData.offerStatus = 'Offer letter generated. Delivery in progress.';
+      } else {
+        appData.offerStatus = 'Application approved. Offer letter will be prepared shortly.';
+      }
+    }
+
     if (typeof application.feeLocked === 'number') {
       appData.feeLocked = application.feeLocked;
     }

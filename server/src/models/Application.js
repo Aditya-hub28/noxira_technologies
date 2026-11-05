@@ -61,6 +61,43 @@ const ApplicationSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    rejectionReason: {
+      type: String,
+      trim: true
+    },
+    offerLetterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'OfferLetter'
+    },
+    offerState: {
+      type: String,
+      enum: ['NONE', 'BLOCKED_TEMPLATE', 'GENERATING', 'GENERATED', 'FAILED'],
+      default: 'NONE',
+      index: true
+    },
+    offerDeliveryState: {
+      type: String,
+      enum: ['NONE', 'BLOCKED_TEMPLATE', 'QUEUED', 'PROCESSING', 'PROVIDER_ACCEPTED', 'FAILED', 'DELIVERY_UNKNOWN', 'SIMULATED'],
+      default: 'NONE',
+      index: true
+    },
+    history: [
+      {
+        fromStatus: String,
+        toStatus: String,
+        action: String,
+        actorId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Admin'
+        },
+        actorName: String,
+        reason: String,
+        timestamp: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
     appliedAt: {
       type: Date,
       default: Date.now

@@ -11,17 +11,26 @@ const DeliveryJob = require('../src/models/DeliveryJob');
 const ImportBatch = require('../src/models/ImportBatch');
 const AuditLog = require('../src/models/AuditLog');
 const Application = require('../src/models/Application');
+const OfferLetter = require('../src/models/OfferLetter');
+const OfferLetterTemplate = require('../src/models/OfferLetterTemplate');
+const OfferDeliveryJob = require('../src/models/OfferDeliveryJob');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
 const { issueCertificateForParticipant } = require('../src/services/issuanceService');
 const { generate128BitToken } = require('../src/services/qrService');
 const { recoverStaleProcessingJobs } = require('../src/services/emailService');
 const { validateEnv } = require('../src/config/env');
+const offerService = require('../src/services/offerService');
+const offerPdfService = require('../src/services/offerPdfService');
+const storageService = require('../src/services/storageService');
 
 const participantController = require('../src/controllers/participantController');
 const distributionController = require('../src/controllers/distributionController');
 const intakeController = require('../src/controllers/intakeController');
 const templateController = require('../src/controllers/templateController');
+const adminApplicationController = require('../src/controllers/adminApplicationController');
+const adminOfferTemplateController = require('../src/controllers/adminOfferTemplateController');
+const offerDownloadController = require('../src/controllers/offerDownloadController');
 const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/programRoutes');
 const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('../src/routes/adminProgramRoutes');
 const { CATALOGUE_PROGRAMS, PROGRAM_CATEGORIES, seedProgramCatalogue } = require('../src/config/programsCatalogue');
@@ -36,14 +45,34 @@ function mockReqRes(options = {}) {
     query: options.query || {},
     headers: options.headers || {},
     ip: options.ip || '127.0.0.1',
-    admin: options.admin || { _id: new mongoose.Types.ObjectId(), name: 'Test Admin', role: 'SUPER_ADMIN' }
+    admin: options.admin || { _id: new mongoose.Types.ObjectId(), name: 'Test Admin', role: 'SUPER_ADMIN' },
+    file: options.file || null
   };
   let statusCode = 200;
   let responseData = null;
+  const resHeaders = {};
+  const chunks = [];
   const res = {
     status(code) {
       statusCode = code;
       return this;
+    },
+    setHeader(k, v) {
+      resHeaders[k.toLowerCase()] = v;
+      return this;
+    },
+    set(k, v) {
+      if (typeof k === 'object') {
+        for (const [key, val] of Object.entries(k)) {
+          resHeaders[key.toLowerCase()] = val;
+        }
+      } else {
+        resHeaders[k.toLowerCase()] = v;
+      }
+      return this;
+    },
+    getHeader(k) {
+      return resHeaders[k.toLowerCase()];
     },
     json(data) {
       responseData = data;
@@ -52,7 +81,23 @@ function mockReqRes(options = {}) {
     send(data) {
       responseData = data;
       return this;
-    }
+    },
+    write(chunk) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      return true;
+    },
+    end(chunk) {
+      if (chunk) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      if (chunks.length > 0 && !responseData) {
+        responseData = Buffer.concat(chunks);
+      }
+      return this;
+    },
+    on() { return this; },
+    once() { return this; },
+    emit() { return true; }
   };
   const next = (err) => {
     if (err) throw err;
@@ -62,7 +107,8 @@ function mockReqRes(options = {}) {
     res,
     next,
     getStatus: () => statusCode,
-    getData: () => responseData
+    getData: () => responseData,
+    getHeaders: () => resHeaders
   };
 }
 
@@ -1702,6 +1748,293 @@ async function runTestSuite() {
     const participantIdx = appIndexes.find(idx => idx.key && idx.key.participantId === 1);
     assert.ok(participantIdx, 'Application must have an index on participantId');
     assert.strictEqual(participantIdx.unique, true, 'participantId index on Application must be unique');
+  });
+
+  // TEST 25: Module 4 Selection Gate, Replaceable PDF Offer Templates, Bearer Tokens & Delivery Reconciliation
+  await test('Module 4: Selection Gate, Offer Letter Templates, PDF Engine, Expiring Bearer Links, and Delivery Reconciliation', async () => {
+    // 1. Seed sample offer template
+    const samplePdfBuf = await offerPdfService.generateSampleOfferTemplatePdf();
+    assert.ok(samplePdfBuf && samplePdfBuf.length > 0, 'Must generate valid sample PDF buffer');
+    const sampleSaved = await storageService.saveOfferTemplateFile(samplePdfBuf, 'test_sample_template.pdf');
+    const samplePath = sampleSaved.diskPath || String(sampleSaved);
+
+    const sampleTemplate = await OfferLetterTemplate.create({
+      name: 'Test Sample Template',
+      version: 1,
+      isSample: true,
+      isActive: false,
+      pdfStoragePath: samplePath,
+      pdfSizeBytes: samplePdfBuf.length,
+      pageCount: 1,
+      pageDimensions: [{ pageNumber: 1, width: 595.28, height: 841.89 }],
+      fields: offerPdfService.DEFAULT_SAMPLE_FIELDS
+    });
+
+    // 2. Setup test applicants
+    const p1 = await Participant.create({
+      fullName: 'Candidate Alpha',
+      email: 'alpha@example.com',
+      normalizedEmail: 'alpha@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M4-01',
+      source: 'WEBSITE',
+      completionStatus: 'PENDING'
+    });
+    const appAlpha = await Application.create({
+      applicationId: 'NOX-ALPHA1',
+      participantId: p1._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M4-01',
+      status: 'APPLIED',
+      feeLocked: 499
+    });
+
+    const p2 = await Participant.create({
+      fullName: 'Candidate Beta',
+      email: 'beta@example.com',
+      normalizedEmail: 'beta@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M4-01',
+      source: 'WEBSITE',
+      completionStatus: 'PENDING'
+    });
+    const appBeta = await Application.create({
+      applicationId: 'NOX-BETA22',
+      participantId: p2._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M4-01',
+      status: 'APPLIED',
+      feeLocked: 499
+    });
+
+    const p3 = await Participant.create({
+      fullName: 'Candidate Gamma',
+      email: 'gamma@example.com',
+      normalizedEmail: 'gamma@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M4-01',
+      source: 'WEBSITE',
+      completionStatus: 'PENDING'
+    });
+    const appGamma = await Application.create({
+      applicationId: 'NOX-GAMMA3',
+      participantId: p3._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development & Cloud Systems',
+      batchId: 'BATCH-M4-01',
+      status: 'APPLIED',
+      feeLocked: 499
+    });
+
+    // 3. Admin Application listing with regex escaping
+    const mockList = mockReqRes({
+      query: { search: '[Special*Regex(Chars)', page: '1', limit: '10' }
+    });
+    await adminApplicationController.getApplications(mockList.req, mockList.res, mockList.next);
+    assert.strictEqual(mockList.getStatus(), 200, 'Search with regex characters must not crash');
+    assert.ok(Array.isArray(mockList.getData().applications), 'Must return applications array');
+
+    // 4. Single Rejection requires student-facing reason
+    const mockRejectNoReason = mockReqRes({
+      params: { id: appAlpha.applicationId },
+      body: { status: 'REJECTED' }
+    });
+    await adminApplicationController.updateApplicationStatus(mockRejectNoReason.req, mockRejectNoReason.res, mockRejectNoReason.next);
+    assert.strictEqual(mockRejectNoReason.getStatus(), 400, 'Rejection without reason must return 400');
+
+    const mockRejectSuccess = mockReqRes({
+      params: { id: appAlpha.applicationId },
+      body: { status: 'REJECTED', rejectionReason: 'Cohort capacity reached for selected batch.' }
+    });
+    await adminApplicationController.updateApplicationStatus(mockRejectSuccess.req, mockRejectSuccess.res, mockRejectSuccess.next);
+    assert.strictEqual(mockRejectSuccess.getStatus(), 200, 'Rejection with reason must return 200');
+
+    const refreshedAlpha = await Application.findOne({ applicationId: appAlpha.applicationId });
+    assert.strictEqual(refreshedAlpha.status, 'REJECTED');
+    assert.strictEqual(refreshedAlpha.rejectionReason, 'Cohort capacity reached for selected batch.');
+    assert.ok(refreshedAlpha.decidedAt, 'Must record decidedAt timestamp');
+    assert.strictEqual(refreshedAlpha.history.length, 1, 'Must record transition history');
+
+    // 5. Atomic guard: Cannot transition already final status
+    const mockRejectAgain = mockReqRes({
+      params: { id: appAlpha.applicationId },
+      body: { status: 'APPROVED' }
+    });
+    await adminApplicationController.updateApplicationStatus(mockRejectAgain.req, mockRejectAgain.res, mockRejectAgain.next);
+    assert.strictEqual(mockRejectAgain.getStatus(), 409, 'Cannot transition from final status REJECTED');
+
+    // 6. Approval with sample template: generates watermarked offer and enters BLOCKED_TEMPLATE
+    const mockApproveBeta = mockReqRes({
+      params: { id: appBeta.applicationId },
+      body: { status: 'APPROVED' }
+    });
+    await adminApplicationController.updateApplicationStatus(mockApproveBeta.req, mockApproveBeta.res, mockApproveBeta.next);
+    assert.strictEqual(mockApproveBeta.getStatus(), 200, 'Approval must return 200');
+
+    const refreshedBeta = await Application.findOne({ applicationId: appBeta.applicationId });
+    assert.strictEqual(refreshedBeta.status, 'APPROVED');
+    assert.strictEqual(refreshedBeta.offerState, 'BLOCKED_TEMPLATE', 'Offer must be BLOCKED_TEMPLATE while sample template is active');
+    assert.strictEqual(refreshedBeta.offerDeliveryState, 'BLOCKED_TEMPLATE', 'Email must not be sent while sample template is active');
+
+    const offerBeta = await OfferLetter.findOne({ applicationId: appBeta.applicationId });
+    assert.ok(offerBeta, 'OfferLetter record must exist');
+    assert.strictEqual(offerBeta.generationStatus, 'GENERATED');
+    assert.strictEqual(offerBeta.programSnapshot.feeLocked, 499, 'Snapshot must preserve feeLocked');
+
+    // Selection NEVER sets completionStatus to ELIGIBLE
+    const pBetaRefreshed = await Participant.findById(p2._id);
+    assert.strictEqual(pBetaRefreshed.completionStatus, 'PENDING', 'Selection approval must NEVER make participant ELIGIBLE for certificate');
+
+    // 7. Batch Review with partial failures
+    const mockBatch = mockReqRes({
+      body: {
+        applicationIds: [appGamma.applicationId, appAlpha.applicationId], // Gamma is APPLIED, Alpha is already REJECTED
+        action: 'APPROVE'
+      }
+    });
+    await adminApplicationController.batchReviewApplications(mockBatch.req, mockBatch.res, mockBatch.next);
+    assert.strictEqual(mockBatch.getStatus(), 200);
+    const batchData = mockBatch.getData();
+    assert.strictEqual(batchData.summary.succeeded, 1, 'Gamma must succeed');
+    assert.strictEqual(batchData.summary.failed, 1, 'Alpha must fail (already final)');
+
+    // 8. Custom Template Upload & Byte Validation
+    const mockBadUpload = mockReqRes({
+      file: { buffer: Buffer.from('NOT A PDF FILE CORRUPT DATA'), originalname: 'fake.pdf' },
+      body: { name: 'Bad PDF' }
+    });
+    let uploadErr = null;
+    try {
+      await adminOfferTemplateController.uploadTemplate(mockBadUpload.req, mockBadUpload.res, (err) => { uploadErr = err; });
+    } catch (e) {
+      uploadErr = e;
+    }
+    assert.ok(uploadErr, 'Corrupt PDF byte stream must be rejected');
+
+    // Generate valid 1-page PDF using pdf-lib for test upload
+    const { PDFDocument } = require('pdf-lib');
+    const validDoc = await PDFDocument.create();
+    validDoc.addPage([595.28, 841.89]);
+    const validPdfBytes = Buffer.from(await validDoc.save());
+
+    const mockGoodUpload = mockReqRes({
+      file: { buffer: validPdfBytes, originalname: 'official_template.pdf' },
+      body: { name: 'Official Custom Template' }
+    });
+    await adminOfferTemplateController.uploadTemplate(mockGoodUpload.req, mockGoodUpload.res, mockGoodUpload.next);
+    assert.strictEqual(mockGoodUpload.getStatus(), 201, 'Valid PDF must upload with 201');
+    const customTemplate = mockGoodUpload.getData().template;
+    assert.strictEqual(customTemplate.isActive, false, 'Uploaded template must start as inactive draft');
+    assert.strictEqual(customTemplate.version, 2);
+
+    // 9. Sample template cannot be activated for live issuance
+    const mockActivateSample = mockReqRes({
+      params: { id: sampleTemplate._id },
+      body: { confirmation: true }
+    });
+    await adminOfferTemplateController.activateTemplate(mockActivateSample.req, mockActivateSample.res, mockActivateSample.next);
+    assert.strictEqual(mockActivateSample.getStatus(), 400, 'Sample template cannot be activated for live candidate issuance');
+
+    // Activate custom template
+    const mockActivateCustom = mockReqRes({
+      params: { id: customTemplate._id },
+      body: { confirmation: true }
+    });
+    await adminOfferTemplateController.activateTemplate(mockActivateCustom.req, mockActivateCustom.res, mockActivateCustom.next);
+    assert.strictEqual(mockActivateCustom.getStatus(), 200, 'Custom template must activate');
+    const customRefreshed = await OfferLetterTemplate.findById(customTemplate._id);
+    assert.strictEqual(customRefreshed.isActive, true);
+
+    // 10. Process Blocked Backlog with newly active custom template
+    const mockUnblock = mockReqRes({});
+    await adminApplicationController.sendBlockedApplications(mockUnblock.req, mockUnblock.res, mockUnblock.next);
+    assert.strictEqual(mockUnblock.getStatus(), 200);
+    assert.ok(mockUnblock.getData().processedCount >= 1, 'Must unblock and process blocked applications');
+
+    // 11. 72-Hour Expiring Download Bearer Token
+    const jwt = require('jsonwebtoken');
+    const env = require('../src/config/env');
+    const offerForBeta = await OfferLetter.findOne({ applicationId: appBeta.applicationId });
+
+    // Valid token streams PDF
+    const { token: validToken } = offerService.createOfferDownloadToken(offerForBeta._id, appBeta.applicationId, offerForBeta.downloadToken);
+    const mockDownloadValid = mockReqRes({ params: { token: validToken } });
+    await offerDownloadController.downloadOfferLetter(mockDownloadValid.req, mockDownloadValid.res, mockDownloadValid.next);
+    assert.strictEqual(mockDownloadValid.getStatus(), 200, 'Valid token must return 200');
+    assert.strictEqual(mockDownloadValid.getHeaders()['content-type'], 'application/pdf');
+
+    // Tampered token returns 404
+    const mockDownloadTampered = mockReqRes({ params: { token: validToken.slice(0, -6) + 'xxxxxx' } });
+    await offerDownloadController.downloadOfferLetter(mockDownloadTampered.req, mockDownloadTampered.res, mockDownloadTampered.next);
+    assert.strictEqual(mockDownloadTampered.getStatus(), 404, 'Tampered token must return 404');
+
+    // Expired token returns 410 Gone
+    const expiredPayload = {
+      sub: String(offerForBeta._id),
+      appId: appBeta.applicationId,
+      purpose: 'OFFER_DOWNLOAD',
+      jti: offerForBeta.downloadToken
+    };
+    const expiredToken = jwt.sign(expiredPayload, env.JWT_SECRET, { expiresIn: '-1s' });
+    const mockDownloadExpired = mockReqRes({ params: { token: expiredToken } });
+    await offerDownloadController.downloadOfferLetter(mockDownloadExpired.req, mockDownloadExpired.res, mockDownloadExpired.next);
+    assert.strictEqual(mockDownloadExpired.getStatus(), 410, 'Expired token must return 410 Gone');
+
+    // Renew link: invalidates previous token and creates fresh one
+    const mockRenew = mockReqRes({ params: { id: appBeta.applicationId } });
+    await adminApplicationController.renewOfferDownloadLink(mockRenew.req, mockRenew.res, mockRenew.next);
+    assert.strictEqual(mockRenew.getStatus(), 200, 'Link renewal must return 200');
+
+    // Old token now returns 404 because JTI changed
+    const mockOldTokenDownload = mockReqRes({ params: { token: validToken } });
+    await offerDownloadController.downloadOfferLetter(mockOldTokenDownload.req, mockOldTokenDownload.res, mockOldTokenDownload.next);
+    assert.strictEqual(mockOldTokenDownload.getStatus(), 404, 'Previous token with old JTI must return 404');
+
+    // 12. Student Status View Integration
+    // Rejected applicant status view
+    const mockStatusAlpha = mockReqRes({
+      query: { email: 'alpha@example.com', id: appAlpha.applicationId }
+    });
+    await intakeController.getApplicationStatus(mockStatusAlpha.req, mockStatusAlpha.res, mockStatusAlpha.next);
+    assert.strictEqual(mockStatusAlpha.getStatus(), 200);
+    const alphaStatusData = mockStatusAlpha.getData().application;
+    assert.strictEqual(alphaStatusData.status, 'REJECTED');
+    assert.strictEqual(alphaStatusData.rejectionReason, 'Cohort capacity reached for selected batch.');
+    assert.ok(alphaStatusData.decidedAt, 'Must include decidedAt');
+    assert.strictEqual(alphaStatusData.adminNotes, undefined, 'Must NEVER leak adminNotes');
+
+    // Approved applicant status view
+    const mockStatusBeta = mockReqRes({
+      query: { email: 'beta@example.com', id: appBeta.applicationId }
+    });
+    await intakeController.getApplicationStatus(mockStatusBeta.req, mockStatusBeta.res, mockStatusBeta.next);
+    assert.strictEqual(mockStatusBeta.getStatus(), 200);
+    const betaStatusData = mockStatusBeta.getData().application;
+    assert.strictEqual(betaStatusData.status, 'APPROVED');
+    assert.ok(betaStatusData.offerStatus, 'Must include student-facing offer status string');
+    assert.strictEqual(betaStatusData.adminNotes, undefined, 'Must NEVER leak adminNotes');
+    assert.strictEqual(betaStatusData.downloadToken, undefined, 'Must NEVER leak downloadToken in status JSON');
+    assert.strictEqual(betaStatusData.pdfPath, undefined, 'Must NEVER leak pdfPath');
+
+    // 13. Delivery Job Reconciliation
+    const dummyJob = await OfferDeliveryJob.create({
+      offerLetterId: new mongoose.Types.ObjectId(),
+      applicationId: 'NOX-RECON1',
+      recipientEmail: 'recon@example.com',
+      status: 'DELIVERY_UNKNOWN',
+      reconciliationRequired: true
+    });
+
+    await offerService.reconcileOfferJob(dummyJob._id, 'RESOLVED_ACCEPTED', 'Manual delivery confirmed with logs', mockList.req.admin._id, 'manual-msg-123');
+    const reconciled = await OfferDeliveryJob.findById(dummyJob._id);
+    assert.strictEqual(reconciled.status, 'PROVIDER_ACCEPTED');
+    assert.strictEqual(reconciled.reconciliationRequired, false);
+    assert.strictEqual(reconciled.providerMessageId, 'manual-msg-123');
   });
 
   // Cleanup

@@ -14,11 +14,15 @@ client/dist/
 .initial_admin_secret
 *.secret
 
-# Local private file storage (don't commit generated certificates)
+# Local private file storage (don't commit generated certificates or offers)
 server/storage/certificates/*.pdf
 server/storage/templates/*
 !server/storage/templates/.gitkeep
 !server/storage/certificates/.gitkeep
+server/storage/certificates/offer_templates/*
+!server/storage/certificates/offer_templates/.gitkeep
+server/storage/certificates/offers/*
+!server/storage/certificates/offers/.gitkeep
 
 # Logs & Debug
 npm-debug.log*

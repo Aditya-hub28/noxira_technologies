@@ -12,7 +12,9 @@ import {
   LogOut,
   ArrowLeft,
   Shield,
-  BookOpen
+  BookOpen,
+  UserCheck,
+  FileText
 } from 'lucide-react';
 
 import PublicLayout from './components/PublicLayout';
@@ -25,6 +27,8 @@ import VerifyPage from './pages/VerifyPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import DashboardOverview from './pages/DashboardOverview';
 import AdminProgramsPage from './pages/AdminProgramsPage';
+import AdminApplicationsPage from './pages/AdminApplicationsPage';
+import AdminOfferTemplatesPage from './pages/AdminOfferTemplatesPage';
 import ParticipantsPage from './pages/ParticipantsPage';
 import CsvImportPage from './pages/CsvImportPage';
 import TemplatePreviewPage from './pages/TemplatePreviewPage';
@@ -40,10 +44,12 @@ function AdminConsole({ admin, onLogout }) {
 
   const tabs = [
     { id: 'dashboard', label: 'Overview', icon: ShieldCheck },
+    { id: 'applications', label: 'Applications & Selection', icon: UserCheck },
+    { id: 'offer-templates', label: 'Offer Letter Studio', icon: FileText },
     { id: 'programs', label: 'Programmes', icon: BookOpen },
     { id: 'participants', label: 'Participants & Review', icon: Users },
     { id: 'import', label: 'CSV Import', icon: FileSpreadsheet },
-    { id: 'templates', label: 'Template Studio', icon: Sliders },
+    { id: 'templates', label: 'Certificate Studio', icon: Sliders },
     { id: 'issuance', label: 'Batch Issuance', icon: Award },
     { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
     { id: 'distribution', label: 'Email Distribution', icon: Send },
@@ -121,6 +127,12 @@ function AdminConsole({ admin, onLogout }) {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         {adminTab === 'dashboard' && (
           <DashboardOverview onNavigate={(view) => setAdminTab(view)} />
+        )}
+        {adminTab === 'applications' && (
+          <AdminApplicationsPage />
+        )}
+        {adminTab === 'offer-templates' && (
+          <AdminOfferTemplatesPage />
         )}
         {adminTab === 'programs' && (
           <AdminProgramsPage />

@@ -264,6 +264,22 @@ export default function StatusPage() {
               </div>
             )}
 
+            {/* Rejection Notice & Student-Facing Feedback */}
+            {application.status === 'REJECTED' && application.rejectionReason && (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs space-y-1">
+                <span className="font-bold block text-rose-950">Review Decision Note</span>
+                <p className="text-rose-800 leading-relaxed">{application.rejectionReason}</p>
+              </div>
+            )}
+
+            {/* Approval & Offer Letter Notification */}
+            {application.status === 'APPROVED' && application.offerStatus && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs space-y-1">
+                <span className="font-bold block text-emerald-950">Offer Letter Status</span>
+                <p className="text-emerald-800 leading-relaxed">{application.offerStatus}</p>
+              </div>
+            )}
+
             {/* Fee Locked Disclosure (only rendered when feeLocked is a valid number, including 0) */}
             {typeof application.feeLocked === 'number' && (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-xs text-amber-900 space-y-1">

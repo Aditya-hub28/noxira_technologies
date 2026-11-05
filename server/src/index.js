@@ -19,6 +19,9 @@ const distributionRoutes = require('./routes/distributionRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const programRoutes = require('./routes/programRoutes');
 const adminProgramRoutes = require('./routes/adminProgramRoutes');
+const adminApplicationRoutes = require('./routes/adminApplicationRoutes');
+const adminOfferTemplateRoutes = require('./routes/adminOfferTemplateRoutes');
+const offerDownloadRoutes = require('./routes/offerDownloadRoutes');
 
 const app = express();
 
@@ -57,6 +60,9 @@ app.use('/api/v1/distribution', distributionRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/programs', programRoutes);
 app.use('/api/v1/admin/programs', adminProgramRoutes);
+app.use('/api/v1/admin/applications', adminApplicationRoutes);
+app.use('/api/v1/admin/offer-templates', adminOfferTemplateRoutes);
+app.use('/api/v1/offers', offerDownloadRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
@@ -207,6 +213,33 @@ async function autoSeedIfEmpty() {
     ]);
 
     console.log('✅ Demo programs, template, and initial candidates provisioned.');
+  }
+
+  const OfferLetterTemplate = require('./models/OfferLetterTemplate');
+  const offerPdfService = require('./services/offerPdfService');
+  const storageService = require('./services/storageService');
+
+  const templateCount = await OfferLetterTemplate.countDocuments();
+  if (templateCount === 0) {
+    try {
+      const samplePdfBuffer = await offerPdfService.generateSampleOfferTemplatePdf();
+      const sampleSaved = await storageService.saveOfferTemplateFile(samplePdfBuffer, 'sample_offer_template_v1.pdf');
+      const samplePath = sampleSaved.diskPath || String(sampleSaved);
+      await OfferLetterTemplate.create({
+        name: 'Built-in Sample Offer Template',
+        version: 1,
+        isSample: true,
+        isActive: false,
+        pdfStoragePath: samplePath,
+        pdfSizeBytes: samplePdfBuffer.length,
+        pageCount: 1,
+        pageDimensions: [{ pageNumber: 1, width: 595.28, height: 841.89 }],
+        fields: offerPdfService.DEFAULT_SAMPLE_FIELDS
+      });
+      console.log('📄 Built-in Sample Offer Template provisioned.');
+    } catch (seedErr) {
+      console.error('Failed to seed sample offer template:', seedErr);
+    }
   }
 }
 
