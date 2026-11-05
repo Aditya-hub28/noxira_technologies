@@ -282,7 +282,9 @@ export default function ProgramDetailPage() {
             NOXIRA will publish the detailed curriculum for this programme.
           </p>
           <p className="text-xs text-slate-500">
-            Cohort applications remain open for administrative intake.
+            {program.feeInr !== undefined && program.feeInr !== null
+              ? 'Applications are open for administrative intake.'
+              : 'Applications will open once NOXIRA publishes the programme fee.'}
           </p>
         </div>
       )}
