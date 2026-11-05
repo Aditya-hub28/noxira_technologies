@@ -187,7 +187,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <span className="font-bold text-white text-sm tracking-wider">NOXIRA TECHNOLOGIES</span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-md">
-                Industry-standard engineering internships and technical programs. Every candidate builds practical software projects and receives registry-verified credentials.
+                Industry-standard engineering tracks and technical programs. Credentials are issued only upon formal administrative review and confirmed eligibility.
               </p>
             </div>
 

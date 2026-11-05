@@ -17,6 +17,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
+import { resolveProgramDescription } from '../utils/programUtils';
+
 export default function HomePage() {
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,15 +49,15 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-          <span>Industry Task-Driven Internship Model</span>
+          <span>Engineering Internship & Certification Model</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
-          Accelerate Your Career with <span className="text-amber-600">Real Production Systems</span>
+          Accelerate Your Career with <span className="text-amber-600">Structured Engineering Tracks</span>
         </h1>
 
         <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-          Bridge the gap between academic theory and practical engineering. Explore structured engineering tracks, submit projects for review, and earn registry-verified credentials.
+          Bridge the gap between academic theory and practical engineering. Explore structured engineering tracks, apply for upcoming cohorts, and verify authentic credentials through our official registry.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -161,19 +163,13 @@ export default function HomePage() {
                   </h3>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    {(() => {
-                      const desc = prg.description || '';
-                      if (desc.includes('8-week intensive') || desc.includes('Comprehensive 8-week')) {
-                        return 'Practical engineering track focusing on modern scalable web architecture with structured evaluation and verified credential issuance.';
-                      }
-                      return desc || 'Hands-on practical industry track with real task evaluation and verified credential issuance.';
-                    })()}
+                    {resolveProgramDescription(prg)}
                   </p>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 font-medium">
-                    Reviewed Evaluation Model
+                    Curriculum Review Model
                   </span>
                   <Link
                     to={`/apply?program=${encodeURIComponent(prg.code)}`}

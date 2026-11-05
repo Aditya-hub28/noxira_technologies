@@ -47,14 +47,40 @@ Verifies all 7 core acceptance criteria:
 - Revocation & replacement version linking
 
 ### 3. Seed Super Admin
+The administrative seeder script loads environment configuration directly from `server/.env` (using Node.js `dotenv`).
+
+Before running the seeder, ensure your local `server/.env` file exists (copied from `server/.env.example`) and defines your initial admin secret:
+```bash
+# In server/.env:
+INITIAL_ADMIN_PASSWORD=<your_secure_development_password>
+
+# Optional configuration (defaults applied if omitted):
+# INITIAL_ADMIN_EMAIL=admin@noxira.com
+# INITIAL_ADMIN_NAME=System Administrator
+```
+
+Execute the seeder from the repository root:
 ```bash
 npm run seed:admin
 ```
-*Default Credentials created:*
-- **Email:** `admin@noxira.com`
-- **Password:** `NoxiraAdmin@2026`
+*(Or from the `server` directory: `npm run seed:admin` / `node src/scripts/seedAdmin.js`)*
 
-### 4. Start Server & Client
+**Security & Account Protection:**
+- `INITIAL_ADMIN_PASSWORD` is strictly required. If missing or blank, the script halts with a clear error (exit code 1) and never modifies the database.
+- If an admin account with the email already exists, the seeder makes no changes and preserves existing credentials.
+- To intentionally update an existing admin account's password, pass the `--force-reset` flag explicitly:
+  ```bash
+  cd server && node src/scripts/seedAdmin.js --force-reset
+  ```
+
+### 4. Configure Public Website Intake (Optional for local testing)
+Public application intake (`/apply`) requires an owner-configured active cohort batch in `server/.env`:
+```bash
+WEBSITE_INTAKE_BATCH_ID=<active_cohort_batch_id>
+```
+If `WEBSITE_INTAKE_BATCH_ID` is unset or blank, public website intake fails closed with HTTP 503 (`Service Unavailable`) and creates zero records.
+
+### 5. Start Server & Client
 In terminal 1 (Backend API):
 ```bash
 npm run server
@@ -141,4 +167,4 @@ noxira_technologies/
 
 ---
 
-*Engineered with precision for NOXIRA Technologies Private Limited.*
+*Engineered with precision for NOXIRA Technologies.*

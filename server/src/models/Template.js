@@ -35,7 +35,7 @@ const TemplateSchema = new mongoose.Schema({
   signatory: {
     name: { type: String, default: 'Aditya Jha' },
     title: { type: String, default: 'Managing Director & Lead Architect' },
-    organization: { type: String, default: 'Noxira Technologies Private Limited' }
+    organization: { type: String, default: 'NOXIRA Technologies' }
   },
   layout: {
     name: {

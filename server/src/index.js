@@ -100,7 +100,7 @@ async function autoSeedIfEmpty() {
       {
         code: 'FS-DEV',
         title: 'Full Stack Web Development & Cloud Systems',
-        description: 'Comprehensive 8-week intensive on modern scalable web architecture.',
+        description: 'Engineering track covering modern web architecture.',
         defaultBatch: 'BATCH-2026-Q4',
         defaultStartDate: new Date('2026-09-01'),
         defaultEndDate: new Date('2026-10-31')
@@ -130,13 +130,13 @@ async function autoSeedIfEmpty() {
       signatory: {
         name: 'Aditya Jha',
         title: 'Managing Director & Lead Architect',
-        organization: 'Noxira Technologies Private Limited'
+        organization: 'NOXIRA Technologies'
       },
       layout: {
         signatory: {
           name: 'Aditya Jha',
           title: 'Managing Director & Lead Architect',
-          organization: 'Noxira Technologies Private Limited'
+          organization: 'NOXIRA Technologies'
         }
       },
       isActive: true

@@ -140,7 +140,7 @@ function AdminConsole({ admin, onLogout }) {
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        <p>NOXIRA Technologies Private Limited · Administrative Console</p>
+        <p>NOXIRA Technologies · Administrative Console</p>
       </footer>
     </div>
   );

@@ -13,7 +13,7 @@ exports.getTemplates = async (req, res, next) => {
         signatory: {
           name: 'Aditya Jha',
           title: 'Managing Director & Lead Architect',
-          organization: 'Noxira Technologies Private Limited'
+          organization: 'NOXIRA Technologies'
         },
         layout: {
           signatory: {
