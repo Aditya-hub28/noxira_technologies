@@ -147,7 +147,7 @@ export default function ProgramDetailPage() {
             )}
           </div>
           <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active Official Track
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active Programme
           </span>
         </div>
 

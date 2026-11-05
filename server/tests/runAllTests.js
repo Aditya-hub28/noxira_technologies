@@ -1093,7 +1093,7 @@ async function runTestSuite() {
       if (prg.code === 'FS-DEV' && desc.trim() === LEGACY_FS_DEV_DEMO_DESC) {
         return 'Engineering track covering modern web architecture with structured evaluation and verified credential issuance.';
       }
-      return desc || 'Structured engineering track with official curriculum review and registry-verified credential issuance.';
+      return desc || 'Curriculum and cohort details for this programme will be published by NOXIRA soon.';
     }
 
     // Case A: Exact legacy demo string for FS-DEV -> maps to presentation fallback

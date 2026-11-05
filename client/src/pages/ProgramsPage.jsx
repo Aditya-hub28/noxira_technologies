@@ -71,13 +71,13 @@ export default function ProgramsPage() {
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-          <span>Curriculum & Cohort Directory</span>
+          <span>Programme Directory</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-          Official Engineering & Technical Programmes
+          Engineering & Technical Programmes
         </h1>
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          Explore official engineering tracks across 6 professional domains. Browse curriculum requirements, track details, and apply for reviewed cohort intake.
+          Explore programmes across 6 professional domains. Browse track details and apply for cohort intake.
         </p>
       </div>
 
