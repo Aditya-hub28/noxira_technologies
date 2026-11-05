@@ -1,3 +1,4 @@
+const fs = require('fs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
@@ -13,6 +14,22 @@ const offerPdfService = require('./offerPdfService');
 const nodemailer = require('nodemailer');
 
 let transporter = null;
+let lastCapturedOfferMail = null;
+
+function getLastCapturedOfferMail() {
+  return lastCapturedOfferMail;
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function getOfferTransporter() {
   if (!transporter) {
     if (env.NODE_ENV === 'production') {
@@ -41,6 +58,7 @@ function getOfferTransporter() {
     } else {
       transporter = {
         sendMail: async (mailOptions) => {
+          lastCapturedOfferMail = mailOptions;
           return {
             messageId: `mock-offer-msg-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
             response: '250 OK: Simulated offer email acceptance'
@@ -263,20 +281,43 @@ async function processOfferDeliveryJob(jobId) {
   const { token } = createOfferDownloadToken(offerLetter._id, job.applicationId, offerLetter.downloadToken);
   const downloadUrl = `${env.FRONTEND_URL || 'http://localhost:5173'}/api/v1/offers/download/${token}`;
 
+  const fromSender = env.SMTP && env.SMTP.FROM;
+  if (!fromSender || !fromSender.trim()) {
+    throw new Error('[CONFIGURATION_ERROR] Configured sender address (SMTP_FROM) is required for sending offer emails.');
+  }
+
+  const safeAppId = escapeHtml(application.applicationId);
+  const safeProgram = escapeHtml(application.programTitle || application.programCode);
+  const safeCandidateName = escapeHtml(offerLetter.recipientSnapshot?.fullName || 'Candidate');
+
+  // Attach personalized offer letter PDF for custom templates
+  const isCustom = template && !template.isSample;
+  const attachments = [];
+  if (isCustom && offerLetter.pdfPath && fs.existsSync(offerLetter.pdfPath)) {
+    const safeFilename = `NOXIRA_Offer_${application.applicationId.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    attachments.push({
+      filename: safeFilename,
+      path: offerLetter.pdfPath,
+      contentType: 'application/pdf'
+    });
+  }
+
   const mailOptions = {
-    from: (env.SMTP && env.SMTP.FROM) || 'NOXIRA Admissions <admissions@noxira.tech>',
+    from: fromSender.trim(),
     to: job.recipientEmail,
     subject: `NOXIRA Internship Offer: ${application.programTitle || application.programCode}`,
-    text: `Congratulations! Your application ${application.applicationId} for ${application.programTitle || application.programCode} has been approved.\n\nYou can access your official offer letter at the secure link below:\n${downloadUrl}\n\nNote: This secure link is valid for 72 hours.`,
+    text: `Congratulations ${offerLetter.recipientSnapshot?.fullName || 'Candidate'}!\n\nYour application ${application.applicationId} for ${application.programTitle || application.programCode} has been approved.\n\nYour official offer letter is attached to this email. You can also access your offer letter at the secure link below:\n${downloadUrl}\n\nNote: This secure link is valid for 72 hours.`,
     html: `
       <div style="font-family: sans-serif; line-height: 1.6; color: #1e293b;">
         <h2>NOXIRA Internship Offer</h2>
-        <p>Congratulations! Your application (<strong>${application.applicationId}</strong>) for <strong>${application.programTitle || application.programCode}</strong> has been approved.</p>
-        <p>Your official offer letter is now available for download:</p>
+        <p>Dear <strong>${safeCandidateName}</strong>,</p>
+        <p>Congratulations! Your application (<strong>${safeAppId}</strong>) for <strong>${safeProgram}</strong> has been approved.</p>
+        <p>Your official offer letter is attached to this email as a PDF document. You can also view or download it directly using the secure link below:</p>
         <p><a href="${downloadUrl}" style="background-color: #0f172a; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block;">Download Offer Letter (PDF)</a></p>
         <p style="font-size: 13px; color: #64748b;">This secure download link is valid for 72 hours.</p>
       </div>
-    `
+    `,
+    attachments
   };
 
   try {
@@ -397,5 +438,7 @@ module.exports = {
   reconcileOfferJob,
   renewOfferDownloadLink,
   getOfferTransporter,
-  setOfferTransporter
+  setOfferTransporter,
+  getLastCapturedOfferMail,
+  escapeHtml
 };

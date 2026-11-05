@@ -113,12 +113,14 @@ exports.uploadTemplate = async (req, res, next) => {
 };
 
 /**
- * Update field coordinate mappings on a template draft.
+ * Update field coordinate mappings on a template.
+ * Enforces immutable versions: active templates cannot be modified in place;
+ * editing an active template automatically branches a new draft version.
  */
 exports.updateTemplate = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, fields } = req.body;
+    const { name, fields, saveAsNewVersion } = req.body;
 
     const template = await OfferLetterTemplate.findById(id);
     if (!template) {
@@ -132,6 +134,44 @@ exports.updateTemplate = async (req, res, next) => {
       });
     }
 
+    // Immutable versions: If active or explicitly requested, create new draft version
+    if (template.isActive || saveAsNewVersion) {
+      const highestVer = await OfferLetterTemplate.findOne().sort({ version: -1 }).select('version').lean();
+      const nextVersion = highestVer ? highestVer.version + 1 : template.version + 1;
+
+      const newDraft = new OfferLetterTemplate({
+        name: (name || template.name).trim(),
+        version: nextVersion,
+        isSample: false,
+        isActive: false, // New version starts as draft
+        pdfStoragePath: template.pdfStoragePath,
+        pdfSizeBytes: template.pdfSizeBytes,
+        pageCount: template.pageCount,
+        pageDimensions: template.pageDimensions,
+        fields: Array.isArray(fields) ? fields : template.fields,
+        createdBy: req.admin._id
+      });
+
+      await newDraft.save();
+
+      await AuditLog.create({
+        actorId: req.admin._id,
+        actorType: 'ADMIN',
+        action: 'TEMPLATE_VERSION_CREATED',
+        targetEntity: 'OFFER_TEMPLATE',
+        targetId: newDraft._id,
+        summary: `Created new draft template v${nextVersion} branched from v${template.version}`
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: `Active template v${template.version} is immutable. Created new draft version v${nextVersion}.`,
+        template: newDraft,
+        isNewVersion: true
+      });
+    }
+
+    // Non-active draft template can be updated in place
     if (name) {
       template.name = name.trim();
     }
@@ -144,8 +184,9 @@ exports.updateTemplate = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Template updated successfully.',
-      template
+      message: 'Template draft updated successfully.',
+      template,
+      isNewVersion: false
     });
   } catch (error) {
     next(error);

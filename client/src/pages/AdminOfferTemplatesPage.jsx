@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import {
   FileText,
@@ -31,6 +31,12 @@ export default function AdminOfferTemplatesPage() {
   const [fields, setFields] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+
+  // Canvas visual editor state
+  const [selectedFieldIndex, setSelectedFieldIndex] = useState(0);
+  const [activePage, setActivePage] = useState(1);
+  const [draggingIndex, setDraggingIndex] = useState(null);
+  const canvasRef = useRef(null);
 
   // Activation modal
   const [showActivateModal, setShowActivateModal] = useState(false);
@@ -66,6 +72,8 @@ export default function AdminOfferTemplatesPage() {
   const selectTemplate = (template) => {
     setSelectedTemplate(template);
     setFields(template.fields ? JSON.parse(JSON.stringify(template.fields)) : []);
+    setSelectedFieldIndex(0);
+    setActivePage(1);
     setSaveMessage('');
   };
 
@@ -73,6 +81,27 @@ export default function AdminOfferTemplatesPage() {
     const updated = [...fields];
     updated[index][key] = val;
     setFields(updated);
+  };
+
+  const handleCanvasPointerMove = (e) => {
+    if (draggingIndex === null || !canvasRef.current || selectedTemplate?.isSample) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX);
+    const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY);
+    if (clientX === undefined || clientY === undefined) return;
+
+    const rawX = ((clientX - rect.left) / rect.width) * 595.28;
+    const rawY = ((clientY - rect.top) / rect.height) * 841.89;
+
+    const clampedX = Math.max(10, Math.min(550, Math.round(rawX)));
+    const clampedY = Math.max(10, Math.min(820, Math.round(rawY)));
+
+    handleFieldChange(draggingIndex, 'x', clampedX);
+    handleFieldChange(draggingIndex, 'y', clampedY);
+  };
+
+  const handleCanvasPointerUp = () => {
+    setDraggingIndex(null);
   };
 
   const handleUpload = async (e) => {
@@ -122,8 +151,14 @@ export default function AdminOfferTemplatesPage() {
         fields
       });
       if (res.success) {
-        setSaveMessage('Field coordinates saved successfully.');
-        setSelectedTemplate(res.template);
+        if (res.isNewVersion) {
+          setSaveMessage(`Active template branched into new draft version v${res.template.version}.`);
+          await fetchTemplates();
+          selectTemplate(res.template);
+        } else {
+          setSaveMessage('Field coordinates saved successfully.');
+          setSelectedTemplate(res.template);
+        }
       }
     } catch (err) {
       alert(err.message || 'Error saving template draft');
@@ -349,11 +384,107 @@ export default function AdminOfferTemplatesPage() {
                 </div>
               )}
 
+              {selectedTemplate.isActive && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Active Template Versioning:</span> This template is currently active for issuing offer letters. Modifying and saving will automatically branch a new draft version (v{selectedTemplate.version + 1}), ensuring that previously issued offer letters and their digital signatures remain immutable.
+                  </div>
+                </div>
+              )}
+
+              {/* Visual A4 Canvas & Drag Placement */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-700">
+                    <Sliders className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Visual A4 Canvas &amp; Drag Placement</span>
+                  </div>
+                  {selectedTemplate.pageCount > 1 && (
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span className="text-slate-500">Page:</span>
+                      {Array.from({ length: selectedTemplate.pageCount }).map((_, i) => (
+                        <button
+                          key={i + 1}
+                          type="button"
+                          onClick={() => setActivePage(i + 1)}
+                          className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                            activePage === i + 1 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-slate-100/80 rounded-xl border border-slate-200 flex flex-col items-center">
+                  <div className="text-[11px] text-slate-500 mb-2">
+                    Click a marker to select it, or drag across the sheet to adjust position live. Coordinates synchronize with the controls below.
+                  </div>
+
+                  <div
+                    ref={canvasRef}
+                    onPointerMove={handleCanvasPointerMove}
+                    onPointerUp={handleCanvasPointerUp}
+                    onPointerLeave={handleCanvasPointerUp}
+                    className="relative w-full max-w-[340px] aspect-[595.28/841.89] bg-white border-2 border-slate-300 rounded shadow-md overflow-hidden select-none cursor-crosshair"
+                    style={{
+                      backgroundImage: 'radial-gradient(circle, #cbd5e1 0.75px, transparent 0.75px)',
+                      backgroundSize: '16px 16px'
+                    }}
+                  >
+                    <div className="absolute top-2 left-2 text-[9px] font-mono text-slate-400 pointer-events-none">
+                      A4 (595 &times; 842 pt) · Page {activePage}
+                    </div>
+
+                    {fields
+                      .map((f, idx) => ({ ...f, origIdx: idx }))
+                      .filter((f) => (f.page || 1) === activePage)
+                      .map((f) => {
+                        const isSelected = selectedFieldIndex === f.origIdx;
+                        const leftPercent = (f.x / 595.28) * 100;
+                        const topPercent = (f.y / 841.89) * 100;
+                        const widthPercent = Math.min(100 - leftPercent, ((f.maxWidth || 400) / 595.28) * 100);
+
+                        return (
+                          <div
+                            key={f.id || f.origIdx}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              setSelectedFieldIndex(f.origIdx);
+                              if (!selectedTemplate.isSample) setDraggingIndex(f.origIdx);
+                            }}
+                            style={{
+                              left: `${leftPercent}%`,
+                              top: `${topPercent}%`,
+                              width: `${widthPercent}%`
+                            }}
+                            className={`absolute -translate-y-1/2 p-1 rounded border text-[10px] font-mono select-none transition-shadow ${
+                              isSelected
+                                ? 'bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-300 z-30'
+                                : 'bg-white/95 text-slate-800 border-slate-300 shadow-xs hover:border-amber-400 z-10'
+                            } ${selectedTemplate.isSample ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+                          >
+                            <div className="flex items-center justify-between gap-1 overflow-hidden">
+                              <span className="font-bold truncate text-[9px] leading-tight">{f.label}</span>
+                              <span className="text-[8px] opacity-80 shrink-0">
+                                {f.x},{f.y}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+
               {/* Dynamic Coordinate Mappings */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                    Dynamic Field Coordinate Mappings (A4 Points)
+                    Numeric Field Coordinate Mappings (A4 Points)
                   </h3>
                   <span className="text-[11px] text-slate-400">
                     A4 page size: 595 &times; 842 pt
@@ -361,80 +492,88 @@ export default function AdminOfferTemplatesPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {fields.map((f, idx) => (
-                    <div
-                      key={f.id || idx}
-                      className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-900">
-                          {f.label} <span className="font-mono text-slate-400 text-[10px]">({f.id})</span>
-                          {f.isRequired && <span className="text-rose-500 ml-1">*</span>}
-                        </span>
-                        <span className="text-[10px] text-slate-400">Page {f.page || 1}</span>
+                  {fields.map((f, idx) => {
+                    const isSelected = selectedFieldIndex === idx;
+                    return (
+                      <div
+                        key={f.id || idx}
+                        onClick={() => setSelectedFieldIndex(idx)}
+                        className={`p-3.5 rounded-lg border transition space-y-3 cursor-pointer ${
+                          isSelected
+                            ? 'border-amber-400 bg-amber-50/40 ring-1 ring-amber-200'
+                            : 'border-slate-200 bg-slate-50/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-900">
+                            {f.label} <span className="font-mono text-slate-400 text-[10px]">({f.id})</span>
+                            {f.isRequired && <span className="text-rose-500 ml-1">*</span>}
+                          </span>
+                          <span className="text-[10px] text-slate-400">Page {f.page || 1}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">X (pt)</label>
+                            <input
+                              type="number"
+                              disabled={selectedTemplate.isSample}
+                              value={f.x}
+                              onChange={(e) => handleFieldChange(idx, 'x', Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Y (from top pt)</label>
+                            <input
+                              type="number"
+                              disabled={selectedTemplate.isSample}
+                              value={f.y}
+                              onChange={(e) => handleFieldChange(idx, 'y', Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Font Size</label>
+                            <input
+                              type="number"
+                              disabled={selectedTemplate.isSample}
+                              value={f.fontSize || 12}
+                              onChange={(e) => handleFieldChange(idx, 'fontSize', Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Max Width (pt)</label>
+                            <input
+                              type="number"
+                              disabled={selectedTemplate.isSample}
+                              value={f.maxWidth || 450}
+                              onChange={(e) => handleFieldChange(idx, 'maxWidth', Number(e.target.value))}
+                              className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Align</label>
+                            <select
+                              disabled={selectedTemplate.isSample}
+                              value={f.alignment || 'left'}
+                              onChange={(e) => handleFieldChange(idx, 'alignment', e.target.value)}
+                              className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
+                            >
+                              <option value="left">Left</option>
+                              <option value="center">Center</option>
+                              <option value="right">Right</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                        <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">X (pt)</label>
-                          <input
-                            type="number"
-                            disabled={selectedTemplate.isSample}
-                            value={f.x}
-                            onChange={(e) => handleFieldChange(idx, 'x', Number(e.target.value))}
-                            className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">Y (from top pt)</label>
-                          <input
-                            type="number"
-                            disabled={selectedTemplate.isSample}
-                            value={f.y}
-                            onChange={(e) => handleFieldChange(idx, 'y', Number(e.target.value))}
-                            className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">Font Size</label>
-                          <input
-                            type="number"
-                            disabled={selectedTemplate.isSample}
-                            value={f.fontSize || 12}
-                            onChange={(e) => handleFieldChange(idx, 'fontSize', Number(e.target.value))}
-                            className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">Max Width (pt)</label>
-                          <input
-                            type="number"
-                            disabled={selectedTemplate.isSample}
-                            value={f.maxWidth || 450}
-                            onChange={(e) => handleFieldChange(idx, 'maxWidth', Number(e.target.value))}
-                            className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">Align</label>
-                          <select
-                            disabled={selectedTemplate.isSample}
-                            value={f.alignment || 'left'}
-                            onChange={(e) => handleFieldChange(idx, 'alignment', e.target.value)}
-                            className="w-full p-1.5 border border-slate-300 rounded bg-white text-xs disabled:bg-slate-100"
-                          >
-                            <option value="left">Left</option>
-                            <option value="center">Center</option>
-                            <option value="right">Right</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {!selectedTemplate.isSample && (

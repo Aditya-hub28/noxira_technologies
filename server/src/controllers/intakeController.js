@@ -337,14 +337,20 @@ exports.getApplicationStatus = async (req, res, next) => {
     }
 
     if (application.status === 'APPROVED') {
-      if (application.offerDeliveryState === 'PROVIDER_ACCEPTED' || application.offerDeliveryState === 'SIMULATED') {
-        appData.offerStatus = 'Offer letter issued and sent to your registered email.';
-      } else if (application.offerDeliveryState === 'BLOCKED_TEMPLATE' || application.offerState === 'BLOCKED_TEMPLATE') {
+      const deliveryState = application.offerDeliveryState;
+      const offerState = application.offerState;
+
+      if (deliveryState === 'PROVIDER_ACCEPTED') {
+        appData.offerStatus = 'Offer letter dispatched via email service provider.';
+      } else if (deliveryState === 'SIMULATED') {
+        appData.offerStatus = 'Application approved. Offer letter generated (delivery simulated in non-production mode).';
+      } else if (deliveryState === 'BLOCKED_TEMPLATE' || offerState === 'BLOCKED_TEMPLATE') {
         appData.offerStatus = 'Offer letter is being prepared by admissions.';
-      } else if (application.offerState === 'GENERATED') {
-        appData.offerStatus = 'Offer letter generated. Delivery in progress.';
+      } else if (deliveryState === 'FAILED' || deliveryState === 'DELIVERY_UNKNOWN') {
+        appData.offerStatus = 'Offer letter delivery is undergoing administrative verification by admissions.';
       } else {
-        appData.offerStatus = 'Application approved. Offer letter will be prepared shortly.';
+        // Includes QUEUED, PROCESSING, GENERATED, NONE
+        appData.offerStatus = 'Application approved. Offer letter preparation is in progress.';
       }
     }
 

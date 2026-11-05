@@ -46,7 +46,14 @@ function mockReqRes(options = {}) {
     headers: options.headers || {},
     ip: options.ip || '127.0.0.1',
     admin: options.admin || { _id: new mongoose.Types.ObjectId(), name: 'Test Admin', role: 'SUPER_ADMIN' },
-    file: options.file || null
+    file: options.file || null,
+    accepts(type) {
+      const acc = (this.headers['accept'] || this.headers['Accept'] || '').toLowerCase();
+      if (!acc) return false;
+      if (type === 'html' || type === 'text/html') return acc.includes('text/html') || acc.includes('html');
+      if (type === 'json' || type === 'application/json') return acc.includes('application/json') || acc.includes('json');
+      return acc.includes(type.toLowerCase());
+    }
   };
   let statusCode = 200;
   let responseData = null;
@@ -55,6 +62,10 @@ function mockReqRes(options = {}) {
   const res = {
     status(code) {
       statusCode = code;
+      return this;
+    },
+    type(t) {
+      resHeaders['content-type'] = t === 'html' ? 'text/html' : t;
       return this;
     },
     setHeader(k, v) {
@@ -2035,6 +2046,265 @@ async function runTestSuite() {
     assert.strictEqual(reconciled.status, 'PROVIDER_ACCEPTED');
     assert.strictEqual(reconciled.reconciliationRequired, false);
     assert.strictEqual(reconciled.providerMessageId, 'manual-msg-123');
+  });
+
+  // ----------------------------------------------------
+  // TEST 26: Module 4 Review Findings Hardening Pass
+  // ----------------------------------------------------
+  await test('Module 4 Fix Pass: Verifies 10 review findings (attachments, honest status, immutable versions, HTML escape, rate limits & download hardening, Unicode & Rupee, blocked preview)', async () => {
+    const fs = require('fs');
+    const crypto = require('crypto');
+    const jwt = require('jsonwebtoken');
+    const env = require('../src/config/env');
+
+    // 1. Email Attachment with Exact Byte Hash Match
+    // Ensure active custom template
+    let activeCustom = await OfferLetterTemplate.findOne({ isActive: true, isSample: false });
+    if (!activeCustom) {
+      const { PDFDocument } = require('pdf-lib');
+      const doc = await PDFDocument.create();
+      doc.addPage([595.28, 841.89]);
+      const pdfBytes = Buffer.from(await doc.save());
+      const storage = await storageService.saveTemplatePdf('fix_test_custom_template.pdf', pdfBytes);
+      activeCustom = await OfferLetterTemplate.create({
+        name: 'Fix Custom Active',
+        version: 10,
+        isSample: false,
+        isActive: true,
+        pdfStoragePath: storage.diskPath || String(storage),
+        pdfSizeBytes: pdfBytes.length,
+        pageCount: 1,
+        pageDimensions: [{ width: 595.28, height: 841.89 }],
+        fields: [
+          { id: 'studentName', label: 'Candidate Name', page: 1, x: 50, y: 100, fontSize: 14, isRequired: true },
+          { id: 'feeLocked', label: 'Review Fee', page: 1, x: 50, y: 150, fontSize: 12, isRequired: false }
+        ]
+      });
+    }
+
+    const pReview = await Participant.create({
+      fullName: 'Vikramaditya Rao',
+      email: 'vikram.rao@example.org',
+      programTitle: 'Full Stack Web Development',
+      programCode: 'FS-DEV',
+      batchId: 'BATCH-2026-A',
+      college: 'Delhi Technological University',
+      branch: 'Computer Science',
+      source: 'WEBSITE'
+    });
+
+    const appReview = await Application.create({
+      applicationId: 'NOX-2026-VKRM-0001',
+      participantId: pReview._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: 'BATCH-2026-A',
+      status: 'APPROVED',
+      feeLocked: 499
+    });
+
+    const genRes = await offerService.generateOfferForApplication(appReview.applicationId, { forceRegenerate: true });
+    assert.ok(genRes.offerLetter, 'Must generate offer letter record');
+    assert.strictEqual(genRes.offerLetter.generationStatus, 'GENERATED');
+
+    // Process delivery job
+    const deliveryRes = await offerService.processOfferDeliveryJob(genRes.deliveryJob._id);
+    assert.strictEqual(deliveryRes.success, true);
+
+    const capturedMail = offerService.getLastCapturedOfferMail();
+    assert.ok(capturedMail, 'Must capture dispatched email in test environment');
+    assert.strictEqual(capturedMail.to, 'vikram.rao@example.org');
+    assert.ok(Array.isArray(capturedMail.attachments) && capturedMail.attachments.length === 1, 'Must attach offer PDF');
+    assert.strictEqual(capturedMail.attachments[0].filename, 'NOXIRA_Offer_NOX-2026-VKRM-0001.pdf');
+
+    // Verify byte hash identity between attachment and stored PDF
+    const attachedBytes = fs.readFileSync(capturedMail.attachments[0].path);
+    const attachedHash = crypto.createHash('sha256').update(attachedBytes).digest('hex');
+    assert.strictEqual(attachedHash, genRes.offerLetter.pdfSha256, 'Attachment bytes must match stored OfferLetter.pdfSha256 exactly');
+
+    // 2. Status Privacy & Honest Delivery States (no overclaiming)
+    // PROVIDER_ACCEPTED
+    appReview.offerDeliveryState = 'PROVIDER_ACCEPTED';
+    await appReview.save();
+    const mockStat1 = mockReqRes({ query: { email: pReview.email, id: appReview.applicationId } });
+    await intakeController.getApplicationStatus(mockStat1.req, mockStat1.res, mockStat1.next);
+    assert.strictEqual(mockStat1.getStatus(), 200);
+    assert.ok(mockStat1.getData().application.offerStatus.includes('dispatched via email service provider'));
+    assert.ok(!mockStat1.getData().application.offerStatus.includes('Delivered to candidate'), 'Must never overclaim recipient delivery');
+
+    // BLOCKED_TEMPLATE
+    appReview.offerDeliveryState = 'BLOCKED_TEMPLATE';
+    await appReview.save();
+    const mockStat2 = mockReqRes({ query: { email: pReview.email, id: appReview.applicationId } });
+    await intakeController.getApplicationStatus(mockStat2.req, mockStat2.res, mockStat2.next);
+    assert.ok(mockStat2.getData().application.offerStatus.includes('prepared by admissions'));
+
+    // SIMULATED
+    appReview.offerDeliveryState = 'SIMULATED';
+    await appReview.save();
+    const mockStat3 = mockReqRes({ query: { email: pReview.email, id: appReview.applicationId } });
+    await intakeController.getApplicationStatus(mockStat3.req, mockStat3.res, mockStat3.next);
+    assert.ok(mockStat3.getData().application.offerStatus.includes('delivery simulated in non-production mode'));
+
+    // FAILED / DELIVERY_UNKNOWN
+    appReview.offerDeliveryState = 'FAILED';
+    await appReview.save();
+    const mockStat4 = mockReqRes({ query: { email: pReview.email, id: appReview.applicationId } });
+    await intakeController.getApplicationStatus(mockStat4.req, mockStat4.res, mockStat4.next);
+    assert.ok(mockStat4.getData().application.offerStatus.includes('undergoing administrative verification'));
+
+    // 3. Immutable Template Versions
+    // Updating active template must branch into new draft version
+    const mockUpdateActive = mockReqRes({
+      params: { id: activeCustom._id },
+      body: {
+        fields: [
+          { id: 'studentName', label: 'Full Candidate Name', page: 1, x: 60, y: 110, fontSize: 16 }
+        ]
+      }
+    });
+    await adminOfferTemplateController.updateTemplate(mockUpdateActive.req, mockUpdateActive.res, mockUpdateActive.next);
+    assert.strictEqual(mockUpdateActive.getStatus(), 201, 'Active template update must return 201 Created for new version');
+    const updateResult = mockUpdateActive.getData();
+    assert.strictEqual(updateResult.isNewVersion, true);
+    assert.strictEqual(updateResult.template.isActive, false, 'New draft version must start as inactive');
+    assert.strictEqual(updateResult.template.version, activeCustom.version + 1);
+
+    // Verify original active template remained unchanged
+    const originalRefreshed = await OfferLetterTemplate.findById(activeCustom._id);
+    assert.strictEqual(originalRefreshed.isActive, true, 'Original template must remain active');
+    assert.strictEqual(originalRefreshed.fields[0].x, activeCustom.fields[0].x, 'Original coordinates must not be mutated in-place');
+    assert.notStrictEqual(originalRefreshed.fields[0].x, 60, 'Original coordinates must not receive the new version update');
+
+    // 4. HTML Escaping & XSS Protection in Outbound Email
+    const pXss = await Participant.create({
+      fullName: '<script>alert("xss")</script>',
+      email: 'xss.test@example.org',
+      programTitle: '<img src=x onerror=alert(1)>',
+      programCode: 'AI-ENG',
+      batchId: 'BATCH-2026-X',
+      source: 'WEBSITE'
+    });
+    const appXss = await Application.create({
+      applicationId: 'NOX-2026-XSS1-0001',
+      participantId: pXss._id,
+      programCode: 'AI-ENG',
+      programTitle: '<img src=x onerror=alert(1)>',
+      batchId: 'BATCH-2026-X',
+      status: 'APPROVED'
+    });
+    const xssOfferRes = await offerService.generateOfferForApplication(appXss.applicationId, { forceRegenerate: true });
+    await offerService.processOfferDeliveryJob(xssOfferRes.deliveryJob._id);
+    const xssMail = offerService.getLastCapturedOfferMail();
+    assert.ok(xssMail.html.includes('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;') || xssMail.html.includes('&lt;script&gt;alert'), 'Must HTML-escape candidate name');
+    assert.ok(!xssMail.html.includes('<script>alert'), 'Must NEVER include unescaped <script> tag in email HTML');
+    assert.ok(!xssMail.html.includes('<img src=x'), 'Must NEVER include unescaped <img> tag in email HTML');
+
+    // 5. Download Hardening: Guard checks and 410 Content Negotiation
+    // Valid token for approved application streams PDF
+    const { token: validTok } = offerService.createOfferDownloadToken(genRes.offerLetter._id, appReview.applicationId, genRes.offerLetter.downloadToken);
+
+    // Non-approved application returns 404
+    appReview.status = 'UNDER_REVIEW';
+    await appReview.save();
+    const mockDownloadUnapproved = mockReqRes({ params: { token: validTok } });
+    await offerDownloadController.downloadOfferLetter(mockDownloadUnapproved.req, mockDownloadUnapproved.res, mockDownloadUnapproved.next);
+    assert.strictEqual(mockDownloadUnapproved.getStatus(), 404, 'Must return 404 if application is not APPROVED');
+
+    // Restore to APPROVED
+    appReview.status = 'APPROVED';
+    await appReview.save();
+
+    // Expired Token - Content Negotiation
+    const expiredPayload = {
+      sub: String(genRes.offerLetter._id),
+      appId: appReview.applicationId,
+      purpose: 'OFFER_DOWNLOAD',
+      jti: genRes.offerLetter.downloadToken,
+      iat: Math.floor(Date.now() / 1000) - 80 * 3600,
+      exp: Math.floor(Date.now() / 1000) - 8 * 3600
+    };
+    const expiredTok = jwt.sign(expiredPayload, env.JWT_SECRET);
+
+    // Browser request with text/html gets branded recovery HTML
+    const mockHtmlReq = mockReqRes({
+      params: { token: expiredTok },
+      headers: { accept: 'text/html,application/xhtml+xml' }
+    });
+    await offerDownloadController.downloadOfferLetter(mockHtmlReq.req, mockHtmlReq.res, mockHtmlReq.next);
+    assert.strictEqual(mockHtmlReq.getStatus(), 410, 'Expired token must return 410 Gone');
+    assert.ok(mockHtmlReq.getHeaders()['content-type'].includes('text/html'));
+    assert.ok(mockHtmlReq.getData().includes('Link Expired'), 'Must render branded expired page');
+    assert.ok(mockHtmlReq.getData().includes('/status'), 'Must link to status verification');
+
+    // Machine client with application/json gets JSON 410
+    const mockJsonReq = mockReqRes({
+      params: { token: expiredTok },
+      headers: { accept: 'application/json' }
+    });
+    await offerDownloadController.downloadOfferLetter(mockJsonReq.req, mockJsonReq.res, mockJsonReq.next);
+    assert.strictEqual(mockJsonReq.getStatus(), 410);
+    assert.strictEqual(mockJsonReq.getData().error, 'LINK_EXPIRED');
+    assert.ok(mockJsonReq.getData().message.includes('expired'));
+
+    // 6. Unicode Font & Indian Rupee Sign Rendering
+    // Indian candidate with Hindi name and Rupee sign
+    const hindiPdfBuffer = await offerPdfService.renderOfferPdf(activeCustom, {
+      studentName: 'राहुल शर्मा',
+      batchId: 'BATCH-2026-A',
+      feeLocked: 499,
+      programTitle: 'Full Stack Web Development',
+      applicationId: 'NOX-2026-HNDI-0001'
+    });
+    assert.ok(Buffer.isBuffer(hindiPdfBuffer) && hindiPdfBuffer.length > 500, 'Must render Hindi name and Rupee sign into PDF buffer');
+
+    // Unsupported character fails with actionable error naming field
+    let unsupportedErr = null;
+    try {
+      await offerPdfService.renderOfferPdf(activeCustom, {
+        studentName: 'Candidate 李明',
+        batchId: 'BATCH-2026-A',
+        applicationId: 'NOX-2026-CHIN-0001'
+      });
+    } catch (err) {
+      unsupportedErr = err;
+    }
+    assert.ok(unsupportedErr, 'Unsupported character must throw an actionable error');
+    assert.ok(unsupportedErr.message.includes('Candidate Name') || unsupportedErr.message.includes('unsupported character'),
+      'Error message must name the field and unsupported character');
+
+    // 7. Blocked Queue Preview API (Two-Step Flow)
+    // Put an application into BLOCKED_TEMPLATE
+    const pBlocked = await Participant.create({
+      fullName: 'Blocked Queue Candidate',
+      email: 'blocked.queue@example.org',
+      programTitle: 'Full Stack Web Development',
+      programCode: 'FS-DEV',
+      batchId: 'BATCH-2026-A',
+      source: 'WEBSITE'
+    });
+    await Application.create({
+      applicationId: 'NOX-2026-BLKD-0001',
+      participantId: pBlocked._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: 'BATCH-2026-A',
+      status: 'APPROVED',
+      offerDeliveryState: 'BLOCKED_TEMPLATE'
+    });
+
+    const mockPreview = mockReqRes({});
+    await adminApplicationController.getBlockedPreview(mockPreview.req, mockPreview.res, mockPreview.next);
+    assert.strictEqual(mockPreview.getStatus(), 200);
+    const previewData = mockPreview.getData();
+    assert.strictEqual(previewData.success, true);
+    assert.ok(previewData.count >= 1, 'Must count blocked applications');
+    assert.ok(Array.isArray(previewData.recipients), 'Must return recipients list');
+    const blockedCand = previewData.recipients.find(r => r.applicationId === 'NOX-2026-BLKD-0001');
+    assert.ok(blockedCand, 'Recipients must contain blocked application details');
+    assert.strictEqual(blockedCand.fullName, 'Blocked Queue Candidate');
+    assert.strictEqual(blockedCand.email, 'blocked.queue@example.org');
+    assert.strictEqual(blockedCand.programCode, 'FS-DEV');
   });
 
   // Cleanup

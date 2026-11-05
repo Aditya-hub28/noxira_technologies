@@ -425,6 +425,56 @@ exports.renewOfferDownloadLink = async (req, res, next) => {
 };
 
 /**
+ * Previews applications currently blocked in BLOCKED_TEMPLATE state.
+ * Returns exact recipient list (email, fullName, program, batch, applicationId) and count.
+ */
+exports.getBlockedPreview = async (req, res, next) => {
+  try {
+    const { programCode, batchId } = req.query || {};
+
+    const activeTemplate = await OfferLetterTemplate.findOne({ isActive: true, isSample: false });
+
+    const query = {
+      status: 'APPROVED',
+      $or: [
+        { offerState: 'BLOCKED_TEMPLATE' },
+        { offerDeliveryState: 'BLOCKED_TEMPLATE' }
+      ]
+    };
+
+    if (programCode) query.programCode = programCode.trim().toUpperCase();
+    if (batchId) query.batchId = batchId.trim().toUpperCase();
+
+    const blockedApps = await Application.find(query)
+      .limit(100)
+      .populate('participantId', 'fullName email')
+      .lean();
+
+    const recipients = blockedApps.map((app) => ({
+      applicationId: app.applicationId,
+      fullName: app.participantId ? app.participantId.fullName : 'Applicant',
+      email: app.participantId ? app.participantId.email : '',
+      programCode: app.programCode,
+      programTitle: app.programTitle,
+      batchId: app.batchId
+    }));
+
+    res.json({
+      success: true,
+      count: recipients.length,
+      recipients,
+      canProcess: Boolean(activeTemplate),
+      activeTemplate: activeTemplate ? {
+        name: activeTemplate.name,
+        version: activeTemplate.version
+      } : null
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Triggers delivery / backlog processing for blocked applications once a real template is activated.
  */
 exports.sendBlockedApplications = async (req, res, next) => {
@@ -466,6 +516,7 @@ exports.sendBlockedApplications = async (req, res, next) => {
         }
         results.push({ applicationId: app.applicationId, status: 'PROCESSED' });
       } catch (err) {
+        console.error('[SEND_BLOCKED_ERROR]', err);
         results.push({ applicationId: app.applicationId, status: 'FAILED', error: err.message });
       }
     }

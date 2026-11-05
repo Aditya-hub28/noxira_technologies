@@ -88,6 +88,7 @@ export const api = {
   adminUpdateApplicationStatus: (id, payload) => request(`/admin/applications/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminBatchReviewApplications: (payload) => request('/admin/applications/batch-review', { method: 'POST', body: JSON.stringify(payload) }),
   adminRenewOfferLink: (id) => request(`/admin/applications/${encodeURIComponent(id)}/renew-offer-link`, { method: 'POST' }),
+  adminGetBlockedPreview: (params = '') => request(`/admin/applications/blocked-preview?${params}`),
   adminSendBlockedApplications: (payload = {}) => request('/admin/applications/send-blocked', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Admin Offer Templates

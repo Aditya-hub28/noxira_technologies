@@ -1,5 +1,47 @@
 const fs = require('fs');
+const path = require('path');
+const fontkit = require('fontkit');
 const { PDFDocument, rgb, degrees, StandardFonts } = require('pdf-lib');
+
+const REGULAR_FONT_PATH = path.resolve(__dirname, '../assets/fonts/NoxiraUnicode-Regular.ttf');
+const BOLD_FONT_PATH = path.resolve(__dirname, '../assets/fonts/NoxiraUnicode-Bold.ttf');
+
+let cachedParsedRegular = null;
+let cachedParsedBold = null;
+
+function getParsedFontkitFonts() {
+  if (!cachedParsedRegular && fs.existsSync(REGULAR_FONT_PATH)) {
+    try {
+      cachedParsedRegular = fontkit.create(fs.readFileSync(REGULAR_FONT_PATH));
+    } catch (e) {
+      console.error('Failed to load parsed regular fontkit font:', e.message);
+    }
+  }
+  if (!cachedParsedBold && fs.existsSync(BOLD_FONT_PATH)) {
+    try {
+      cachedParsedBold = fontkit.create(fs.readFileSync(BOLD_FONT_PATH));
+    } catch (e) {
+      console.error('Failed to load parsed bold fontkit font:', e.message);
+    }
+  }
+  return { regular: cachedParsedRegular, bold: cachedParsedBold };
+}
+
+/**
+ * Validates that every character in the string can be rendered by the target font.
+ * Throws an actionable error specifying field name and unsupported character if missing.
+ */
+function validateGlyphsForFont(text, fieldLabel, parsedFont) {
+  if (!text || !parsedFont) return;
+  for (const char of text) {
+    const cp = char.codePointAt(0);
+    // Ignore ASCII whitespace & control chars
+    if (cp <= 32 || cp === 127) continue;
+    if (!parsedFont.hasGlyphForCodePoint(cp)) {
+      throw new Error(`Field "${fieldLabel}" contains unsupported character '${char}' (U+${cp.toString(16).toUpperCase().padStart(4, '0')}). Please provide standard Latin or Indian script characters.`);
+    }
+  }
+}
 
 const DEFAULT_SAMPLE_FIELDS = [
   {
@@ -274,14 +316,13 @@ function parseHexColor(hex = '#0f172a') {
 }
 
 /**
- * Sanitizes input string to supported standard WinAnsi / Latin glyphs
- * Avoids uncaught font encoder crashes when encountering emoji or rare non-Latin glyphs
+ * Normalizes input string for PDF rendering by cleaning carriage returns/tabs.
+ * Preserves Rupee sign (₹), Latin, Indian scripts, and Unicode text.
  */
 function sanitizeTextForPdf(text) {
   if (text === null || text === undefined) return '';
   const str = String(text);
-  // Replace non-printable characters or characters outside common WinAnsi ranges
-  return str.replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ').trim();
+  return str.replace(/[\r\n\t]/g, ' ').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
 }
 
 /**
@@ -327,8 +368,20 @@ async function renderOfferPdf(templateOrBuffer, arg2 = {}, arg3 = {}, arg4 = {})
   }
 
   const pdfDoc = await PDFDocument.load(pdfBuffer);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  pdfDoc.registerFontkit(fontkit);
+
+  let fontRegular, fontBold;
+  const { regular: parsedRegular, bold: parsedBold } = getParsedFontkitFonts();
+
+  if (fs.existsSync(REGULAR_FONT_PATH) && fs.existsSync(BOLD_FONT_PATH)) {
+    const regBytes = await fs.promises.readFile(REGULAR_FONT_PATH);
+    const boldBytes = await fs.promises.readFile(BOLD_FONT_PATH);
+    fontRegular = await pdfDoc.embedFont(regBytes);
+    fontBold = await pdfDoc.embedFont(boldBytes);
+  } else {
+    fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  }
 
   const isSample = Boolean(options.isSample);
   const totalPages = pdfDoc.getPageCount();
@@ -411,6 +464,11 @@ async function renderOfferPdf(templateOrBuffer, arg2 = {}, arg3 = {}, arg4 = {})
 
     const isBold = field.id === 'studentName' || field.id === 'programTitle' || field.id === 'applicationId';
     const fontToUse = isBold ? fontBold : fontRegular;
+    const parsedToUse = isBold ? parsedBold : parsedRegular;
+
+    // Fail with an actionable error if any character is unsupported by the font
+    validateGlyphsForFont(sanitizedVal, field.label || field.id, parsedToUse);
+
     let effectiveFontSize = field.fontSize || 12;
     const maxWidth = field.maxWidth || 450;
 

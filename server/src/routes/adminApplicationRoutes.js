@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 router.use(requireAuth);
 
 router.get('/', adminApplicationController.getApplications);
+router.get('/blocked-preview', adminApplicationController.getBlockedPreview);
 router.get('/:id', adminApplicationController.getApplicationDetail);
 router.patch('/:id/status', adminApplicationController.updateApplicationStatus);
 router.post('/batch-review', adminApplicationController.batchReviewApplications);

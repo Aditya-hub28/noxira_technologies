@@ -40,20 +40,31 @@ export default function AdminApplicationsPage() {
 
   // Modals & Drawers
   const [detailApp, setDetailApp] = useState(null);
-  const [actionModal, setActionModal] = useState(null); // { type: 'APPROVE' | 'REJECT' | 'BATCH_APPROVE' | 'BATCH_REJECT', ids: [] }
+  const [actionModal, setActionModal] = useState(null); // { type: 'APPROVE' | 'REJECT' | 'BATCH_APPROVE' | 'BATCH_REJECT', ids: [], app?: Object }
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionNotes, setActionNotes] = useState('');
   const [submittingAction, setSubmittingAction] = useState(false);
   const [renewResult, setRenewResult] = useState(null);
 
-  // Unblock queue state
+  // Active offer template state
+  const [activeTemplate, setActiveTemplate] = useState(null);
+
+  // Unblock queue state & two-step preview
   const [unblocking, setUnblocking] = useState(false);
   const [unblockMessage, setUnblockMessage] = useState('');
+  const [blockedPreviewModal, setBlockedPreviewModal] = useState(null);
 
-  // Fetch programs list for filter
+  // Fetch programs list for filter and active template
   useEffect(() => {
     api.getPrograms().then((data) => {
       if (data && data.programs) setPrograms(data.programs);
+    }).catch(() => {});
+
+    api.adminGetOfferTemplates().then((res) => {
+      if (res && res.templates) {
+        const active = res.templates.find((t) => t.isActive);
+        setActiveTemplate(active || null);
+      }
     }).catch(() => {});
   }, []);
 
@@ -171,16 +182,29 @@ export default function AdminApplicationsPage() {
     }
   };
 
-  // Process blocked applications
-  const handleUnblockQueue = async () => {
+  // Process blocked applications (two-step preview and confirmation)
+  const handleOpenBlockedPreview = async () => {
+    setUnblocking(true);
+    try {
+      const res = await api.adminGetBlockedPreview();
+      setBlockedPreviewModal(res);
+    } catch (err) {
+      alert(err.message || 'Failed to inspect blocked queue');
+    } finally {
+      setUnblocking(false);
+    }
+  };
+
+  const handleConfirmSendBlocked = async () => {
     setUnblocking(true);
     setUnblockMessage('');
     try {
       const res = await api.adminSendBlockedApplications();
-      setUnblockMessage(`Unblocked ${res.processedCount} applications successfully.`);
+      setBlockedPreviewModal(null);
+      setUnblockMessage(`Processed ${res.processedCount || 0} blocked applications successfully.`);
       fetchApplications(pagination.page);
     } catch (err) {
-      setUnblockMessage(err.message || 'Failed to process blocked applications');
+      alert(err.message || 'Failed to process blocked applications');
     } finally {
       setUnblocking(false);
     }
@@ -236,10 +260,10 @@ export default function AdminApplicationsPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handleUnblockQueue}
+            onClick={handleOpenBlockedPreview}
             disabled={unblocking}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition disabled:opacity-50"
-            title="Reprocess applications blocked waiting for custom template activation"
+            title="Inspect and process applications blocked waiting for custom template activation"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${unblocking ? 'animate-spin' : ''}`} />
             Process Blocked Queue
@@ -454,14 +478,14 @@ export default function AdminApplicationsPage() {
                           {isSelectable && (
                             <>
                               <button
-                                onClick={() => handleSingleStatusUpdate(app.applicationId, 'APPROVED')}
+                                onClick={() => setActionModal({ type: 'APPROVE', ids: [app.applicationId], app })}
                                 className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded text-[11px] font-semibold"
                                 title="Approve"
                               >
                                 Approve
                               </button>
                               <button
-                                onClick={() => setActionModal({ type: 'REJECT', ids: [app.applicationId] })}
+                                onClick={() => setActionModal({ type: 'REJECT', ids: [app.applicationId], app })}
                                 className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded text-[11px] font-semibold"
                                 title="Reject"
                               >
@@ -506,13 +530,105 @@ export default function AdminApplicationsPage() {
       {/* Action Confirmation Modal (Single or Batch Rejection / Approval) */}
       {actionModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
             <h3 className="text-base font-bold text-slate-900">
+              {actionModal.type === 'APPROVE' && `Confirm Approval: ${actionModal.app?.applicationId || actionModal.ids[0]}`}
+              {actionModal.type === 'BATCH_APPROVE' && `Batch Approve ${actionModal.ids.length} Applications`}
               {actionModal.type === 'REJECT' && `Reject Application ${actionModal.ids[0]}`}
               {actionModal.type === 'BATCH_REJECT' && `Batch Reject ${actionModal.ids.length} Applications`}
-              {actionModal.type === 'BATCH_APPROVE' && `Batch Approve ${actionModal.ids.length} Applications`}
             </h3>
 
+            {/* Recipient Details & Dispatch Mode for Single Approval */}
+            {actionModal.type === 'APPROVE' && actionModal.app && (
+              <div className="space-y-3">
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Candidate Name:</span>
+                    <span className="font-semibold text-slate-900">{actionModal.app.participantId?.fullName || 'Applicant'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Recipient Email:</span>
+                    <span className="font-semibold text-slate-900 font-mono">{actionModal.app.participantId?.email || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Programme Track:</span>
+                    <span className="font-semibold text-slate-900">{actionModal.app.programTitle || actionModal.app.programCode} ({actionModal.app.programCode})</span>
+                  </div>
+                </div>
+
+                {/* Email Dispatch State Banner */}
+                {activeTemplate && !activeTemplate.isSample ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Email Dispatch Active (Custom Template)
+                    </div>
+                    <p className="text-[11px] text-emerald-800">
+                      An official offer email with the generated PDF attached and a 72-hour private download link will be dispatched immediately to <strong>{actionModal.app.participantId?.email}</strong>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <ShieldAlert className="w-4 h-4 text-purple-600" />
+                      Sample Template Active (Email Blocked)
+                    </div>
+                    <p className="text-[11px] text-purple-800">
+                      Offer PDF will be generated using the built-in sample template. Email dispatch is safely <strong>blocked</strong> until a custom PDF template is activated. The public tracker will show &ldquo;Offer letter is being prepared by admissions&rdquo;.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Recipient Details & Dispatch Mode for Batch Approval */}
+            {actionModal.type === 'BATCH_APPROVE' && (
+              <div className="space-y-3">
+                <div className="text-xs text-slate-600">
+                  Review the <strong>{actionModal.ids.length}</strong> candidate(s) queued for approval:
+                </div>
+
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs bg-slate-50/50">
+                  {applications.filter((a) => actionModal.ids.includes(a.applicationId)).map((cand) => (
+                    <div key={cand.applicationId} className="p-2 flex justify-between items-center">
+                      <div>
+                        <span className="font-semibold text-slate-900">{cand.participantId?.fullName || 'Applicant'}</span>
+                        <span className="block text-[11px] text-slate-500 font-mono">{cand.participantId?.email}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[11px] font-mono text-slate-600 block">{cand.applicationId}</span>
+                        <span className="text-[10px] text-slate-400">{cand.programCode}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Email Dispatch State Banner */}
+                {activeTemplate && !activeTemplate.isSample ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Email Dispatch Active (Custom Template)
+                    </div>
+                    <p className="text-[11px] text-emerald-800">
+                      Official offer emails with attached PDFs and 72-hour private download links will be queued and dispatched to all <strong>{actionModal.ids.length}</strong> recipients.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <ShieldAlert className="w-4 h-4 text-purple-600" />
+                      Sample Template Active (Email Blocked)
+                    </div>
+                    <p className="text-[11px] text-purple-800">
+                      Offer PDFs will be generated using the built-in sample template. Email dispatch is safely <strong>blocked</strong> for all candidates until a custom PDF template is activated.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Rejection Details */}
             {(actionModal.type === 'REJECT' || actionModal.type === 'BATCH_REJECT') && (
               <div className="space-y-3">
                 <p className="text-xs text-slate-600">
@@ -532,12 +648,6 @@ export default function AdminApplicationsPage() {
                   />
                 </div>
               </div>
-            )}
-
-            {actionModal.type === 'BATCH_APPROVE' && (
-              <p className="text-xs text-slate-600 leading-relaxed">
-                You are about to approve <strong>{actionModal.ids.length}</strong> applications. This will generate their official offer letters and queue delivery emails.
-              </p>
             )}
 
             <div>
@@ -569,18 +679,117 @@ export default function AdminApplicationsPage() {
                 type="button"
                 disabled={submittingAction || ((actionModal.type === 'REJECT' || actionModal.type === 'BATCH_REJECT') && !rejectionReason.trim())}
                 onClick={() => {
-                  if (actionModal.type === 'REJECT') {
+                  if (actionModal.type === 'APPROVE') {
+                    handleSingleStatusUpdate(actionModal.ids[0], 'APPROVED', '', actionNotes);
+                  } else if (actionModal.type === 'REJECT') {
                     handleSingleStatusUpdate(actionModal.ids[0], 'REJECTED', rejectionReason, actionNotes);
                   } else {
                     handleBatchAction();
                   }
                 }}
                 className={`px-4 py-2 text-xs font-semibold text-white rounded-lg transition disabled:opacity-50 ${
-                  actionModal.type === 'BATCH_APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+                  actionModal.type === 'APPROVE' || actionModal.type === 'BATCH_APPROVE'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
-                {submittingAction ? 'Processing...' : 'Confirm Action'}
+                {submittingAction
+                  ? 'Processing...'
+                  : actionModal.type === 'APPROVE'
+                  ? 'Confirm & Approve'
+                  : actionModal.type === 'BATCH_APPROVE'
+                  ? `Approve All (${actionModal.ids.length})`
+                  : 'Confirm Rejection'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blocked Queue Two-Step Preview & Confirmation Modal */}
+      {blockedPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Process Blocked Offer Letter Queue</h3>
+                <p className="text-xs text-slate-500">
+                  {blockedPreviewModal.count} candidate(s) awaiting offer letter dispatch
+                </p>
+              </div>
+              <button
+                onClick={() => setBlockedPreviewModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-800 text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {blockedPreviewModal.count === 0 ? (
+              <div className="py-6 text-center space-y-2">
+                <p className="text-sm font-semibold text-slate-700">No applications in blocked queue</p>
+                <p className="text-xs text-slate-500">There are no approved applications currently awaiting custom template delivery.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className={`p-3 rounded-lg border text-xs ${
+                  blockedPreviewModal.canProcess
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-rose-50 border-rose-200 text-rose-900'
+                }`}>
+                  {blockedPreviewModal.canProcess ? (
+                    <div>
+                      <span className="font-bold">Active Custom Template:</span>{' '}
+                      {blockedPreviewModal.activeTemplate?.name} (v{blockedPreviewModal.activeTemplate?.version})
+                      <p className="mt-1 text-[11px] text-emerald-700">
+                        Confirming will regenerate offer PDFs with this active template and immediately dispatch delivery emails to all listed candidates.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-bold">Cannot Dispatch:</span> No custom offer template is currently active.
+                      <p className="mt-1 text-[11px] text-rose-700">
+                        Please upload and activate a custom PDF template in the Offer Letter Studio before processing the blocked queue.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs">
+                  {blockedPreviewModal.recipients.map((r) => (
+                    <div key={r.applicationId} className="p-2.5 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-800">{r.fullName}</div>
+                        <div className="text-[11px] text-slate-500 font-mono">{r.email}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono text-slate-700 text-[11px] font-bold">{r.applicationId}</div>
+                        <div className="text-[10px] text-slate-400">{r.programCode} ({r.batchId})</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBlockedPreviewModal(null)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900"
+              >
+                {blockedPreviewModal.count === 0 ? 'Close' : 'Cancel'}
+              </button>
+              {blockedPreviewModal.count > 0 && (
+                <button
+                  type="button"
+                  disabled={unblocking || !blockedPreviewModal.canProcess}
+                  onClick={handleConfirmSendBlocked}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                >
+                  {unblocking ? 'Processing Queue...' : `Confirm & Dispatch (${blockedPreviewModal.count})`}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -48,9 +48,22 @@ const statusRateLimiter = rateLimit({
   }
 });
 
+// Offer download rate limiter: max 60 requests per 15 minutes per IP
+const offerDownloadRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many offer download requests from this IP. Please try again after 15 minutes.'
+  }
+});
+
 module.exports = {
   intakeRateLimiter,
   verifyRateLimiter,
   loginRateLimiter,
-  statusRateLimiter
+  statusRateLimiter,
+  offerDownloadRateLimiter
 };
