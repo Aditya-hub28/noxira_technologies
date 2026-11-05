@@ -489,6 +489,51 @@ async function renewOfferDownloadLink(offerLetterId, adminId) {
   return { token, downloadUrl, expiresAt };
 }
 
+/**
+ * Resolves current server-side offer dispatch mode (LIVE, SIMULATED, or BLOCKED).
+ */
+async function getOfferDispatchMode(recipientEmail = '') {
+  const activeTemplate = await OfferLetterTemplate.findOne({ isActive: true }).lean();
+
+  if (!activeTemplate || activeTemplate.isSample) {
+    return {
+      mode: 'BLOCKED',
+      canSend: false,
+      line: 'Sending is currently blocked - the retry will stay queued until a custom offer template is activated',
+      reason: 'No custom offer template is active',
+      activeTemplate: activeTemplate ? { name: activeTemplate.name, version: activeTemplate.version, isSample: true } : null
+    };
+  }
+
+  const isProd = env.NODE_ENV === 'production';
+  const hasRealSmtp = Boolean(
+    env.SMTP &&
+    env.SMTP.USER &&
+    env.SMTP.PASS &&
+    env.SMTP.USER !== 'test@example.com' &&
+    env.SMTP.PASS !== 'password' &&
+    env.SMTP.HOST !== 'smtp.ethereal.email'
+  );
+
+  const isLive = isProd || (process.env.NODE_ENV !== 'test' && hasRealSmtp);
+
+  if (isLive) {
+    return {
+      mode: 'LIVE',
+      canSend: true,
+      line: recipientEmail ? `A real email will be sent to ${recipientEmail}` : 'A real email will be sent to the recipient email address',
+      activeTemplate: { name: activeTemplate.name, version: activeTemplate.version, isSample: false }
+    };
+  }
+
+  return {
+    mode: 'SIMULATED',
+    canSend: true,
+    line: 'Email sending is currently simulated - no real email will be sent',
+    activeTemplate: { name: activeTemplate.name, version: activeTemplate.version, isSample: false }
+  };
+}
+
 module.exports = {
   createOfferDownloadToken,
   generateOfferForApplication,
@@ -498,5 +543,6 @@ module.exports = {
   getOfferTransporter,
   setOfferTransporter,
   getLastCapturedOfferMail,
+  getOfferDispatchMode,
   escapeHtml
 };

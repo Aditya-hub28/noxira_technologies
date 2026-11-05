@@ -19,7 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
-  Edit3
+  Edit3,
+  Info
 } from 'lucide-react';
 
 export default function AdminApplicationsPage() {
@@ -54,8 +55,10 @@ export default function AdminApplicationsPage() {
   const [correctingName, setCorrectingName] = useState(false);
   const [correctNameError, setCorrectNameError] = useState('');
 
-  // Retry offer state
+  // Retry offer state & in-app confirmation modal
   const [retryingOffer, setRetryingOffer] = useState(false);
+  const [retryConfirmModal, setRetryConfirmModal] = useState(null); // { app, loading, dispatchMode, loadError }
+  const [retryFeedback, setRetryFeedback] = useState(null); // { type: 'success' | 'error', applicationId, outcome, message }
 
   // Active offer template state
   const [activeTemplate, setActiveTemplate] = useState(null);
@@ -227,22 +230,95 @@ export default function AdminApplicationsPage() {
     }
   };
 
-  // Retry offer generation and delivery
-  const handleRetryOffer = async (appId) => {
-    if (!window.confirm(`Retry generating and delivering offer letter for application ${appId}?`)) {
-      return;
-    }
-    setRetryingOffer(true);
+  // Open in-app retry confirmation modal (loads server dispatch mode)
+  const handleOpenRetryConfirmModal = async (app) => {
+    setRetryConfirmModal({
+      app,
+      loading: true,
+      dispatchMode: null,
+      loadError: ''
+    });
+
     try {
-      const res = await api.adminRetryOffer(appId);
-      alert(res.message || 'Offer generation and delivery retry initiated successfully.');
-      fetchApplications(pagination.page);
-      if (detailApp && (detailApp.applicationId === appId || detailApp._id === appId)) {
-        const refDetail = await api.adminGetApplicationDetail(appId);
-        if (refDetail && refDetail.application) setDetailApp(refDetail.application);
+      const res = await api.adminGetApplicationDetail(app.applicationId || app._id);
+      if (res && res.application) {
+        setRetryConfirmModal({
+          app: res.application,
+          loading: false,
+          dispatchMode: res.dispatchMode || null,
+          loadError: ''
+        });
+      } else {
+        setRetryConfirmModal((prev) => (prev ? { ...prev, loading: false } : null));
       }
     } catch (err) {
-      alert(err.message || 'Failed to retry offer');
+      setRetryConfirmModal((prev) =>
+        prev ? { ...prev, loading: false, loadError: err.message || 'Failed to resolve server dispatch mode.' } : null
+      );
+    }
+  };
+
+  const handleCloseRetryConfirm = () => {
+    if (retryingOffer) return; // Prevent closing while in flight
+    setRetryConfirmModal(null);
+  };
+
+  // Execute retry offer generation and delivery
+  const handleExecuteRetry = async (appId) => {
+    setRetryingOffer(true);
+    setRetryFeedback(null);
+    try {
+      const res = await api.adminRetryOffer(appId);
+      setRetryConfirmModal(null);
+
+      // Refresh applications table
+      fetchApplications(pagination.page);
+
+      // Refresh detail drawer if open for this application
+      if (detailApp && (detailApp.applicationId === appId || detailApp._id === appId)) {
+        if (res.application) {
+          setDetailApp(res.application);
+        } else {
+          const refDetail = await api.adminGetApplicationDetail(appId);
+          if (refDetail && refDetail.application) setDetailApp(refDetail.application);
+        }
+      }
+
+      // Format honest, truthful outcome line
+      const deliveryState = res.deliveryOutcome || res.application?.offerDeliveryState;
+      const recipientEmail = res.application?.participantId?.email || '';
+      let outcomeMessage = '';
+
+      if (deliveryState === 'PROVIDER_ACCEPTED') {
+        outcomeMessage = `Offer regenerated successfully. Real email dispatched to ${recipientEmail || 'candidate'}.`;
+      } else if (deliveryState === 'SIMULATED') {
+        outcomeMessage = 'Offer regenerated successfully. Email sending was simulated (development mock mode) - no real email was sent.';
+      } else if (deliveryState === 'BLOCKED_TEMPLATE') {
+        outcomeMessage = 'Offer regenerated successfully. Delivery is currently blocked because a custom offer template is not active - offer remains queued in the blocked backlog.';
+      } else if (deliveryState === 'FAILED') {
+        outcomeMessage = `Offer was regenerated, but delivery failed: ${res.application?.offerError || 'Delivery error'}.`;
+      } else {
+        outcomeMessage = `Offer regenerated successfully (Delivery status: ${deliveryState || 'Processed'}).`;
+      }
+
+      setRetryFeedback({
+        type: deliveryState === 'FAILED' ? 'error' : 'success',
+        applicationId: appId,
+        outcome: deliveryState,
+        message: outcomeMessage
+      });
+    } catch (err) {
+      setRetryConfirmModal(null);
+      setRetryFeedback({
+        type: 'error',
+        applicationId: appId,
+        message: err.message || 'Failed to retry offer.'
+      });
+      if (detailApp && (detailApp.applicationId === appId || detailApp._id === appId)) {
+        api.adminGetApplicationDetail(appId).then((ref) => {
+          if (ref && ref.application) setDetailApp(ref.application);
+        }).catch(() => {});
+      }
     } finally {
       setRetryingOffer(false);
     }
@@ -258,7 +334,6 @@ export default function AdminApplicationsPage() {
       const res = await api.adminCorrectCandidateName(correctNameModal.appId, {
         fullName: correctedNameInput.trim()
       });
-      alert(`Candidate name updated to "${res.participant?.fullName || correctedNameInput}". You may now retry the offer.`);
       const savedAppId = correctNameModal.appId;
       setCorrectNameModal(null);
       setCorrectedNameInput('');
@@ -267,6 +342,11 @@ export default function AdminApplicationsPage() {
         const refDetail = await api.adminGetApplicationDetail(savedAppId);
         if (refDetail && refDetail.application) setDetailApp(refDetail.application);
       }
+      setRetryFeedback({
+        type: 'success',
+        applicationId: savedAppId,
+        message: `Candidate name updated to "${res.participant?.fullName || correctedNameInput}". You may now retry the offer.`
+      });
     } catch (err) {
       setCorrectNameError(err.message || 'Failed to update candidate name');
     } finally {
@@ -339,6 +419,36 @@ export default function AdminApplicationsPage() {
         <div className="p-3 text-xs bg-blue-50 border border-blue-200 rounded-lg text-blue-800 flex items-center justify-between">
           <span>{unblockMessage}</span>
           <button onClick={() => setUnblockMessage('')} className="text-blue-600 font-bold">&times;</button>
+        </div>
+      )}
+
+      {retryFeedback && (!detailApp || (retryFeedback.applicationId !== detailApp.applicationId && retryFeedback.applicationId !== detailApp._id)) && (
+        <div className={`p-3 text-xs rounded-lg border flex items-center justify-between ${
+          retryFeedback.type === 'error'
+            ? 'bg-rose-50 border-rose-200 text-rose-900'
+            : retryFeedback.outcome === 'BLOCKED_TEMPLATE'
+            ? 'bg-purple-50 border-purple-200 text-purple-900'
+            : retryFeedback.outcome === 'SIMULATED'
+            ? 'bg-teal-50 border-teal-200 text-teal-900'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+        }`}>
+          <div className="flex items-center gap-2">
+            {retryFeedback.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            )}
+            <span>
+              <strong>{retryFeedback.applicationId}:</strong> {retryFeedback.message}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRetryFeedback(null)}
+            className="text-slate-400 hover:text-slate-700 font-bold ml-3"
+          >
+            &times;
+          </button>
         </div>
       )}
 
@@ -541,9 +651,9 @@ export default function AdminApplicationsPage() {
 
                           {app.status === 'APPROVED' && app.offerDeliveryState === 'FAILED' && (
                             <button
-                              onClick={() => handleRetryOffer(app.applicationId)}
+                              onClick={() => handleOpenRetryConfirmModal(app)}
                               disabled={retryingOffer}
-                              className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded text-[11px] font-semibold flex items-center gap-1"
+                              className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded text-[11px] font-semibold flex items-center gap-1 disabled:opacity-50"
                               title="Retry Offer Generation & Delivery"
                             >
                               <RefreshCw className={`w-3 h-3 ${retryingOffer ? 'animate-spin' : ''}`} />
@@ -971,6 +1081,40 @@ export default function AdminApplicationsPage() {
                     </div>
                   )}
 
+                  {/* Inline Retry Feedback Banner inside Drawer */}
+                  {retryFeedback && (retryFeedback.applicationId === detailApp.applicationId || retryFeedback.applicationId === detailApp._id) && (
+                    <div className={`p-3 rounded-lg border text-xs space-y-1 ${
+                      retryFeedback.type === 'error'
+                        ? 'bg-rose-50 border-rose-200 text-rose-900'
+                        : retryFeedback.outcome === 'BLOCKED_TEMPLATE'
+                        ? 'bg-purple-50 border-purple-200 text-purple-900'
+                        : retryFeedback.outcome === 'SIMULATED'
+                        ? 'bg-teal-50 border-teal-200 text-teal-900'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    }`}>
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-1.5">
+                          {retryFeedback.type === 'error' ? (
+                            <AlertCircle className="w-4 h-4 text-rose-600" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          )}
+                          {retryFeedback.type === 'error' ? 'Offer Retry Failed' : 'Offer Retry Successful'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setRetryFeedback(null)}
+                          className="text-slate-400 hover:text-slate-700 font-bold ml-2"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        {retryFeedback.message}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Failure State & Recovery Controls */}
                   {(detailApp.offerDeliveryState === 'FAILED' || detailApp.offerState === 'FAILED') && (
                     <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-lg space-y-2">
@@ -1002,12 +1146,12 @@ export default function AdminApplicationsPage() {
 
                         <button
                           type="button"
-                          onClick={() => handleRetryOffer(detailApp.applicationId)}
+                          onClick={() => handleOpenRetryConfirmModal(detailApp)}
                           disabled={retryingOffer}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white font-semibold rounded-lg hover:bg-rose-700 text-xs transition disabled:opacity-50"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${retryingOffer ? 'animate-spin' : ''}`} />
-                          {retryingOffer ? 'Retrying...' : 'Retry Offer Generation'}
+                          {retryingOffer ? 'Retrying Offer Generation...' : 'Retry Offer Generation'}
                         </button>
                       </div>
                     </div>
@@ -1158,6 +1302,123 @@ export default function AdminApplicationsPage() {
                 className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Confirmation Dialog for Offer Letter Retry */}
+      {retryConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <RefreshCw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Confirm Offer Letter Retry</h3>
+                  <span className="text-xs font-mono text-slate-500">{retryConfirmModal.app?.applicationId}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={retryingOffer}
+                onClick={handleCloseRetryConfirm}
+                className="p-1 text-slate-400 hover:text-slate-800 text-lg leading-none disabled:opacity-50"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Recipient, Programme, and Application ID details */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Application ID:</span>
+                <span className="font-mono font-bold text-slate-900">{retryConfirmModal.app?.applicationId}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Recipient Email:</span>
+                <span className="font-semibold text-slate-900">{retryConfirmModal.app?.participantId?.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Programme:</span>
+                <span className="font-semibold text-slate-900 text-right truncate max-w-[220px]" title={retryConfirmModal.app?.programTitle || retryConfirmModal.app?.programCode}>
+                  {retryConfirmModal.app?.programTitle || retryConfirmModal.app?.programCode || 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {/* Send Mode Truth Line (driven by server-side state) */}
+            {retryConfirmModal.loading ? (
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center gap-2">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                <span>Checking server delivery mode...</span>
+              </div>
+            ) : retryConfirmModal.dispatchMode ? (
+              <div className={`p-3 rounded-lg border text-xs flex items-start gap-2 ${
+                retryConfirmModal.dispatchMode.mode === 'LIVE'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : retryConfirmModal.dispatchMode.mode === 'SIMULATED'
+                  ? 'bg-teal-50 border-teal-200 text-teal-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}>
+                {retryConfirmModal.dispatchMode.mode === 'LIVE' ? (
+                  <Send className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : retryConfirmModal.dispatchMode.mode === 'SIMULATED' ? (
+                  <Info className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                ) : (
+                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                )}
+                <div className="space-y-0.5">
+                  <span className="font-bold block">
+                    {retryConfirmModal.dispatchMode.mode === 'LIVE'
+                      ? 'Live Email Dispatch'
+                      : retryConfirmModal.dispatchMode.mode === 'SIMULATED'
+                      ? 'Simulated Mock Mode'
+                      : 'Delivery Blocked'}
+                  </span>
+                  <p className="text-[11px] leading-relaxed">
+                    {retryConfirmModal.dispatchMode.mode === 'LIVE'
+                      ? `A real email will be sent to ${retryConfirmModal.app?.participantId?.email || 'the recipient'}`
+                      : retryConfirmModal.dispatchMode.mode === 'SIMULATED'
+                      ? 'Email sending is currently simulated - no real email will be sent'
+                      : (retryConfirmModal.dispatchMode.line || 'Sending is currently blocked - the retry will stay queued until a custom offer template is activated')}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {retryConfirmModal.loadError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded text-xs text-rose-700">
+                {retryConfirmModal.loadError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={retryingOffer}
+                onClick={handleCloseRetryConfirm}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={retryingOffer || retryConfirmModal.loading}
+                onClick={() => handleExecuteRetry(retryConfirmModal.app.applicationId)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {retryingOffer ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Regenerating &amp; Sending...</span>
+                  </>
+                ) : (
+                  <span>Confirm Retry</span>
+                )}
               </button>
             </div>
           </div>

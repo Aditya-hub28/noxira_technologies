@@ -20,6 +20,7 @@ const { issueCertificateForParticipant } = require('../src/services/issuanceServ
 const { generate128BitToken } = require('../src/services/qrService');
 const { recoverStaleProcessingJobs } = require('../src/services/emailService');
 const { validateEnv } = require('../src/config/env');
+const env = require('../src/config/env');
 const offerService = require('../src/services/offerService');
 const offerPdfService = require('../src/services/offerPdfService');
 const storageService = require('../src/services/storageService');
@@ -2591,12 +2592,62 @@ async function runTestSuite() {
     const mockRetrySuccess = mockReqRes({ params: { id: appRecovery.applicationId } });
     await adminApplicationController.retryOffer(mockRetrySuccess.req, mockRetrySuccess.res, mockRetrySuccess.next);
     assert.strictEqual(mockRetrySuccess.getStatus(), 200);
+    assert.ok(mockRetrySuccess.getData().deliveryOutcome, 'retryOffer must return deliveryOutcome');
+    assert.ok(mockRetrySuccess.getData().dispatchMode, 'retryOffer must return dispatchMode');
 
     const freshAppRecovery = await Application.findById(appRecovery._id);
     assert.ok(
       freshAppRecovery.offerDeliveryState === 'PROVIDER_ACCEPTED' || freshAppRecovery.offerDeliveryState === 'SIMULATED',
       'Offer must be regenerated and dispatched successfully'
     );
+  });
+
+  // TEST 28: Admin Retry Flow: Dispatch Mode Transparency & Server Delivery Truth Line
+  await test('Admin Retry Flow: getApplicationDetail & retryOffer expose truthful dispatch modes (LIVE, SIMULATED, BLOCKED)', async () => {
+    // 1. When custom template is active in dev/test, dispatchMode is SIMULATED
+    const testApp = await Application.findOne({ status: 'APPROVED' }).populate('participantId');
+    assert.ok(testApp, 'An approved application must exist');
+
+    const mockDetailCustom = mockReqRes({ params: { id: testApp.applicationId } });
+    await adminApplicationController.getApplicationDetail(mockDetailCustom.req, mockDetailCustom.res, mockDetailCustom.next);
+    assert.strictEqual(mockDetailCustom.getStatus(), 200);
+    const detailData = mockDetailCustom.getData();
+    assert.ok(detailData.dispatchMode, 'Must return dispatchMode in application detail');
+    assert.strictEqual(detailData.dispatchMode.mode, 'SIMULATED');
+    assert.strictEqual(detailData.dispatchMode.canSend, true);
+    assert.strictEqual(detailData.dispatchMode.line, 'Email sending is currently simulated - no real email will be sent');
+
+    // 2. When sample template is active (no custom template active), dispatchMode is BLOCKED
+    const activeCustom = await OfferLetterTemplate.findOne({ isSample: false, isActive: true });
+    await OfferLetterTemplate.updateMany({}, { $set: { isActive: false } });
+    await OfferLetterTemplate.updateOne({ isSample: true }, { $set: { isActive: true } });
+
+    const mockDetailBlocked = mockReqRes({ params: { id: testApp.applicationId } });
+    await adminApplicationController.getApplicationDetail(mockDetailBlocked.req, mockDetailBlocked.res, mockDetailBlocked.next);
+    assert.strictEqual(mockDetailBlocked.getStatus(), 200);
+    const blockedDetail = mockDetailBlocked.getData();
+    assert.strictEqual(blockedDetail.dispatchMode.mode, 'BLOCKED');
+    assert.strictEqual(blockedDetail.dispatchMode.canSend, false);
+    assert.ok(blockedDetail.dispatchMode.line.includes('blocked'));
+    assert.ok(blockedDetail.dispatchMode.line.includes('custom offer template is activated'));
+
+    // 3. Restore custom template active status
+    if (activeCustom) {
+      await OfferLetterTemplate.updateMany({}, { $set: { isActive: false } });
+      await OfferLetterTemplate.updateOne({ _id: activeCustom._id }, { $set: { isActive: true } });
+    }
+
+    // 4. In production mode with configured SMTP, dispatchMode resolves to LIVE with recipient email
+    const origEnv = env.NODE_ENV;
+    env.NODE_ENV = 'production';
+    try {
+      const liveMode = await offerService.getOfferDispatchMode('test.applicant@example.com');
+      assert.strictEqual(liveMode.mode, 'LIVE');
+      assert.strictEqual(liveMode.canSend, true);
+      assert.strictEqual(liveMode.line, 'A real email will be sent to test.applicant@example.com');
+    } finally {
+      env.NODE_ENV = origEnv;
+    }
   });
 
   // Cleanup

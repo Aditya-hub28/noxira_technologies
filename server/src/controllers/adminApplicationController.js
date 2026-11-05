@@ -111,9 +111,13 @@ exports.getApplicationDetail = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
+    const recipientEmail = application.participantId?.email || '';
+    const dispatchMode = await offerService.getOfferDispatchMode(recipientEmail);
+
     res.json({
       success: true,
-      application
+      application,
+      dispatchMode
     });
   } catch (error) {
     next(error);
@@ -604,6 +608,9 @@ exports.retryOffer = async (req, res, next) => {
     }
 
     const updatedApp = await Application.findById(application._id).populate('participantId');
+    const recipientEmail = updatedApp.participantId?.email || '';
+    const dispatchMode = await offerService.getOfferDispatchMode(recipientEmail);
+    const deliveryOutcome = updatedApp.offerDeliveryState;
 
     await AuditLog.create({
       actorId: req.admin._id,
@@ -618,6 +625,8 @@ exports.retryOffer = async (req, res, next) => {
       success: true,
       message: `Offer generation retried successfully for ${application.applicationId}.`,
       application: updatedApp,
+      deliveryOutcome,
+      dispatchMode,
       offerResult
     });
   } catch (error) {
