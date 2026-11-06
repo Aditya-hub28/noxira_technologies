@@ -14,7 +14,7 @@ import { Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
 const PENDING_LAUNCH_ITEMS = [
   'Public support contact email - to be published before launch',
   'Deadline extension rule - deadline is communicated as strict; extension policy to be finalized before launch',
-  'Detailed data retention schedule - pending final legal review',
+  'Data retention, deletion and consent handling - pending legal review before launch; nothing on this page is legal advice',
 ];
 
 const POLICIES = {
@@ -28,7 +28,7 @@ const POLICIES = {
       },
       {
         heading: 'Eligibility',
-        body: 'Participants must be at least 15 years old. Programmes are open to everyone - college students, beginners, and working professionals.',
+        body: 'Participants must be at least 18 years old. Programmes are open to everyone - college students, beginners, and working professionals.',
       },
       {
         heading: 'What a programme includes',
@@ -78,7 +78,7 @@ const POLICIES = {
       },
       {
         heading: 'Corrections and retention',
-        body: 'Student records are retained for verification and record-keeping. There is no self-service deletion option; you can request correction of inaccurate details through our support contact once published.',
+        body: 'Student records are retained for verification and record-keeping. The portal currently has no self-service deletion option; requests about your data (including correction) can be made through our support contact once published. Final retention and data-rights handling is under legal review before launch.',
       },
     ],
   },
@@ -162,7 +162,8 @@ export default function PolicyPage({ slug }) {
         <h1 className="text-2xl font-black text-slate-900">{policy.title}</h1>
       </div>
       <p className="text-xs text-slate-500 mb-2">{policy.intro}</p>
-      <p className="text-[11px] text-slate-400 mb-8">Last updated: 6 November 2026</p>
+      <p className="text-[11px] text-slate-400 mb-2">Last updated: 6 November 2026</p>
+      <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md inline-block px-2 py-1 mb-8">Draft - pending final owner confirmation and legal review before launch. This page is not legal advice.</p>
 
       <div className="space-y-6">
         {policy.sections.map((s) => (
