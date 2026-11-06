@@ -4384,6 +4384,42 @@ async function runTestSuite() {
     assert.strictEqual(successor.releaseGate && successor.releaseGate.submissionId, repSub.submissionId, 'Successor carries the release-gate evidence forward');
     const oldAfter = await Certificate.findById(issued.certificate._id);
     assert.strictEqual(oldAfter.status, 'REPLACED', 'Old certificate preserved as REPLACED, not destroyed');
+
+    // 10. LEGACY honesty: a pre-gate (legacy) ISSUED certificate has no releaseGate
+    //     evidence. Replacing it must NOT fabricate gate proof - the successor
+    //     simply has none. Legacy records stay correctable; nothing is invented.
+    const pLegacy = await mkParticipant('M9 Legacy', 'm9.legacy@example.com');
+    const legacyCert = await Certificate.create({
+      certificateNumber: 'NOX-2025-FSD-0099',
+      publicVerificationToken: generate128BitToken(),
+      completionAwardKey: `LEGACY:${pLegacy._id}`,
+      participantId: pLegacy._id,
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Development',
+      batchId: 'BATCH-2025-LEGACY',
+      renderedSnapshot: {
+        recipientName: 'M9 Legacy', programTitle: 'Full Stack Development',
+        startDate: new Date('2025-01-01'), endDate: new Date('2025-03-01'), issueDate: new Date('2025-03-05'),
+        authorizedSignatoryName: 'Signatory', authorizedSignatoryTitle: 'Director', templateVersion: 1
+      },
+      status: 'ISSUED',
+      fileStorage: { diskPath: '/tmp/legacy.pdf', fileSizeBytes: 1, sha256Checksum: 'legacy', mimeType: 'application/pdf' },
+      version: 1,
+      approvedBy: admin._id,
+      approvedAt: new Date('2025-03-05')
+      // NOTE: no releaseGate - this is a pre-Module-9 record
+    });
+    const mockLegacyReplace = mockReqRes({
+      params: { id: String(legacyCert._id) },
+      body: { reason: 'Legacy name correction', correctedName: 'M9 Legacy Corrected' },
+      admin: { _id: admin._id, email: admin.email }
+    });
+    await certificateController.replaceCertificate(mockLegacyReplace.req, mockLegacyReplace.res, mockLegacyReplace.next);
+    assert.strictEqual(mockLegacyReplace.getStatus(), 200, `Legacy replacement succeeded: ${JSON.stringify(mockLegacyReplace.getData()).slice(0, 200)}`);
+    const legacySuccessor = mockLegacyReplace.getData().newCertificate;
+    assert.ok(!legacySuccessor.releaseGate || !legacySuccessor.releaseGate.submissionId,
+      'Legacy successor must NOT fabricate release-gate evidence');
+    assert.strictEqual(String(legacySuccessor.participantId), String(pLegacy._id), 'Legacy successor bound to same participant');
   });
 
   // Cleanup
