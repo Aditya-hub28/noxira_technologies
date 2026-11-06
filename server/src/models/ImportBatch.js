@@ -15,7 +15,7 @@ const ImportBatchSchema = new mongoose.Schema({
   },
   kind: {
     type: String,
-    enum: ['PARTICIPANT_CSV', 'FORM1_RESPONSES'],
+    enum: ['PARTICIPANT_CSV', 'FORM1_RESPONSES', 'FORM2_RESPONSES'],
     default: 'PARTICIPANT_CSV',
     required: true
   },

@@ -35,6 +35,8 @@ const adminApplicationController = require('../src/controllers/adminApplicationC
 const adminOfferTemplateController = require('../src/controllers/adminOfferTemplateController');
 const offerDownloadController = require('../src/controllers/offerDownloadController');
 const form1ImportController = require('../src/controllers/form1ImportController');
+const form2ImportController = require('../src/controllers/form2ImportController');
+const Submission = require('../src/models/Submission');
 const { generateApplicationsCsv } = require('../src/utils/csvExport');
 const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/programRoutes');
 const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('../src/routes/adminProgramRoutes');
@@ -3807,6 +3809,121 @@ async function runTestSuite() {
     assert.strictEqual(mockStatusEmpty.getStatus(), 200);
     assert.strictEqual(mockStatusEmpty.getData().application.tasks, undefined, 'Programme without tasks must omit the field');
     assert.strictEqual(mockStatusEmpty.getData().application.learningMaterials, undefined, 'Programme without material must omit the field');
+  });
+
+  await test('Module 6: Form 2 final-submission import bridges responses into Submission records with application crosschecks, untrusted UTR, idempotent re-import', async () => {
+    process.env.WEBSITE_INTAKE_BATCH_ID = 'BATCH-M6-ACCEPTANCE';
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 99, durationWeeks: 4 } });
+
+    // Seed an approved application to match against
+    const mockApplyM6 = mockReqRes({
+      body: { fullName: 'Rohan Verma', email: 'rohan.m6@example.com', programCode: 'FS-DEV', feeAcknowledged: true }
+    });
+    await intakeController.websiteApply(mockApplyM6.req, mockApplyM6.res, mockApplyM6.next);
+    assert.strictEqual(mockApplyM6.getStatus(), 201);
+    const m6AppId = mockApplyM6.getData().application.applicationId;
+    await Application.updateOne({ applicationId: m6AppId }, { $set: { status: 'APPROVED', decidedAt: new Date() } });
+
+    const csvText = [
+      'Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
+      `rohan.m6@example.com,FS-DEV,https://github.com/rohan/project,UTR000111,${m6AppId},2026-11-06 10:00`,
+      'ghost@example.com,FS-DEV,https://github.com/ghost/project,UTR000222,,2026-11-06 10:05',
+      'rohan.m6@example.com,FS-DEV,https://github.com/rohan/other,UTR000333,NOX-AAAAAA,2026-11-06 10:10',
+      'bad-link@example.com,FS-DEV,not-a-url,UTR000444,,2026-11-06 10:15',
+      'no-utr@example.com,FS-DEV,https://github.com/x/y,,,'
+    ].join('\n');
+
+    // 1. Preview: auto-suggested mapping resolves all required targets
+    const mockPreview = mockReqRes({
+      body: { batchId: 'BATCH-M6-FORM2' },
+      file: { buffer: Buffer.from(csvText, 'utf8'), originalname: 'form2.csv', size: csvText.length }
+    });
+    await form2ImportController.previewForm2(mockPreview.req, mockPreview.res, mockPreview.next);
+    assert.strictEqual(mockPreview.getStatus(), 200);
+    const previewData = mockPreview.getData();
+    assert.strictEqual(previewData.stage, 'PREVIEW', 'Mapping must auto-suggest all required columns');
+    assert.strictEqual(previewData.summary.totalRows, 5);
+    assert.strictEqual(previewData.summary.errorRows, 2, 'bad link + missing UTR must be error rows');
+    assert.strictEqual(previewData.summary.matchedRows, 1, 'only the fully crosschecked row matches');
+    assert.strictEqual(previewData.summary.unmatchedRows, 2, 'ghost email + wrong application ID are unmatched');
+
+    const rowsByEmail = Object.fromEntries(previewData.rows.map((r) => [r.email || r.rowIndex, r]));
+    assert.strictEqual(rowsByEmail['rohan.m6@example.com'] ? previewData.rows[0].matchState : null, 'MATCHED');
+    assert.strictEqual(previewData.rows[0].matchedApplicationId, m6AppId, 'Row 1 must crosscheck to the original application ID');
+    assert.strictEqual(previewData.rows[1].matchState, 'UNMATCHED');
+    assert.strictEqual(previewData.rows[2].matchState, 'UNMATCHED', 'Unknown application ID must not fall back to email matching');
+    assert.ok(previewData.rows[2].matchReason.includes('not found'), 'Reason must state the claimed ID was not found');
+
+    // Crosscheck integrity: a REAL application ID claimed with a DIFFERENT email must not match
+    const csvMismatch = [
+      'Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
+      `impostor@example.com,FS-DEV,https://github.com/impostor/p,UTR000999,${m6AppId},2026-11-06 11:00`
+    ].join('\n');
+    const mockMismatch = mockReqRes({
+      body: { batchId: 'BATCH-M6-MISMATCH' },
+      file: { buffer: Buffer.from(csvMismatch, 'utf8'), originalname: 'form2b.csv', size: csvMismatch.length }
+    });
+    await form2ImportController.previewForm2(mockMismatch.req, mockMismatch.res, mockMismatch.next);
+    assert.strictEqual(mockMismatch.getStatus(), 200);
+    assert.strictEqual(mockMismatch.getData().rows[0].matchState, 'UNMATCHED', 'Real ID + wrong email must not match');
+    assert.ok(mockMismatch.getData().rows[0].matchReason.includes('different email'));
+
+    // 2. Commit: server re-validates from raw rows
+    const rawRows = csvText.split('\n').slice(1).map((line) => {
+      const [Email, Domain, Link, Utr, AppId, Ts] = line.split(',');
+      return { 'Email': Email, 'Internship Domain': Domain, 'Project Link': Link, 'UTR Number': Utr, 'Application ID': AppId, 'Timestamp': Ts };
+    });
+    const mockCommit = mockReqRes({
+      body: {
+        rows: rawRows,
+        batchId: 'BATCH-M6-FORM2',
+        columnMapping: previewData.columnMapping,
+        fileName: 'form2.csv',
+        fileSizeBytes: csvText.length
+      }
+    });
+    await form2ImportController.commitForm2(mockCommit.req, mockCommit.res, mockCommit.next);
+    assert.strictEqual(mockCommit.getStatus(), 201);
+    const commitSummary = mockCommit.getData().summary;
+    assert.strictEqual(commitSummary.committed, 3, '3 valid rows commit (1 matched + 2 unmatched)');
+    assert.strictEqual(commitSummary.matched, 1);
+    assert.strictEqual(commitSummary.unmatched, 2);
+    assert.strictEqual(commitSummary.errorRows, 2);
+
+    const savedSubs = await Submission.find({ programCode: 'FS-DEV' }).lean();
+    assert.strictEqual(savedSubs.length, 3);
+    const matchedSub = savedSubs.find((s) => s.transactionId === 'UTR000111');
+    assert.strictEqual(matchedSub.matchState, 'MATCHED');
+    assert.ok(matchedSub.applicationId, 'Matched submission must reference the Application');
+    assert.ok(/^SUB-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/.test(matchedSub.submissionId), 'Human-friendly SUB- ID');
+    // UTR is stored as an untrusted claim: the model must carry NO payment-verified state
+    assert.strictEqual(matchedSub.paymentVerified, undefined, 'No payment verification state may exist in Module 6');
+    assert.strictEqual(matchedSub.verified, undefined);
+
+    // 3. Batch re-commit rejected
+    const mockRecommit = mockReqRes({
+      body: { rows: rawRows, batchId: 'BATCH-M6-FORM2', columnMapping: previewData.columnMapping }
+    });
+    await form2ImportController.commitForm2(mockRecommit.req, mockRecommit.res, mockRecommit.next);
+    assert.strictEqual(mockRecommit.getStatus(), 409, 'Same batch cannot commit twice');
+
+    // 4. Idempotent re-import: same rows in a NEW batch are skipped as duplicates
+    const mockReimport = mockReqRes({
+      body: { rows: rawRows, batchId: 'BATCH-M6-FORM2-B', columnMapping: previewData.columnMapping }
+    });
+    await form2ImportController.commitForm2(mockReimport.req, mockReimport.res, mockReimport.next);
+    assert.strictEqual(mockReimport.getStatus(), 201);
+    assert.strictEqual(mockReimport.getData().summary.committed, 0, 'Re-imported rows must all be duplicates');
+    assert.strictEqual(mockReimport.getData().summary.duplicates, 3);
+    assert.strictEqual(await Submission.countDocuments({ programCode: 'FS-DEV' }), 3, 'No duplicate submissions created');
+
+    // 5. Audit trail + admin listing
+    const form2Audit = await AuditLog.findOne({ action: 'FORM2_COMMITTED' });
+    assert.ok(form2Audit, 'FORM2_COMMITTED audit log must exist');
+    const mockList = mockReqRes({ query: { matchState: 'UNMATCHED' } });
+    await form2ImportController.getSubmissions(mockList.req, mockList.res, mockList.next);
+    assert.strictEqual(mockList.getStatus(), 200);
+    assert.strictEqual(mockList.getData().count, 2, 'Unmatched queue lists 2 manual-review submissions');
   });
 
   // Cleanup
