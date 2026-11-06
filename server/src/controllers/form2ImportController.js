@@ -153,6 +153,19 @@ async function evaluateRows(rows, colMap, programs) {
   const hAppId = headerFor('applicationId');
   const hTimestamp = headerFor('timestamp');
 
+  // Same UTR appearing under different emails within this file
+  const utrEmails = new Map();
+  for (const r of rows) {
+    const hTxn = colMap.find((m) => m.target === 'transactionId');
+    const hEm = colMap.find((m) => m.target === 'email');
+    if (!hTxn || !hTxn.header || !hEm || !hEm.header) break;
+    const u = (r[hTxn.header] || '').trim();
+    const em = (r[hEm.header] || '').trim().toLowerCase();
+    if (!u || !em) continue;
+    if (!utrEmails.has(u)) utrEmails.set(u, new Set());
+    utrEmails.get(u).add(em);
+  }
+
   const evaluated = [];
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -182,12 +195,20 @@ async function evaluateRows(rows, colMap, programs) {
     let matchState = null;
     let matchReason = null;
     let applicationDoc = null;
+    let utrShared = false;
 
     if (errors.length === 0) {
       const existing = await Submission.findOne({ email, programCode: prog.code, transactionId });
       if (existing) {
         duplicate = true;
       } else {
+        // A UTR is a payment reference: the same UTR claimed by a DIFFERENT
+        // applicant is suspicious. Flag it for manual review - it is still
+        // not proof or disproof of any payment.
+        const shared = await Submission.findOne({ transactionId, email: { $ne: email } }).select('email');
+        if (shared) utrShared = true;
+        const inFile = utrEmails.get(transactionId);
+        if (inFile && (inFile.size > 1)) utrShared = true;
         const cc = await crosscheckRow({ email, programCode: prog.code, claimedApplicationId });
         matchState = cc.matchState;
         matchReason = cc.reason;
@@ -204,6 +225,7 @@ async function evaluateRows(rows, colMap, programs) {
       transactionId,
       formSubmittedAt,
       duplicate,
+      utrShared,
       errors,
       matchState,
       matchReason,
@@ -355,6 +377,7 @@ exports.commitForm2 = async (req, res, next) => {
         claimedApplicationId: e.claimedApplicationId || undefined,
         applicationId: e._applicationDoc ? e._applicationDoc._id : null,
         matchState: e.matchState,
+        utrSharedFlag: e.utrShared || false,
         projectLink: e.projectLink,
         transactionId: e.transactionId,
         formSubmittedAt: e.formSubmittedAt || undefined,

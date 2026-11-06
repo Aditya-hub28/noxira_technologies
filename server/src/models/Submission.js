@@ -73,6 +73,13 @@ const SubmissionSchema = new mongoose.Schema({
   // Original CSV row preserved for audit
   rawRow: {
     type: mongoose.Schema.Types.Mixed
+  },
+  // Set when this submission's UTR was also claimed by a DIFFERENT applicant
+  // (within the file or in an earlier import). Review flag only - it neither
+  // proves nor disproves any payment.
+  utrSharedFlag: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

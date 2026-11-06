@@ -272,9 +272,16 @@ export default function Form2ImportPage() {
                       ) : r.duplicate ? (
                         <span className="text-slate-500">Already imported - skipped</span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${matchChip(r.matchState)}`} title={r.matchReason || ''}>
-                          {r.matchState === 'MATCHED' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                          {r.matchState}{r.matchedApplicationId ? ` (${r.matchedApplicationId})` : ''}
+                        <span className="space-x-1">
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${matchChip(r.matchState)}`} title={r.matchReason || ''}>
+                            {r.matchState === 'MATCHED' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                            {r.matchState}{r.matchedApplicationId ? ` (${r.matchedApplicationId})` : ''}
+                          </span>
+                          {r.utrShared && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold bg-orange-50 text-orange-700 border-orange-200" title="This UTR was also claimed by a different applicant - review flag only, not a payment conclusion">
+                              <AlertTriangle className="w-3 h-3" /> Shared UTR
+                            </span>
+                          )}
                         </span>
                       )}
                     </td>

@@ -3917,13 +3917,53 @@ async function runTestSuite() {
     assert.strictEqual(mockReimport.getData().summary.duplicates, 3);
     assert.strictEqual(await Submission.countDocuments({ programCode: 'FS-DEV' }), 3, 'No duplicate submissions created');
 
+    // 4b. Cross-applicant UTR reuse is flagged (not blocked, no payment conclusion)
+    const csvShared = [
+      'Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
+      'first.m6@example.com,FS-DEV,https://github.com/first/p,UTR-SHARED-1,,2026-11-06 12:00',
+      'second.m6@example.com,FS-DEV,https://github.com/second/p,UTR-SHARED-1,,2026-11-06 12:01'
+    ].join('\n');
+    const mockShared = mockReqRes({
+      body: { batchId: 'BATCH-M6-SHARED' },
+      file: { buffer: Buffer.from(csvShared, 'utf8'), originalname: 'form2c.csv', size: csvShared.length }
+    });
+    await form2ImportController.previewForm2(mockShared.req, mockShared.res, mockShared.next);
+    assert.strictEqual(mockShared.getStatus(), 200);
+    assert.strictEqual(mockShared.getData().rows[0].utrShared, true, 'Same UTR across applicants must flag row 1');
+    assert.strictEqual(mockShared.getData().rows[1].utrShared, true, 'Same UTR across applicants must flag row 2');
+    assert.strictEqual(mockShared.getData().summary.errorRows, 0, 'Shared UTR is a review flag, not an error');
+
+    const sharedRaw = csvShared.split('\n').slice(1).map((line) => {
+      const [Email, Domain, Link, Utr, AppId, Ts] = line.split(',');
+      return { 'Email': Email, 'Internship Domain': Domain, 'Project Link': Link, 'UTR Number': Utr, 'Application ID': AppId, 'Timestamp': Ts };
+    });
+    const mockSharedCommit = mockReqRes({
+      body: { rows: sharedRaw, batchId: 'BATCH-M6-SHARED', columnMapping: mockShared.getData().columnMapping }
+    });
+    await form2ImportController.commitForm2(mockSharedCommit.req, mockSharedCommit.res, mockSharedCommit.next);
+    assert.strictEqual(mockSharedCommit.getStatus(), 201);
+    const sharedSubs = await Submission.find({ transactionId: 'UTR-SHARED-1' }).lean();
+    assert.strictEqual(sharedSubs.length, 2);
+    assert.ok(sharedSubs.every((s) => s.utrSharedFlag === true), 'Shared-UTR flag must persist on both submissions');
+
+    // Later batch, different applicant, same UTR as an earlier import -> flagged
+    const csvLater = ['Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
+      'third.m6@example.com,FS-DEV,https://github.com/third/p,UTR000111,,2026-11-06 12:30'].join('\n');
+    const mockLater = mockReqRes({
+      body: { batchId: 'BATCH-M6-LATER' },
+      file: { buffer: Buffer.from(csvLater, 'utf8'), originalname: 'form2d.csv', size: csvLater.length }
+    });
+    await form2ImportController.previewForm2(mockLater.req, mockLater.res, mockLater.next);
+    assert.strictEqual(mockLater.getData().rows[0].utrShared, true, 'UTR claimed earlier by a different applicant must flag');
+    assert.strictEqual(mockLater.getData().rows[0].duplicate, false, 'Different applicant is not an exact duplicate');
+
     // 5. Audit trail + admin listing
     const form2Audit = await AuditLog.findOne({ action: 'FORM2_COMMITTED' });
     assert.ok(form2Audit, 'FORM2_COMMITTED audit log must exist');
     const mockList = mockReqRes({ query: { matchState: 'UNMATCHED' } });
     await form2ImportController.getSubmissions(mockList.req, mockList.res, mockList.next);
     assert.strictEqual(mockList.getStatus(), 200);
-    assert.strictEqual(mockList.getData().count, 2, 'Unmatched queue lists 2 manual-review submissions');
+    assert.strictEqual(mockList.getData().count, 4, 'Unmatched queue lists all 4 manual-review submissions (2 original + 2 shared-UTR)');
   });
 
   // Cleanup
