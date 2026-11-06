@@ -192,6 +192,8 @@ async function evaluateRows(rows, colMap, programs) {
     }
 
     let duplicate = false;
+    let revision = false;
+    let revisionOf = null;
     let matchState = null;
     let matchReason = null;
     let applicationDoc = null;
@@ -200,7 +202,15 @@ async function evaluateRows(rows, colMap, programs) {
     if (errors.length === 0) {
       const existing = await Submission.findOne({ email, programCode: prog.code, transactionId });
       if (existing) {
-        duplicate = true;
+        // Module 8: a re-imported response with the SAME email+programme+UTR but a
+        // DIFFERENT project link, while a correction window is open, is the
+        // student's correction for the open review round - not a duplicate.
+        if (existing.reviewStatus === 'CHANGES_REQUESTED' && existing.projectLink !== projectLink) {
+          revision = true;
+          revisionOf = existing;
+        } else {
+          duplicate = true;
+        }
       } else {
         // A UTR is a payment reference: the same UTR claimed by a DIFFERENT
         // applicant is suspicious. Flag it for manual review - it is still
@@ -225,6 +235,8 @@ async function evaluateRows(rows, colMap, programs) {
       transactionId,
       formSubmittedAt,
       duplicate,
+      revision,
+      _revisionOf: revisionOf,
       utrShared,
       errors,
       matchState,
@@ -239,7 +251,7 @@ async function evaluateRows(rows, colMap, programs) {
 
 function stripInternal(ev) {
   return ev.map((e) => {
-    const { _applicationDoc, _raw, ...pub } = e;
+    const { _applicationDoc, _revisionOf, _raw, ...pub } = e;
     return pub;
   });
 }
@@ -366,10 +378,50 @@ exports.commitForm2 = async (req, res, next) => {
     let unmatched = 0;
     let duplicates = 0;
     let errorRows = 0;
+    let revisions = 0;
 
     for (const e of evaluated) {
       if (e.errors.length > 0) { errorRows++; continue; }
       if (e.duplicate) { duplicates++; continue; }
+      if (e.revision && e._revisionOf) {
+        // Apply the correction to the EXISTING submission: open the next review
+        // round with the new link. Optimistic concurrency (__v) rejects a race
+        // with a concurrent admin review action.
+        const sub = e._revisionOf;
+        const now = new Date();
+        const prevRoundNo = sub.currentReviewRound;
+        const prevRound = sub.reviewRounds[prevRoundNo];
+        const late = Boolean(prevRound && prevRound.correctionDueAt && now > prevRound.correctionDueAt);
+        // Atomic transition: only while THIS correction window is still open.
+        // A concurrent admin outcome or another racing revision makes the
+        // filter match nothing and the row becomes an error, never a half-write.
+        const upd = await Submission.findOneAndUpdate(
+          { _id: sub._id, reviewStatus: 'CHANGES_REQUESTED', currentReviewRound: prevRoundNo },
+          {
+            $push: { reviewRounds: { round: prevRoundNo + 1, projectLink: e.projectLink, openedAt: now, resubmittedAt: now, resubmittedLate: late } },
+            $inc: { currentReviewRound: 1 },
+            $set: { reviewStatus: 'IN_REVIEW', projectLink: e.projectLink, ...(e.formSubmittedAt ? { formSubmittedAt: e.formSubmittedAt } : {}) }
+          },
+          { new: true }
+        );
+        if (!upd) { errorRows++; continue; }
+        revisions++;
+        await AuditLog.create({
+          actorType: 'ADMIN',
+          actorId: req.admin._id,
+          action: 'REVIEW_RESUBMISSION',
+          targetEntity: 'SUBMISSION',
+          targetId: sub._id,
+          summary: `Correction received for ${sub.submissionId}: review round ${upd.currentReviewRound} opened${late ? ' (late - after the 3 calendar day window; admin decides any extension)' : ''}`,
+          ipAddress: req.ip || '127.0.0.1',
+          metadata: {
+            submissionId: sub.submissionId,
+            round: upd.currentReviewRound,
+            resubmittedLate: late
+          }
+        });
+        continue;
+      }
       const submission = new Submission({
         submissionId: generateSubmissionId(),
         email: e.email,
@@ -392,6 +444,7 @@ exports.commitForm2 = async (req, res, next) => {
     importBatch.totalRows = evaluated.length;
     importBatch.validRows = committed;
     importBatch.duplicateRows = duplicates;
+    importBatch.revisionRows = revisions;
     importBatch.errorRows = errorRows;
     importBatch.status = 'COMMITTED';
     await importBatch.save();
@@ -417,8 +470,8 @@ exports.commitForm2 = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: `Committed ${committed} submission(s): ${matched} matched to applications, ${unmatched} unmatched (manual review), ${duplicates} duplicate(s) skipped, ${errorRows} error row(s) skipped.`,
-      summary: { totalRows: evaluated.length, committed, matched, unmatched, duplicates, errorRows }
+      message: `Committed ${committed} submission(s): ${matched} matched to applications, ${unmatched} unmatched (manual review), ${duplicates} duplicate(s) skipped, ${revisions} correction(s) applied to open review rounds, ${errorRows} error row(s) skipped.`,
+      summary: { totalRows: evaluated.length, committed, matched, unmatched, duplicates, revisions, errorRows }
     });
   } catch (error) {
     next(error);
@@ -551,3 +604,149 @@ exports.markPayment = async (req, res, next) => {
     next(error);
   }
 };
+
+
+/**
+ * Module 8: review workflow. Policy (from the approved plan, no invented rules):
+ * - Initial review + 3 free re-reviews: rounds 0..3.
+ * - After every CHANGES_REQUESTED the student gets 3 calendar days
+ *   (Asia/Kolkata; due at 23:59:59.999 IST on the 3rd day) to correct.
+ * - Pass requires the admin to explicitly confirm BOTH requirements complete
+ *   AND project properly working.
+ * - Feedback after round 3 exhausts the attempts: FAILED_EXHAUSTED means no
+ *   certificate eligibility. Nothing here releases or blocks a certificate by
+ *   itself (Module 9 gate) and nothing auto-rejects a late correction.
+ */
+
+// 3 calendar days in Asia/Kolkata (fixed +05:30, no DST), end of the 3rd day.
+function correctionDeadlineIst(fromDate) {
+  const IST_MS = (5 * 60 + 30) * 60 * 1000;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const istNow = new Date(fromDate.getTime() + IST_MS);
+  const istDayStartUtc = Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate());
+  const dueIstEndUtc = istDayStartUtc + 4 * DAY_MS - 1; // end of (feedback date + 3 days), IST
+  return new Date(dueIstEndUtc - IST_MS);
+}
+
+exports.reviewOutcome = async (req, res, next) => {
+  try {
+    const cleanId = (req.params.submissionId || '').trim().toUpperCase();
+    const { action, feedback, requirementsComplete, projectWorking } = req.body || {};
+
+    if (!['CHANGES_REQUESTED', 'PASS'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Action must be CHANGES_REQUESTED or PASS.' });
+    }
+    if (action === 'CHANGES_REQUESTED' && (typeof feedback !== 'string' || !feedback.trim() || feedback.length > 2000)) {
+      return res.status(400).json({ success: false, message: 'Feedback is required (up to 2000 characters) when requesting changes.' });
+    }
+    if (action === 'PASS' && (requirementsComplete !== true || projectWorking !== true)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pass requires the admin to explicitly confirm BOTH: requirements complete AND project properly working.'
+      });
+    }
+
+    const submission = await Submission.findOne({ submissionId: cleanId });
+    if (!submission) {
+      return res.status(404).json({ success: false, message: `Submission ${cleanId} not found.` });
+    }
+    if (submission.reviewStatus === 'PASSED' || submission.reviewStatus === 'FAILED_EXHAUSTED') {
+      return res.status(409).json({ success: false, message: `Review for ${cleanId} is already ${submission.reviewStatus}; the outcome is terminal.` });
+    }
+    if (submission.reviewStatus === 'CHANGES_REQUESTED') {
+      return res.status(409).json({ success: false, message: `Submission ${cleanId} is awaiting the student's correction; review the resubmitted link when it arrives.` });
+    }
+
+    const now = new Date();
+    const isFirst = submission.reviewStatus === 'NOT_STARTED';
+    const roundNo = submission.currentReviewRound;
+    const newStatus = action === 'PASS'
+      ? 'PASSED'
+      : (roundNo >= 3 ? 'FAILED_EXHAUSTED' : 'CHANGES_REQUESTED');
+    const dueAt = (action === 'CHANGES_REQUESTED' && newStatus === 'CHANGES_REQUESTED') ? correctionDeadlineIst(now) : undefined;
+    const roundFields = {
+      outcome: action === 'PASS' ? 'PASSED' : 'CHANGES_REQUESTED',
+      reviewedBy: req.admin._id,
+      reviewedAt: now,
+      ...(action === 'PASS'
+        ? { requirementsComplete: true, projectWorking: true }
+        : {
+            feedback: feedback.trim(),
+            requirementsComplete: requirementsComplete === true,
+            projectWorking: projectWorking === true,
+            ...(dueAt ? { correctionDueAt: dueAt } : {})
+          })
+    };
+
+    // Atomic transition guarded by the CURRENT state and round: two concurrent
+    // outcomes cannot both apply - the loser's filter matches nothing and it
+    // gets a 409, never a double round or a double terminal write.
+    let updated;
+    if (isFirst) {
+      updated = await Submission.findOneAndUpdate(
+        { submissionId: cleanId, reviewStatus: 'NOT_STARTED' },
+        {
+          $push: { reviewRounds: { round: 0, projectLink: submission.projectLink, openedAt: now, ...roundFields } },
+          $set: { reviewStatus: newStatus, currentReviewRound: 0 }
+        },
+        { new: true }
+      );
+    } else {
+      const setPaths = { reviewStatus: newStatus };
+      for (const [k, v] of Object.entries(roundFields)) setPaths[`reviewRounds.${roundNo}.${k}`] = v;
+      updated = await Submission.findOneAndUpdate(
+        { submissionId: cleanId, reviewStatus: 'IN_REVIEW', currentReviewRound: roundNo },
+        { $set: setPaths },
+        { new: true }
+      );
+    }
+    if (!updated) {
+      const current = await Submission.findOne({ submissionId: cleanId }).select('reviewStatus');
+      return res.status(409).json({
+        success: false,
+        message: `Review state changed concurrently (now ${current ? current.reviewStatus : 'unknown'}); refresh and retry.`
+      });
+    }
+    const round = updated.reviewRounds[updated.currentReviewRound];
+
+    await AuditLog.create({
+      actorType: 'ADMIN',
+      actorId: req.admin._id,
+      action: 'REVIEW_OUTCOME',
+      targetEntity: 'SUBMISSION',
+      targetId: submission._id,
+      summary: `Review round ${round.round} for ${updated.submissionId}: ${action}` +
+        (action === 'CHANGES_REQUESTED' && updated.reviewStatus === 'CHANGES_REQUESTED'
+          ? ` (correction due ${round.correctionDueAt.toISOString()}, 3 calendar days IST)`
+          : '') +
+        (updated.reviewStatus === 'FAILED_EXHAUSTED' ? ' - attempts exhausted, no certificate eligibility' : ''),
+      ipAddress: req.ip || '127.0.0.1',
+      metadata: {
+        submissionId: updated.submissionId,
+        round: round.round,
+        action,
+        reviewStatus: updated.reviewStatus,
+        correctionDueAt: round.correctionDueAt || undefined
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: updated.reviewStatus === 'PASSED'
+        ? `Review PASSED for ${updated.submissionId} (requirements complete + project properly working, confirmed by admin).`
+        : updated.reviewStatus === 'FAILED_EXHAUSTED'
+          ? `Feedback recorded for ${updated.submissionId}; all review attempts are exhausted - no certificate eligibility.`
+          : `Feedback recorded for ${updated.submissionId}; student has 3 calendar days (until ${round.correctionDueAt.toISOString()}) to correct and resubmit.`,
+      review: {
+        submissionId: updated.submissionId,
+        reviewStatus: updated.reviewStatus,
+        currentReviewRound: updated.currentReviewRound,
+        rounds: updated.reviewRounds
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.correctionDeadlineIst = correctionDeadlineIst;

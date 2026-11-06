@@ -4097,6 +4097,134 @@ async function runTestSuite() {
     assert.strictEqual(mockUnknown.getStatus(), 404);
   });
 
+  await test('Module 8: Review workflow - initial + 3 free re-reviews, 3 calendar day IST deadlines, explicit pass criteria, terminal exhaustion, race-safe', async () => {
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 99, durationWeeks: 4 } });
+    const m8ColMap = [
+      { target: 'email', header: 'Email' }, { target: 'programme', header: 'Internship Domain' },
+      { target: 'projectLink', header: 'Project Link' }, { target: 'transactionId', header: 'UTR Number' },
+      { target: 'applicationId', header: 'Application ID' }, { target: 'timestamp', header: 'Timestamp' }
+    ];
+    const mkMatchedSubM8 = async (name, email, utr, link) => {
+      const m = mockReqRes({ body: { fullName: name, email, programCode: 'FS-DEV', feeAcknowledged: true } });
+      await intakeController.websiteApply(m.req, m.res, m.next);
+      assert.strictEqual(m.getStatus(), 201);
+      const appId = m.getData().application.applicationId;
+      await Application.updateOne({ applicationId: appId }, { $set: { status: 'APPROVED', decidedAt: new Date() } });
+      const rows = [{ 'Email': email, 'Internship Domain': 'FS-DEV', 'Project Link': link, 'UTR Number': utr, 'Application ID': appId, 'Timestamp': '2026-11-06 16:00' }];
+      const cm = mockReqRes({ body: { rows, batchId: `BATCH-M8-${utr}`, columnMapping: m8ColMap } });
+      await form2ImportController.commitForm2(cm.req, cm.res, cm.next);
+      assert.strictEqual(cm.getStatus(), 201);
+      const sub = await Submission.findOne({ email, transactionId: utr });
+      assert.strictEqual(sub.matchState, 'MATCHED');
+      return sub;
+    };
+    const review = async (subId, body) => {
+      const m = mockReqRes({ params: { submissionId: subId }, body });
+      await form2ImportController.reviewOutcome(m.req, m.res, m.next);
+      return m;
+    };
+    const reimport = async (email, utr, link, batchSuffix) => {
+      const rows = [{ 'Email': email, 'Internship Domain': 'FS-DEV', 'Project Link': link, 'UTR Number': utr, 'Application ID': '', 'Timestamp': '2026-11-06 17:00' }];
+      const cm = mockReqRes({ body: { rows, batchId: `BATCH-M8-RE-${batchSuffix}`, columnMapping: m8ColMap } });
+      await form2ImportController.commitForm2(cm.req, cm.res, cm.next);
+      return cm;
+    };
+
+    const subA = await mkMatchedSubM8('Mira M8', 'mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v1');
+
+    // 1. Validation: feedback required for CHANGES_REQUESTED; both criteria required for PASS
+    let r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED' });
+    assert.strictEqual(r.getStatus(), 400, 'Feedback required');
+    r = await review(subA.submissionId, { action: 'PASS', requirementsComplete: true, projectWorking: false });
+    assert.strictEqual(r.getStatus(), 400, 'Pass needs BOTH criteria explicitly true');
+    r = await review(subA.submissionId, { action: 'WHATEVER' });
+    assert.strictEqual(r.getStatus(), 400, 'Invented actions rejected');
+
+    // 2. First feedback: round 0, CHANGES_REQUESTED, deadline = end of 3rd calendar day IST
+    r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Readme missing setup steps', requirementsComplete: false, projectWorking: true });
+    assert.strictEqual(r.getStatus(), 200);
+    let rev = r.getData().review;
+    assert.strictEqual(rev.reviewStatus, 'CHANGES_REQUESTED');
+    assert.strictEqual(rev.currentReviewRound, 0);
+    const due = new Date(rev.rounds[0].correctionDueAt);
+    const IST = (5 * 60 + 30) * 60 * 1000, DAY = 86400000;
+    const fbIst = new Date(new Date(rev.rounds[0].reviewedAt).getTime() + IST);
+    const expectDue = new Date(Date.UTC(fbIst.getUTCFullYear(), fbIst.getUTCMonth(), fbIst.getUTCDate()) + 4 * DAY - 1 - IST);
+    assert.strictEqual(due.getTime(), expectDue.getTime(), 'Deadline = 23:59:59.999 IST on feedback date + 3 calendar days');
+
+    // 3. While awaiting correction, no new outcome
+    r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'again' });
+    assert.strictEqual(r.getStatus(), 409, 'Awaiting student correction');
+
+    // 4. Re-import with SAME link is still a duplicate, not a revision
+    let cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v1', 'SAME');
+    assert.strictEqual(cm.getStatus(), 201);
+    assert.strictEqual(cm.getData().summary.revisions, 0);
+    assert.strictEqual(cm.getData().summary.duplicates, 1, 'Same link re-import stays a duplicate');
+
+    // 5. Re-import with NEW link while CHANGES_REQUESTED opens round 1 (on-time)
+    cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v2', 'V2');
+    assert.strictEqual(cm.getData().summary.revisions, 1);
+    let doc = await Submission.findById(subA._id);
+    assert.strictEqual(doc.reviewStatus, 'IN_REVIEW');
+    assert.strictEqual(doc.currentReviewRound, 1);
+    assert.strictEqual(doc.projectLink, 'https://github.com/mira/v2');
+    assert.strictEqual(doc.reviewRounds[1].resubmittedLate, false, 'On-time correction not late');
+
+    // 6. Feedback on round 1, then make the window expire, then a LATE correction opens round 2 - flagged, not auto-failed
+    r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Setup works, add error handling' });
+    assert.strictEqual(r.getStatus(), 200);
+    await Submission.updateOne({ _id: subA._id }, { $set: { 'reviewRounds.1.correctionDueAt': new Date(Date.now() - 86400000) } });
+    cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v3', 'V3');
+    assert.strictEqual(cm.getData().summary.revisions, 1);
+    doc = await Submission.findById(subA._id);
+    assert.strictEqual(doc.currentReviewRound, 2);
+    assert.strictEqual(doc.reviewRounds[2].resubmittedLate, true, 'Late correction is flagged');
+    assert.strictEqual(doc.reviewStatus, 'IN_REVIEW', 'Late correction is NOT auto-failed - admin decides');
+
+    // 7. Round 2 feedback, correction opens round 3 (the last re-review), feedback there exhausts attempts
+    r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Error handling partial' });
+    assert.strictEqual(r.getStatus(), 200);
+    cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v4', 'V4');
+    assert.strictEqual(cm.getData().summary.revisions, 1);
+    doc = await Submission.findById(subA._id);
+    assert.strictEqual(doc.currentReviewRound, 3, 'Round 3 = third (last) free re-review');
+    r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Still not passing' });
+    assert.strictEqual(r.getStatus(), 200);
+    doc = await Submission.findById(subA._id);
+    assert.strictEqual(doc.reviewStatus, 'FAILED_EXHAUSTED', 'Initial + 3 re-reviews used: attempts exhausted');
+    r = await review(subA.submissionId, { action: 'PASS', requirementsComplete: true, projectWorking: true });
+    assert.strictEqual(r.getStatus(), 409, 'FAILED_EXHAUSTED is terminal');
+
+    // 8. PASS path on a second submission: terminal, both criteria recorded
+    const subB = await mkMatchedSubM8('Omar M8', 'omar.m8@example.com', 'UTR-M8-222', 'https://github.com/omar/final');
+    r = await review(subB.submissionId, { action: 'PASS', requirementsComplete: true, projectWorking: true });
+    assert.strictEqual(r.getStatus(), 200);
+    doc = await Submission.findById(subB._id);
+    assert.strictEqual(doc.reviewStatus, 'PASSED');
+    assert.strictEqual(doc.reviewRounds[0].requirementsComplete, true);
+    assert.strictEqual(doc.reviewRounds[0].projectWorking, true);
+    assert.ok(doc.reviewRounds[0].reviewedBy, 'Reviewing admin recorded');
+    r = await review(subB.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'post-pass change' });
+    assert.strictEqual(r.getStatus(), 409, 'PASSED is terminal');
+
+    // 9. Race: two concurrent outcomes on the same fresh submission - exactly one wins
+    const subC = await mkMatchedSubM8('Priya M8', 'priya.m8@example.com', 'UTR-M8-333', 'https://github.com/priya/final');
+    const statuses = (await Promise.all([
+      review(subC.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'one' }),
+      review(subC.submissionId, { action: 'PASS', requirementsComplete: true, projectWorking: true })
+    ])).map((m) => m.getStatus()).sort();
+    assert.deepStrictEqual(statuses, [200, 409], 'Concurrent review outcomes: exactly one succeeds');
+    doc = await Submission.findById(subC._id);
+    assert.strictEqual(doc.reviewRounds.length, 1, 'Exactly one round outcome persisted');
+
+    // 10. Audit trail
+    const outcomeAudit = await AuditLog.findOne({ action: 'REVIEW_OUTCOME', targetId: subA._id });
+    const resubAudit = await AuditLog.findOne({ action: 'REVIEW_RESUBMISSION', targetId: subA._id });
+    assert.ok(outcomeAudit, 'REVIEW_OUTCOME audit exists');
+    assert.ok(resubAudit, 'REVIEW_RESUBMISSION audit exists');
+  });
+
   // Cleanup
   await mongoose.disconnect();
   await mongod.stop();

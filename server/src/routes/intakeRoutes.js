@@ -26,5 +26,6 @@ router.post('/form2-preview', requireAuth, uploadCsv.single('csvFile'), form2Imp
 router.post('/form2-commit', requireAuth, form2ImportController.commitForm2);
 router.get('/submissions', requireAuth, form2ImportController.getSubmissions);
 router.patch('/submissions/:submissionId/payment', requireAuth, form2ImportController.markPayment);
+router.post('/submissions/:submissionId/review', requireAuth, form2ImportController.reviewOutcome);
 
 module.exports = router;

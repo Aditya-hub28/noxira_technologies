@@ -140,6 +140,52 @@ export default function Form2ImportPage() {
   };
 
   const [paymentBusy, setPaymentBusy] = useState('');
+  // Module 8: review workflow UI state
+  const [reviewSub, setReviewSub] = useState(null);
+  const [reviewFeedback, setReviewFeedback] = useState('');
+  const [reqComplete, setReqComplete] = useState(false);
+  const [projWorking, setProjWorking] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
+  const reviewChip = (st) => {
+    if (st === 'PASSED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (st === 'FAILED_EXHAUSTED') return 'bg-rose-50 text-rose-700 border-rose-200';
+    if (st === 'CHANGES_REQUESTED') return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (st === 'IN_REVIEW') return 'bg-blue-50 text-blue-700 border-blue-200';
+    return 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+  const reviewLabel = (st) => ({
+    NOT_STARTED: 'NOT STARTED', IN_REVIEW: 'IN REVIEW', CHANGES_REQUESTED: 'CHANGES REQUESTED',
+    PASSED: 'PASSED', FAILED_EXHAUSTED: 'EXHAUSTED'
+  }[st] || st || 'NOT STARTED');
+  const fmtIst = (d) => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : '-';
+
+  const openReview = (sub) => {
+    setReviewSub(sub); setReviewFeedback(''); setReqComplete(false); setProjWorking(false); setReviewError('');
+  };
+  const handleReviewOutcome = async (action) => {
+    const label = action === 'PASS'
+      ? `PASS the review for ${reviewSub.submissionId} (confirm requirements complete AND project properly working)`
+      : `request changes for ${reviewSub.submissionId} (student gets 3 calendar days to correct)`;
+    if (!window.confirm(`Are you sure you want to ${label}?`)) return;
+    setReviewBusy(true); setReviewError('');
+    try {
+      const res = await api.adminReviewOutcome(reviewSub.submissionId, {
+        action,
+        feedback: reviewFeedback,
+        requirementsComplete: reqComplete,
+        projectWorking: projWorking
+      });
+      await fetchSubmissions();
+      setReviewSub(res.review ? { ...reviewSub, reviewStatus: res.review.reviewStatus, currentReviewRound: res.review.currentReviewRound, reviewRounds: res.review.rounds } : null);
+    } catch (err) {
+      setReviewError(err.message || 'Review action failed');
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
   const handleMarkPayment = async (s, state) => {
     const label = state === 'VERIFIED' ? `mark payment VERIFIED for ${s.submissionId} (confirm you checked the bank/UPI app)` : `mark payment NOT_FOUND for ${s.submissionId}`;
     if (!window.confirm(`Are you sure you want to ${label}?`)) return;
@@ -359,6 +405,7 @@ export default function Form2ImportPage() {
                   <th className="px-3 py-2 text-left">UTR (unverified)</th>
                   <th className="px-3 py-2 text-left">Crosscheck</th>
                   <th className="px-3 py-2 text-left">Payment (manual check)</th>
+                  <th className="px-3 py-2 text-left">Review (initial + 3 re-reviews)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -404,6 +451,19 @@ export default function Form2ImportPage() {
                         )}
                       </div>
                     </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold ${reviewChip(s.reviewStatus)}`}>
+                          {reviewLabel(s.reviewStatus)}
+                        </span>
+                        <button
+                          onClick={() => openReview(s)}
+                          className="text-[10px] font-bold text-blue-700 hover:text-blue-900 underline"
+                        >
+                          Review
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -411,6 +471,107 @@ export default function Form2ImportPage() {
           </div>
         )}
       </div>
+
+      {/* Module 8: review modal */}
+      {reviewSub && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4" onClick={() => setReviewSub(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-sm">Review - {reviewSub.submissionId}</h3>
+                <p className="text-[11px] text-slate-500">{reviewSub.email} - round {Math.min((reviewSub.currentReviewRound || 0) + 1, 4)} of 4 (initial + 3 free re-reviews)</p>
+              </div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold ${reviewChip(reviewSub.reviewStatus)}`}>
+                {reviewLabel(reviewSub.reviewStatus)}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Pass means you explicitly confirm BOTH: requirements complete AND project properly working.
+              After every change request the student has 3 calendar days (IST) to correct and resubmit via Form 2.
+            </p>
+
+            {(reviewSub.reviewRounds || []).length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Round history</h4>
+                {reviewSub.reviewRounds.map((r) => (
+                  <div key={r.round} className="border border-slate-200 rounded-xl p-3 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800">{r.round === 0 ? 'Initial review' : `Re-review ${r.round}`}</span>
+                      {r.outcome && (
+                        <span className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${r.outcome === 'PASSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                          {r.outcome}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-slate-500">
+                      Link: <a href={r.projectLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">open</a>
+                      {r.resubmittedAt && <> - resubmitted {fmtIst(r.resubmittedAt)}{r.resubmittedLate && <span className="ml-1 px-1 rounded bg-rose-50 text-rose-700 font-bold">LATE</span>}</>}
+                    </div>
+                    {r.feedback && <div className="text-slate-700">Feedback: {r.feedback}</div>}
+                    {r.reviewedAt && <div className="text-slate-400">Reviewed {fmtIst(r.reviewedAt)}{r.correctionDueAt && <> - correction due {fmtIst(r.correctionDueAt)} IST</>}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {reviewSub.reviewStatus === 'PASSED' && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[11px] text-emerald-800 font-bold">Review PASSED. Certificate release remains a separate gated step.</div>
+            )}
+            {reviewSub.reviewStatus === 'FAILED_EXHAUSTED' && (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-[11px] text-rose-800 font-bold">All review attempts exhausted - no certificate eligibility for this submission.</div>
+            )}
+            {reviewSub.reviewStatus === 'CHANGES_REQUESTED' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                Awaiting the student's correction. It opens the next round automatically when a new Form 2 response arrives with a different project link.
+              </div>
+            )}
+
+            {(reviewSub.reviewStatus === 'NOT_STARTED' || reviewSub.reviewStatus === 'IN_REVIEW') && (
+              <div className="space-y-3 border-t border-slate-100 pt-3">
+                <label className="flex items-center gap-2 text-[11px] text-slate-700">
+                  <input type="checkbox" checked={reqComplete} onChange={(e) => setReqComplete(e.target.checked)} />
+                  Requirements complete
+                </label>
+                <label className="flex items-center gap-2 text-[11px] text-slate-700">
+                  <input type="checkbox" checked={projWorking} onChange={(e) => setProjWorking(e.target.checked)} />
+                  Project properly working
+                </label>
+                <textarea
+                  value={reviewFeedback}
+                  onChange={(e) => setReviewFeedback(e.target.value)}
+                  placeholder="Feedback for the student (required when requesting changes)"
+                  maxLength={2000}
+                  className="w-full border border-slate-300 rounded-xl p-2 text-xs h-20"
+                />
+                {reviewError && <div className="text-[11px] text-rose-700 font-bold">{reviewError}</div>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleReviewOutcome('CHANGES_REQUESTED')}
+                    disabled={reviewBusy}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[11px] font-bold hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    Request changes
+                  </button>
+                  <button
+                    onClick={() => handleReviewOutcome('PASS')}
+                    disabled={reviewBusy}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Pass review
+                  </button>
+                  <button onClick={() => setReviewSub(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-[11px] font-bold">Close</button>
+                </div>
+              </div>
+            )}
+            {(reviewSub.reviewStatus === 'PASSED' || reviewSub.reviewStatus === 'FAILED_EXHAUSTED' || reviewSub.reviewStatus === 'CHANGES_REQUESTED') && (
+              <div className="flex justify-end">
+                <button onClick={() => setReviewSub(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-[11px] font-bold">Close</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

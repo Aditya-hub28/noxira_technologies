@@ -102,7 +102,41 @@ const SubmissionSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: 500
-  }
+  },
+
+  // Module 8: review workflow. Initial review + 3 free re-reviews (rounds
+  // 0..3). After every CHANGES_REQUESTED the student has 3 calendar days
+  // (Asia/Kolkata, end of the 3rd day) to correct and resubmit. Pass means the
+  // admin explicitly confirms BOTH: requirements complete AND project properly
+  // working. Feedback after round 3 exhausts attempts: FAILED_EXHAUSTED means
+  // no certificate eligibility. Nothing here auto-fails a late correction and
+  // nothing here releases a certificate (Module 9 gate does that separately).
+  reviewStatus: {
+    type: String,
+    enum: ['NOT_STARTED', 'IN_REVIEW', 'CHANGES_REQUESTED', 'PASSED', 'FAILED_EXHAUSTED'],
+    default: 'NOT_STARTED',
+    index: true
+  },
+  currentReviewRound: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 3
+  },
+  reviewRounds: [{
+    round: { type: Number, required: true, min: 0, max: 3 },
+    projectLink: { type: String, required: true },
+    openedAt: { type: Date, required: true },
+    outcome: { type: String, enum: ['CHANGES_REQUESTED', 'PASSED'] },
+    feedback: { type: String, trim: true, maxlength: 2000 },
+    requirementsComplete: { type: Boolean },
+    projectWorking: { type: Boolean },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    reviewedAt: { type: Date },
+    correctionDueAt: { type: Date },
+    resubmittedAt: { type: Date },
+    resubmittedLate: { type: Boolean }
+  }]
 }, { timestamps: true });
 
 // Idempotent re-import: same email+programme+transactionId never imports twice
