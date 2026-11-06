@@ -80,6 +80,28 @@ const SubmissionSchema = new mongoose.Schema({
   utrSharedFlag: {
     type: Boolean,
     default: false
+  },
+
+  // Module 7: manual payment verification. Set ONLY by an explicit admin
+  // action after the admin has checked the bank/UPI app. The transactionId
+  // above remains an untrusted student claim regardless of this state.
+  paymentState: {
+    type: String,
+    enum: ['UNVERIFIED', 'VERIFIED', 'NOT_FOUND'],
+    default: 'UNVERIFIED',
+    index: true
+  },
+  paymentMarkedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin'
+  },
+  paymentMarkedAt: {
+    type: Date
+  },
+  paymentNote: {
+    type: String,
+    trim: true,
+    maxlength: 500
   }
 }, { timestamps: true });
 

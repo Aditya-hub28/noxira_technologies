@@ -442,3 +442,93 @@ exports.getSubmissions = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Module 7: Manual payment verification.
+ *
+ * The admin checks the bank/UPI app OUTSIDE this system, then explicitly
+ * marks the outcome here. This endpoint records that human attestation -
+ * it never contacts any payment provider and never treats the UTR as proof.
+ *
+ * Rules:
+ * - VERIFIED requires a MATCHED submission (identity crosscheck resolved).
+ * - VERIFIED is terminal: no un-verify in this module.
+ * - NOT_FOUND (checked, money not arrived) may later become VERIFIED.
+ */
+exports.markPayment = async (req, res, next) => {
+  try {
+    const cleanId = (req.params.submissionId || '').trim().toUpperCase();
+    const { state, note } = req.body || {};
+
+    if (!['VERIFIED', 'NOT_FOUND'].includes(state)) {
+      return res.status(400).json({ success: false, message: 'State must be VERIFIED or NOT_FOUND.' });
+    }
+    if (note !== undefined && (typeof note !== 'string' || note.length > 500)) {
+      return res.status(400).json({ success: false, message: 'Note must be text up to 500 characters.' });
+    }
+
+    const submission = await Submission.findOne({ submissionId: cleanId });
+    if (!submission) {
+      return res.status(404).json({ success: false, message: `Submission ${cleanId} not found.` });
+    }
+    if (submission.paymentState === 'VERIFIED') {
+      return res.status(409).json({ success: false, message: `Submission ${cleanId} is already marked VERIFIED.` });
+    }
+    // One payment (UTR) can never be VERIFIED for two different applicants.
+    // The same UTR shared across submissions is already review-flagged at import.
+    if (state === 'VERIFIED') {
+      const otherVerified = await Submission.findOne({
+        transactionId: submission.transactionId,
+        _id: { $ne: submission._id },
+        paymentState: 'VERIFIED'
+      }).select('submissionId email');
+      if (otherVerified) {
+        return res.status(409).json({
+          success: false,
+          message: `UTR ${submission.transactionId} is already marked VERIFIED for submission ${otherVerified.submissionId} (${otherVerified.email}). One payment cannot be verified for two applicants; resolve manually.`
+        });
+      }
+    }
+    if (state === 'VERIFIED' && submission.matchState !== 'MATCHED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment can only be marked VERIFIED on submissions matched to an application. Resolve the identity crosscheck first.'
+      });
+    }
+
+    submission.paymentState = state;
+    submission.paymentMarkedBy = req.admin._id;
+    submission.paymentMarkedAt = new Date();
+    if (note !== undefined && note.trim()) submission.paymentNote = note.trim();
+    await submission.save();
+
+    await AuditLog.create({
+      actorType: 'ADMIN',
+      actorId: req.admin._id,
+      action: 'PAYMENT_MARKED',
+      targetEntity: 'SUBMISSION',
+      targetId: submission._id,
+      summary: `Manual payment check for ${submission.submissionId}: marked ${state} by admin after bank/UPI app verification`,
+      ipAddress: req.ip || '127.0.0.1',
+      metadata: {
+        submissionId: submission.submissionId,
+        state,
+        claimedTransactionId: submission.transactionId
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: state === 'VERIFIED'
+        ? `Payment for ${submission.submissionId} marked VERIFIED (manual bank/UPI check recorded).`
+        : `Payment for ${submission.submissionId} marked NOT_FOUND (checked, money not received).`,
+      submission: {
+        submissionId: submission.submissionId,
+        paymentState: submission.paymentState,
+        paymentMarkedAt: submission.paymentMarkedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
