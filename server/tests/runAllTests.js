@@ -14,6 +14,8 @@ const Application = require('../src/models/Application');
 const OfferLetter = require('../src/models/OfferLetter');
 const OfferLetterTemplate = require('../src/models/OfferLetterTemplate');
 const OfferDeliveryJob = require('../src/models/OfferDeliveryJob');
+const Setting = require('../src/models/Setting');
+const { getPublicSettings, getAdminGoogleForm1, updateGoogleForm1, validateGoogleFormUrl } = require('../src/controllers/settingsController');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
 const { issueCertificateForParticipant } = require('../src/services/issuanceService');
@@ -186,7 +188,9 @@ async function runTestSuite() {
     await Program.create({
       code: 'FS-DEV',
       title: 'Full Stack Web Development',
-      defaultBatch: 'BATCH-2026-Q4'
+      defaultBatch: 'BATCH-2026-Q4',
+      durationWeeks: 4,
+      feeInr: 99
     });
 
     const p1 = new Participant({
@@ -394,7 +398,9 @@ async function runTestSuite() {
     await Program.create({
       code: 'AI-ENG',
       title: 'Artificial Intelligence Engineering',
-      defaultBatch: 'BATCH-2026-Q4'
+      defaultBatch: 'BATCH-2026-Q4',
+      durationWeeks: 4,
+      feeInr: 99
     });
 
     const admin = await Admin.findOne({ email: 'root@noxira.com' });
@@ -1242,12 +1248,14 @@ async function runTestSuite() {
     assert.deepStrictEqual(preservedFsDev.tasks, ['Build Authentication', 'Deploy on Kubernetes'], 'Re-seed must not overwrite customized tasks');
 
     // 4. Verify public GET /api/v1/programs sorting and field safety
+    // Note: FS-DEV has conflicting legacy values (12w / 499), so it is excluded from public listing
     const mockReq = mockReqRes();
     await getPublicPrograms(mockReq.req, mockReq.res, mockReq.next);
     assert.strictEqual(mockReq.getStatus(), 200);
 
     const { programs } = mockReq.getData();
-    assert.ok(programs.length >= 31, 'Public listing must return all active programs');
+    assert.strictEqual(programs.find(p => p.code === 'FS-DEV'), undefined, 'Conflicting legacy track FS-DEV must be excluded from public listing');
+    assert.ok(programs.length >= 30, 'Public listing must return all active normalized programs');
 
     // Verify safe fields only
     for (const prg of programs) {
@@ -1273,16 +1281,21 @@ async function runTestSuite() {
 
   // TEST 22: Public Program Detail Endpoint (GET /api/v1/programs/:code)
   await test('Public Program Detail: Returns safe fields for active program, normalizes code case, and returns 404 for unknown or inactive codes', async () => {
-    // 1. Valid active program
-    const mockDetail = mockReqRes({ params: { code: 'fs-dev' } }); // lowercase to test case insensitivity
+    // 1. Conflicting legacy program -> returns 404 from public detail
+    const mockLegacy = mockReqRes({ params: { code: 'fs-dev' } });
+    await getPublicProgramByCode(mockLegacy.req, mockLegacy.res, mockLegacy.next);
+    assert.strictEqual(mockLegacy.getStatus(), 404, 'Conflicting legacy track must return 404 from public detail');
+
+    // Valid active normalized program (e.g. FE-DEV)
+    const mockDetail = mockReqRes({ params: { code: 'fe-dev' } }); // lowercase to test case insensitivity
     await getPublicProgramByCode(mockDetail.req, mockDetail.res, mockDetail.next);
     assert.strictEqual(mockDetail.getStatus(), 200);
 
     const { program } = mockDetail.getData();
     assert.ok(program, 'Program data must be present');
-    assert.strictEqual(program.code, 'FS-DEV');
-    assert.strictEqual(program.durationWeeks, 12);
-    assert.strictEqual(program.feeInr, 499);
+    assert.strictEqual(program.code, 'FE-DEV');
+    assert.strictEqual(program.durationWeeks, 4);
+    assert.strictEqual(program.feeInr, 99);
     assert.strictEqual(program.defaultBatch, undefined, 'Must not leak defaultBatch in detail');
     assert.strictEqual(program._id, undefined, 'Must not leak _id in detail');
 
@@ -1368,8 +1381,8 @@ async function runTestSuite() {
         title: 'Quantitative Finance & Algorithmic Trading',
         category: 'Business',
         description: 'Mathematical modeling and algorithmic execution.',
-        durationWeeks: 8,
-        feeInr: 799,
+        durationWeeks: 4,
+        feeInr: 99,
         seats: 25,
         startDate: '2026-11-15',
         endDate: '2027-01-15',
@@ -2822,6 +2835,188 @@ async function runTestSuite() {
       offerService.setOfferTransporter(null);
       offerService.clearLastCapturedOfferMail();
     }
+  });
+
+  // TEST 30: Module 2 - Form 1 URL Settings API & Strict Validation
+  await test('Module 2: Settings API validates Form 1 URL strictly, enforces roles, supports clear, and persists safely', async () => {
+    // 1. Role verification: 403 for non-SUPER_ADMIN
+    const issuerAdmin = { _id: new mongoose.Types.ObjectId(), name: 'Issuer', role: 'ISSUER' };
+    const mockRole = mockReqRes({ admin: issuerAdmin });
+    requireRole(['SUPER_ADMIN'])(mockRole.req, mockRole.res, () => {});
+    assert.strictEqual(mockRole.getStatus(), 403, 'Must return 403 for non-SUPER_ADMIN');
+
+    // 2. Strict URL validation tests
+    const invalidCases = [
+      { url: 'http://docs.google.com/forms/d/e/1FAIpQLSc/viewform', reason: 'http protocol' },
+      { url: 'https://docs.google.com.evil.com/forms/d/e/1FAIpQLSc', reason: 'evil prefix' },
+      { url: 'https://evilforms.gle/xyz', reason: 'evil host' },
+      { url: 'https://user:pass@docs.google.com/forms/d/123', reason: 'userinfo' },
+      { url: 'https://admin@docs.google.com/forms/d/123', reason: 'userinfo @' },
+      { url: 'https://docs.google.com/spreadsheets/d/123', reason: 'docs.google.com without /forms/' },
+      { url: 'not-a-valid-url', reason: 'malformed url' },
+      { url: 12345, reason: 'non-string' }
+    ];
+
+    for (const tc of invalidCases) {
+      const mockInvalid = mockReqRes({
+        admin: { _id: new mongoose.Types.ObjectId(), name: 'Super', role: 'SUPER_ADMIN' },
+        body: { url: tc.url }
+      });
+      await updateGoogleForm1(mockInvalid.req, mockInvalid.res, () => {});
+      assert.strictEqual(mockInvalid.getStatus(), 400, `Expected 400 for invalid URL case: ${tc.reason}`);
+      assert.strictEqual(mockInvalid.getData().success, false);
+    }
+
+    // 3. Valid URL save: docs.google.com and forms.gle
+    const validUrl1 = 'https://docs.google.com/forms/d/e/1FAIpQLSc_ExampleTest/viewform';
+    const mockSave1 = mockReqRes({
+      admin: { _id: new mongoose.Types.ObjectId(), name: 'Super', role: 'SUPER_ADMIN' },
+      body: { url: `  ${validUrl1}  ` } // test trim
+    });
+    await updateGoogleForm1(mockSave1.req, mockSave1.res, () => {});
+    assert.strictEqual(mockSave1.getStatus(), 200);
+    assert.strictEqual(mockSave1.getData().googleForm1Url, validUrl1);
+
+    // 4. Public route returns only { success, googleForm1Url } without leaking extra fields
+    const mockPub = mockReqRes();
+    await getPublicSettings(mockPub.req, mockPub.res, () => {});
+    assert.strictEqual(mockPub.getStatus(), 200);
+    assert.strictEqual(mockPub.getData().success, true);
+    assert.strictEqual(mockPub.getData().googleForm1Url, validUrl1);
+    assert.strictEqual(mockPub.getData()._id, undefined, 'Must not expose database _id');
+    assert.strictEqual(mockPub.getData().key, undefined, 'Must not expose setting key');
+
+    // 5. Test forms.gle valid URL
+    const validUrl2 = 'https://forms.gle/AbCdEf123';
+    const mockSave2 = mockReqRes({
+      admin: { _id: new mongoose.Types.ObjectId(), name: 'Super', role: 'SUPER_ADMIN' },
+      body: { url: validUrl2 }
+    });
+    await updateGoogleForm1(mockSave2.req, mockSave2.res, () => {});
+    assert.strictEqual(mockSave2.getStatus(), 200);
+    assert.strictEqual(mockSave2.getData().googleForm1Url, validUrl2);
+
+    // 6. Test clear URL (empty string)
+    const mockClear = mockReqRes({
+      admin: { _id: new mongoose.Types.ObjectId(), name: 'Super', role: 'SUPER_ADMIN' },
+      body: { url: '' }
+    });
+    await updateGoogleForm1(mockClear.req, mockClear.res, () => {});
+    assert.strictEqual(mockClear.getStatus(), 200);
+    assert.strictEqual(mockClear.getData().googleForm1Url, '');
+
+    // 7. Verify cleared state in public settings
+    const mockPub2 = mockReqRes();
+    await getPublicSettings(mockPub2.req, mockPub2.res, () => {});
+    assert.strictEqual(mockPub2.getData().googleForm1Url, '');
+  });
+
+  // TEST 31: Module 2 - 1-Month / Rs.99 Programme Model & Conflicting Legacy Handling
+  await test('Module 2: Enforces 1-month / Rs.99 model, excludes conflicting legacy from public, and supports admin normalization', async () => {
+    // 1. adminCreateProgram rejects non-4 weeks or non-99 INR
+    const mockCreateBadDur = mockReqRes({
+      body: {
+        code: 'TEST-DUR-BAD',
+        title: 'Bad Duration Track',
+        category: 'Development',
+        durationWeeks: 12,
+        feeInr: 99
+      }
+    });
+    await adminCreateProgram(mockCreateBadDur.req, mockCreateBadDur.res, () => {});
+    assert.strictEqual(mockCreateBadDur.getStatus(), 400, 'Must reject durationWeeks !== 4');
+
+    const mockCreateBadFee = mockReqRes({
+      body: {
+        code: 'TEST-FEE-BAD',
+        title: 'Bad Fee Track',
+        category: 'Development',
+        durationWeeks: 4,
+        feeInr: 499
+      }
+    });
+    await adminCreateProgram(mockCreateBadFee.req, mockCreateBadFee.res, () => {});
+    assert.strictEqual(mockCreateBadFee.getStatus(), 400, 'Must reject feeInr !== 99');
+
+    // 2. Create a conflicting legacy program directly in DB (simulating legacy data)
+    await Program.deleteMany({ code: { $in: ['LEGACY-CONFLICT', 'NORMAL-M2'] } });
+    await Program.create({
+      code: 'LEGACY-CONFLICT',
+      title: 'Legacy 12-Week Track',
+      category: 'Development',
+      durationWeeks: 12,
+      feeInr: 499,
+      isActive: true,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-04-01')
+    });
+
+    await Program.create({
+      code: 'NORMAL-M2',
+      title: 'Normal 1-Month Track',
+      category: 'Development',
+      durationWeeks: 4,
+      feeInr: 99,
+      isActive: true,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-02-01')
+    });
+
+    // 3. Admin listing should show needsNormalization: true on the legacy track
+    const mockAdminList = mockReqRes();
+    await adminGetPrograms(mockAdminList.req, mockAdminList.res, () => {});
+    assert.strictEqual(mockAdminList.getStatus(), 200);
+    const legacyInAdmin = mockAdminList.getData().programs.find(p => p.code === 'LEGACY-CONFLICT');
+    assert.ok(legacyInAdmin, 'Legacy track must appear in admin list');
+    assert.strictEqual(legacyInAdmin.needsNormalization, true, 'Must flag needsNormalization: true');
+
+    const normalInAdmin = mockAdminList.getData().programs.find(p => p.code === 'NORMAL-M2');
+    assert.strictEqual(normalInAdmin.needsNormalization, false, 'Normal track needsNormalization: false');
+
+    // 4. Public listing MUST exclude the conflicting legacy track
+    const mockPubList = mockReqRes();
+    await getPublicPrograms(mockPubList.req, mockPubList.res, () => {});
+    assert.strictEqual(mockPubList.getStatus(), 200);
+    const legacyInPublic = mockPubList.getData().programs.find(p => p.code === 'LEGACY-CONFLICT');
+    assert.strictEqual(legacyInPublic, undefined, 'Conflicting legacy track must NOT appear in public listing');
+
+    const normalInPublic = mockPubList.getData().programs.find(p => p.code === 'NORMAL-M2');
+    assert.ok(normalInPublic, 'Normalized track must appear in public listing');
+    assert.strictEqual(normalInPublic.startDate, undefined, 'Public listing must NOT project startDate');
+    assert.strictEqual(normalInPublic.endDate, undefined, 'Public listing must NOT project endDate');
+
+    // 5. Public detail MUST return 404 for conflicting legacy track
+    const mockPubDetailLegacy = mockReqRes({ params: { code: 'LEGACY-CONFLICT' } });
+    await getPublicProgramByCode(mockPubDetailLegacy.req, mockPubDetailLegacy.res, () => {});
+    assert.strictEqual(mockPubDetailLegacy.getStatus(), 404, 'Public detail must return 404 for unnormalized legacy track');
+
+    // Public detail of normal track returns safe projection
+    const mockPubDetailNormal = mockReqRes({ params: { code: 'NORMAL-M2' } });
+    await getPublicProgramByCode(mockPubDetailNormal.req, mockPubDetailNormal.res, () => {});
+    assert.strictEqual(mockPubDetailNormal.getStatus(), 200);
+    assert.strictEqual(mockPubDetailNormal.getData().program.startDate, undefined);
+    assert.strictEqual(mockPubDetailNormal.getData().program.endDate, undefined);
+    assert.strictEqual(mockPubDetailNormal.getData().program.durationWeeks, 4);
+    assert.strictEqual(mockPubDetailNormal.getData().program.feeInr, 99);
+
+    // 6. Admin updates / normalizes the legacy track to 4 weeks / Rs. 99
+    const mockNormUpdate = mockReqRes({
+      params: { code: 'LEGACY-CONFLICT' },
+      body: { durationWeeks: 4, feeInr: 99 }
+    });
+    await adminUpdateProgram(mockNormUpdate.req, mockNormUpdate.res, () => {});
+    assert.strictEqual(mockNormUpdate.getStatus(), 200);
+    assert.strictEqual(mockNormUpdate.getData().program.needsNormalization, false);
+
+    // 7. After normalization, it is now included in public listing and detail!
+    const mockPubListPost = mockReqRes();
+    await getPublicPrograms(mockPubListPost.req, mockPubListPost.res, () => {});
+    const normalizedInPublic = mockPubListPost.getData().programs.find(p => p.code === 'LEGACY-CONFLICT');
+    assert.ok(normalizedInPublic, 'Normalized track must now appear in public listing');
+
+    const mockPubDetailPost = mockReqRes({ params: { code: 'LEGACY-CONFLICT' } });
+    await getPublicProgramByCode(mockPubDetailPost.req, mockPubDetailPost.res, () => {});
+    assert.strictEqual(mockPubDetailPost.getStatus(), 200, 'Normalized track must now return 200 in public detail');
   });
 
   // Cleanup

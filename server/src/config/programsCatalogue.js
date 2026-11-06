@@ -68,7 +68,7 @@ const PROGRAM_CATEGORIES = [
  */
 async function seedProgramCatalogue(ProgramModel = require('../models/Program')) {
   for (const prog of CATALOGUE_PROGRAMS) {
-    // 1. Insert if code does not exist (empty content fields, isActive: true)
+    // 1. Insert if code does not exist (default 1-month / Rs.99 model, isActive: true)
     await ProgramModel.updateOne(
       { code: prog.code },
       {
@@ -76,6 +76,8 @@ async function seedProgramCatalogue(ProgramModel = require('../models/Program'))
           code: prog.code,
           title: prog.title,
           category: prog.category,
+          durationWeeks: 4,
+          feeInr: 99,
           isActive: true
         }
       },
@@ -96,6 +98,44 @@ async function seedProgramCatalogue(ProgramModel = require('../models/Program'))
         $set: { category: prog.category }
       }
     );
+  }
+
+  // 3. Additive backfill for unset durationWeeks (4) and feeInr (99)
+  await ProgramModel.updateMany(
+    {
+      $or: [
+        { durationWeeks: { $exists: false } },
+        { durationWeeks: null }
+      ]
+    },
+    { $set: { durationWeeks: 4 } }
+  );
+
+  await ProgramModel.updateMany(
+    {
+      $or: [
+        { feeInr: { $exists: false } },
+        { feeInr: null }
+      ]
+    },
+    { $set: { feeInr: 99 } }
+  );
+
+  // 4. Scan and log any conflicting legacy programmes without overwriting them
+  try {
+    const conflicting = await ProgramModel.find({
+      $or: [
+        { durationWeeks: { $ne: 4 } },
+        { feeInr: { $ne: 99 } }
+      ]
+    }).select('code title durationWeeks feeInr').lean();
+
+    if (conflicting && conflicting.length > 0) {
+      console.log(`⚠️ Legacy Programme Normalization: ${conflicting.length} programme(s) have conflicting values and require admin normalization:`);
+      conflicting.forEach(p => console.log(`   - ${p.code}: durationWeeks=${p.durationWeeks}, feeInr=${p.feeInr}`));
+    }
+  } catch (err) {
+    // Non-fatal logging
   }
 }
 

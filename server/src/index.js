@@ -22,6 +22,8 @@ const adminProgramRoutes = require('./routes/adminProgramRoutes');
 const adminApplicationRoutes = require('./routes/adminApplicationRoutes');
 const adminOfferTemplateRoutes = require('./routes/adminOfferTemplateRoutes');
 const offerDownloadRoutes = require('./routes/offerDownloadRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 
 const app = express();
 
@@ -63,6 +65,8 @@ app.use('/api/v1/admin/programs', adminProgramRoutes);
 app.use('/api/v1/admin/applications', adminApplicationRoutes);
 app.use('/api/v1/admin/offer-templates', adminOfferTemplateRoutes);
 app.use('/api/v1/offers', offerDownloadRoutes);
+app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/admin/settings', adminSettingsRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
@@ -118,6 +122,8 @@ async function autoSeedIfEmpty() {
           defaultStartDate: new Date('2026-09-01'),
           defaultEndDate: new Date('2026-10-31'),
           category: 'Development',
+          durationWeeks: 4,
+          feeInr: 99,
           isActive: true
         }
       },
@@ -134,6 +140,8 @@ async function autoSeedIfEmpty() {
           defaultStartDate: new Date('2026-09-15'),
           defaultEndDate: new Date('2026-11-01'),
           category: 'AI & Data Science',
+          durationWeeks: 4,
+          feeInr: 99,
           isActive: true
         }
       },

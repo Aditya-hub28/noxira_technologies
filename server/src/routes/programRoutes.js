@@ -4,14 +4,19 @@ const Program = require('../models/Program');
 
 /**
  * Public Programs Listing
- * Returns only active programs with public-safe attributes.
- * Excludes internal batch and placeholder date fields.
+ * Returns only active, current-offering-consistent programs (1 month / 4 weeks, Rs. 99).
+ * Conflicting legacy programs are excluded until normalized.
+ * Excludes internal batch and dates (startDate/endDate) from public view.
  * Sorted by category, then title.
  */
 async function getPublicPrograms(req, res, next) {
   try {
-    const programs = await Program.find({ isActive: true })
-      .select('code title description category durationWeeks feeInr seats startDate endDate syllabus tasks -_id')
+    const programs = await Program.find({
+      isActive: true,
+      durationWeeks: 4,
+      feeInr: 99
+    })
+      .select('code title description category durationWeeks feeInr seats syllabus tasks -_id')
       .sort({ category: 1, title: 1 })
       .lean();
 
@@ -27,13 +32,19 @@ async function getPublicPrograms(req, res, next) {
 /**
  * Public Program Detail
  * Returns a single active program by its code with public-safe attributes.
- * Returns 404 if code is unknown or inactive.
+ * Only serves current-offering-consistent programs (4 weeks, Rs. 99).
+ * Returns 404 if code is unknown, inactive, or unnormalized legacy offering.
  */
 async function getPublicProgramByCode(req, res, next) {
   try {
     const cleanCode = (req.params.code || '').trim().toUpperCase();
-    const program = await Program.findOne({ code: cleanCode, isActive: true })
-      .select('code title description category durationWeeks feeInr seats startDate endDate syllabus tasks -_id')
+    const program = await Program.findOne({
+      code: cleanCode,
+      isActive: true,
+      durationWeeks: 4,
+      feeInr: 99
+    })
+      .select('code title description category durationWeeks feeInr seats syllabus tasks -_id')
       .lean();
 
     if (!program) {

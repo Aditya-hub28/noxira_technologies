@@ -19,14 +19,16 @@ import {
 } from 'lucide-react';
 
 import { resolveProgramDescription } from '../utils/programUtils';
-import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 export default function HomePage() {
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const isFormConfigured = isGoogleFormConfigured();
+  const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } = useSiteSettings();
+  const noteMessage = (settingsLoading || settingsError) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
   const fetchPrograms = async () => {
     setLoading(true);
@@ -68,7 +70,7 @@ export default function HomePage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           {isFormConfigured ? (
             <a
-              href={GOOGLE_FORM_1_URL}
+              href={googleForm1Url}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
@@ -82,14 +84,14 @@ export default function HomePage() {
               <button
                 type="button"
                 disabled
-                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                title={noteMessage}
                 className="w-full sm:w-auto px-6 py-3.5 bg-slate-900/60 text-white/70 rounded-xl text-sm font-bold cursor-not-allowed flex items-center justify-center gap-2"
               >
                 Apply for Internship
                 <ExternalLink className="w-4 h-4 text-amber-400/50" />
               </button>
               <span className="text-[11px] text-slate-500 mt-1">
-                {APPLICATION_UNAVAILABLE_MESSAGE}
+                {noteMessage}
               </span>
             </div>
           )}
@@ -312,7 +314,7 @@ export default function HomePage() {
 
                   {isFormConfigured ? (
                     <a
-                      href={GOOGLE_FORM_1_URL}
+                      href={googleForm1Url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1.5"
@@ -325,7 +327,7 @@ export default function HomePage() {
                     <button
                       type="button"
                       disabled
-                      title={APPLICATION_UNAVAILABLE_MESSAGE}
+                      title={noteMessage}
                       className="px-4 py-2 bg-slate-900/60 text-white/70 rounded-lg text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5"
                     >
                       Apply Now

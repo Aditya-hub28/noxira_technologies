@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('======================================================');
-console.log('🧪 RUNNING MODULE 1 RESTRUCTURE VERIFICATION SUITE');
+console.log('🧪 RUNNING MODULE 1 & 2 VERIFICATION SUITE');
 console.log('======================================================\n');
 
 let passed = 0;
@@ -23,13 +23,13 @@ function test(name, fn) {
 
 const clientSrcDir = path.resolve(__dirname, '../src');
 
-// TEST 1: Config exports & predicates
-test('STEP 1: siteConfig.js exports GOOGLE_FORM_1_URL, isGoogleFormConfigured, and message', () => {
+// TEST 1: Config exports & predicates (hardcoded URL removed, messages exported)
+test('MODULE 2: siteConfig.js exports APPLICATION_UNAVAILABLE_MESSAGE and neutral message, no hardcoded URL', () => {
   const configContent = fs.readFileSync(path.join(clientSrcDir, 'config/siteConfig.js'), 'utf8');
-  assert.ok(configContent.includes('export const GOOGLE_FORM_1_URL'), 'Must export GOOGLE_FORM_1_URL');
-  assert.ok(configContent.includes('export function isGoogleFormConfigured'), 'Must export isGoogleFormConfigured');
+  assert.strictEqual(configContent.includes('export const GOOGLE_FORM_1_URL ='), false, 'Hardcoded GOOGLE_FORM_1_URL must be removed');
   assert.ok(configContent.includes('export const APPLICATION_UNAVAILABLE_MESSAGE'), 'Must export APPLICATION_UNAVAILABLE_MESSAGE');
   assert.ok(configContent.includes('Application link is not available yet.'), 'Unavailable message must match required copy exactly');
+  assert.ok(configContent.includes('APPLICATION_NEUTRAL_MESSAGE'), 'Must export APPLICATION_NEUTRAL_MESSAGE');
 });
 
 // TEST 2: ApplyPage deleted and no imports remain
@@ -38,20 +38,26 @@ test('STEP 3: ApplyPage.jsx is completely deleted from client/src/pages', () => 
   assert.strictEqual(fs.existsSync(applyPagePath), false, 'ApplyPage.jsx must not exist');
 });
 
-// TEST 3: App.jsx redirects /apply to /
-test('STEP 3: App.jsx redirects /apply to / and has no ApplyPage import', () => {
+// TEST 3: App.jsx redirects /apply to /, mounts Settings tab and SiteSettingsProvider
+test('MODULE 2: App.jsx mounts SiteSettingsProvider, Settings admin tab, and redirects /apply to /', () => {
   const appContent = fs.readFileSync(path.join(clientSrcDir, 'App.jsx'), 'utf8');
   assert.strictEqual(appContent.includes("from './pages/ApplyPage'"), false, 'Must not import ApplyPage');
   assert.ok(
     appContent.includes('<Route path="/apply" element={<Navigate to="/" replace />} />'),
     'App.jsx must redirect /apply route to /'
   );
+  assert.ok(appContent.includes('SiteSettingsProvider'), 'App.jsx must mount SiteSettingsProvider');
+  assert.ok(appContent.includes("id: 'settings'"), 'AdminConsole must include settings tab');
+  assert.ok(appContent.includes('<AdminSettingsPage />'), 'AdminConsole must render AdminSettingsPage');
 });
 
-// TEST 4: api.js does not expose submitApplication
-test('STEP 3: api.js has removed submitApplication', () => {
+// TEST 4: api.js exposes settings endpoints
+test('MODULE 2: api.js exposes public & admin settings endpoints', () => {
   const apiContent = fs.readFileSync(path.join(clientSrcDir, 'services/api.js'), 'utf8');
   assert.strictEqual(apiContent.includes('submitApplication:'), false, 'Must remove submitApplication from client api.js');
+  assert.ok(apiContent.includes('getPublicSettings:'), 'api.js must expose getPublicSettings');
+  assert.ok(apiContent.includes('adminGetGoogleForm1:'), 'api.js must expose adminGetGoogleForm1');
+  assert.ok(apiContent.includes('adminUpdateGoogleForm1:'), 'api.js must expose adminUpdateGoogleForm1');
 });
 
 // TEST 5: No link to="/apply" or href="/apply" anywhere in client/src
@@ -65,7 +71,6 @@ test('STEP 2: Zero internal to="/apply" or href="/apply" links remain in compone
         checkDir(full);
       } else if (f.endsWith('.jsx') || f.endsWith('.js')) {
         const content = fs.readFileSync(full, 'utf8');
-        // Ignore the route definition in App.jsx
         if (full.endsWith('App.jsx')) continue;
         assert.strictEqual(content.includes('to="/apply"'), false, `Found to="/apply" in ${full}`);
         assert.strictEqual(content.includes('href="/apply"'), false, `Found href="/apply" in ${full}`);
@@ -76,23 +81,22 @@ test('STEP 2: Zero internal to="/apply" or href="/apply" links remain in compone
   checkDir(clientSrcDir);
 });
 
-// TEST 6: PublicLayout Apply links point to Google Form 1
-test('STEP 2: PublicLayout.jsx routes header, mobile drawer, and footer to Form 1 with unavailable guards', () => {
+// TEST 6: PublicLayout routes header, mobile drawer, and footer to dynamic Form 1 hook
+test('MODULE 2: PublicLayout.jsx consumes useSiteSettings with safe neutral/unavailable fallbacks', () => {
   const layoutContent = fs.readFileSync(path.join(clientSrcDir, 'components/PublicLayout.jsx'), 'utf8');
-  assert.ok(layoutContent.includes('GOOGLE_FORM_1_URL'), 'Must import GOOGLE_FORM_1_URL');
-  assert.ok(layoutContent.includes('isGoogleFormConfigured'), 'Must import isGoogleFormConfigured');
-  assert.ok(layoutContent.includes('APPLICATION_UNAVAILABLE_MESSAGE'), 'Must import APPLICATION_UNAVAILABLE_MESSAGE');
+  assert.ok(layoutContent.includes('useSiteSettings'), 'Must consume useSiteSettings hook');
+  assert.ok(layoutContent.includes('googleForm1Url'), 'Must use googleForm1Url');
   assert.ok(layoutContent.includes('target="_blank"'), 'Must open in new tab');
   assert.ok(layoutContent.includes('rel="noopener noreferrer"'), 'Must have secure rel attributes');
 });
 
-// TEST 7: HomePage has Services section, Google Form 1 links, and 6-Step Journey
-test('STEP 4: HomePage.jsx contains Services section, Google Form 1 CTAs, and agreed 6-step lifecycle', () => {
+// TEST 7: HomePage has Services section, dynamic Form 1 CTAs, and 6-Step Journey
+test('MODULE 2: HomePage.jsx contains Services section, dynamic Form 1 CTAs, and agreed 6-step lifecycle', () => {
   const homeContent = fs.readFileSync(path.join(clientSrcDir, 'pages/HomePage.jsx'), 'utf8');
   assert.ok(homeContent.includes('id="services"'), 'Must have services section with id="services"');
   assert.ok(homeContent.includes('Web Application Development'), 'Must include Web Application Development');
   assert.ok(homeContent.includes('Mobile Application Development'), 'Must include Mobile Application Development');
-  assert.ok(homeContent.includes('GOOGLE_FORM_1_URL'), 'Must reference GOOGLE_FORM_1_URL');
+  assert.ok(homeContent.includes('useSiteSettings'), 'Must use useSiteSettings hook');
   assert.ok(homeContent.includes('The 6-Step Internship Journey'), 'Must have 6-Step Internship Journey heading');
   assert.ok(homeContent.includes('Apply via Google Form 1'), 'Step 1 must be Apply via Google Form 1');
   assert.ok(homeContent.includes('Official Offer Letter'), 'Step 3 must mention Official Offer Letter');
@@ -100,38 +104,46 @@ test('STEP 4: HomePage.jsx contains Services section, Google Form 1 CTAs, and ag
   assert.ok(homeContent.includes('Verified Certificate Issuance'), 'Step 6 must mention Verified Certificate Issuance');
 });
 
-// TEST 8: ProgramsPage routes cards to Google Form 1 and enforces 1-month duration guard
-test('STEP 5 & 2: ProgramsPage.jsx guards duration to 1-month model and routes Apply to Form 1', () => {
+// TEST 8: ProgramsPage routes cards to dynamic Form 1 and enforces 1-month duration guard
+test('MODULE 2: ProgramsPage.jsx guards duration to 1-month model and routes Apply via useSiteSettings', () => {
   const programsContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ProgramsPage.jsx'), 'utf8');
-  assert.ok(programsContent.includes('GOOGLE_FORM_1_URL'), 'Must reference GOOGLE_FORM_1_URL');
+  assert.ok(programsContent.includes('useSiteSettings'), 'Must reference useSiteSettings');
   assert.ok(programsContent.includes('Duration: 1 Month (4 Weeks)'), 'Must enforce 1 Month (4 Weeks) duration guard');
   assert.strictEqual(programsContent.includes('3-month'), false, 'Must not mention 3-month');
   assert.strictEqual(programsContent.includes('prg.startDate'), false, 'Must not render raw batch start dates');
 });
 
-// TEST 9: ProgramDetailPage removes fee gate, fee is info-only, duration guarded to 1-month
-test('STEP 2 & 5: ProgramDetailPage.jsx removes fee gate, fee is informational, duration guarded to 1-month', () => {
+// TEST 9: ProgramDetailPage copy rules, fee info, and dynamic form integration
+test('MODULE 2: ProgramDetailPage.jsx conforms to 3-state empty curriculum copy rules & 1-month / Rs.99 model', () => {
   const detailContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ProgramDetailPage.jsx'), 'utf8');
-  assert.ok(detailContent.includes('GOOGLE_FORM_1_URL'), 'Must reference GOOGLE_FORM_1_URL');
+  assert.ok(detailContent.includes('useSiteSettings'), 'Must consume useSiteSettings');
   assert.ok(detailContent.includes('Task Submission &amp; Review Fee is payable only at final submission. Applying is free.'), 'Must state fee is payable only at final submission and applying is free');
   assert.strictEqual(detailContent.includes('Applications open once NOXIRA publishes the fee'), false, 'Must NOT contain fee-gate blocking statement');
   assert.ok(detailContent.includes('1 Month (4 Weeks)'), 'Must enforce 1 Month (4 Weeks) duration guard');
   assert.strictEqual(detailContent.includes('program.startDate'), false, 'Must not render raw cohort dates');
-  assert.ok(
-    detailContent.includes("isFormConfigured\n              ? 'Applications are open for candidate intake via Google Form.'\n              : 'Applications are not open yet. The application link is not available yet.'"),
-    'Empty-curriculum notice must conditionally match Form 1 configured state'
-  );
+  assert.ok(detailContent.includes('Applications are open for candidate intake via Google Form.'), 'Must include open copy');
+  assert.ok(detailContent.includes('Applications are not open yet. The application link is not available yet.'), 'Must include closed copy');
+  assert.ok(detailContent.includes('Application status is currently unavailable.'), 'Must include neutral error/loading copy');
 });
 
-// TEST 10: StatusPage link points to Google Form 1
-test('STEP 2: StatusPage.jsx bottom intake link points to Google Form 1', () => {
+// TEST 10: StatusPage link points to dynamic Form 1
+test('MODULE 2: StatusPage.jsx bottom intake link consumes useSiteSettings', () => {
   const statusContent = fs.readFileSync(path.join(clientSrcDir, 'pages/StatusPage.jsx'), 'utf8');
-  assert.ok(statusContent.includes('GOOGLE_FORM_1_URL'), 'Must reference GOOGLE_FORM_1_URL');
+  assert.ok(statusContent.includes('useSiteSettings'), 'Must reference useSiteSettings');
   assert.ok(statusContent.includes('target="_blank"'), 'Must open in new tab');
   assert.ok(statusContent.includes('rel="noopener noreferrer"'), 'Must have secure rel attributes');
 });
 
-// TEST 11: Content rules check (strict clean English, no fake claims, no forbidden terms)
+// TEST 11: AdminProgramsPage locks duration/fee and handles normalization
+test('MODULE 2: AdminProgramsPage locks duration to 1 Month and fee to Rs.99, supports normalization flag', () => {
+  const adminProgContent = fs.readFileSync(path.join(clientSrcDir, 'pages/AdminProgramsPage.jsx'), 'utf8');
+  assert.ok(adminProgContent.includes('1 Month (4 weeks)'), 'Duration field must be locked to 1 Month (4 weeks)');
+  assert.ok(adminProgContent.includes('₹99'), 'Fee field must be locked to ₹99');
+  assert.ok(adminProgContent.includes('Needs normalization'), 'Must show Needs normalization badge');
+  assert.ok(adminProgContent.includes('handleNormalizeProgram'), 'Must provide normalization handler');
+});
+
+// TEST 12: Content rules check (strict clean English, no fake claims, no forbidden terms)
 test('CONTENT RULES: Zero forbidden keywords in public client files', () => {
   const filesToCheck = [
     'components/PublicLayout.jsx',

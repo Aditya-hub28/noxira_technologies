@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Shield, Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, Lock } from 'lucide-react';
-import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
-  const isFormConfigured = isGoogleFormConfigured();
+  const { googleForm1Url, isFormConfigured, loading, error } = useSiteSettings();
+  const noteMessage = (loading || error) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -98,7 +100,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
 
             {isFormConfigured ? (
               <a
-                href={GOOGLE_FORM_1_URL}
+                href={googleForm1Url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1.5"
@@ -111,7 +113,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <button
                 type="button"
                 disabled
-                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                title={noteMessage}
                 className="px-4 py-2 bg-amber-500/60 text-slate-950/70 rounded-lg text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
               >
                 Apply Now
@@ -123,7 +125,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
           <div className="md:hidden flex items-center gap-2">
             {isFormConfigured ? (
               <a
-                href={GOOGLE_FORM_1_URL}
+                href={googleForm1Url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg sm:hidden flex items-center gap-1"
@@ -134,7 +136,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <button
                 type="button"
                 disabled
-                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                title={noteMessage}
                 className="px-3 py-1.5 bg-amber-500/60 text-slate-950/70 font-bold text-xs rounded-lg sm:hidden cursor-not-allowed"
               >
                 Apply
@@ -198,7 +200,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
               {isFormConfigured ? (
                 <a
-                  href={GOOGLE_FORM_1_URL}
+                  href={googleForm1Url}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={closeMobileMenu}
@@ -211,7 +213,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <button
                   type="button"
                   disabled
-                  title={APPLICATION_UNAVAILABLE_MESSAGE}
+                  title={noteMessage}
                   className="w-full text-center py-2.5 bg-amber-500/60 text-slate-950/70 font-bold text-xs rounded-lg cursor-not-allowed"
                 >
                   Apply for Cohort (Unavailable)
@@ -271,7 +273,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <li>
                   {isFormConfigured ? (
                     <a
-                      href={GOOGLE_FORM_1_URL}
+                      href={googleForm1Url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hover:text-amber-400 transition inline-flex items-center gap-1"
@@ -281,7 +283,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   ) : (
                     <span
                       className="text-slate-500 cursor-not-allowed inline-flex items-center gap-1"
-                      title={APPLICATION_UNAVAILABLE_MESSAGE}
+                      title={noteMessage}
                     >
                       Candidate Application
                     </span>

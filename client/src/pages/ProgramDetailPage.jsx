@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   ExternalLink
 } from 'lucide-react';
-import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 export default function ProgramDetailPage() {
   const { code } = useParams();
@@ -26,7 +27,8 @@ export default function ProgramDetailPage() {
   const [error, setError] = useState('');
   const [notFound, setNotFound] = useState(false);
 
-  const isFormConfigured = isGoogleFormConfigured();
+  const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } = useSiteSettings();
+  const noteMessage = (settingsLoading || settingsError) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
   const fetchDetail = async () => {
     if (!cleanCode) return;
@@ -167,7 +169,7 @@ export default function ProgramDetailPage() {
 
           {isFormConfigured ? (
             <a
-              href={GOOGLE_FORM_1_URL}
+              href={googleForm1Url}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-2"
@@ -181,14 +183,14 @@ export default function ProgramDetailPage() {
               <button
                 type="button"
                 disabled
-                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                title={noteMessage}
                 className="w-full sm:w-auto px-6 py-3 bg-slate-900/60 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed inline-flex items-center justify-center gap-2"
               >
                 Apply for {program.code}
                 <ExternalLink className="w-3.5 h-3.5 text-amber-400/50" />
               </button>
               <span className="text-[11px] text-slate-500 mt-1">
-                {APPLICATION_UNAVAILABLE_MESSAGE}
+                {noteMessage}
               </span>
             </div>
           )}
@@ -286,9 +288,11 @@ export default function ProgramDetailPage() {
             NOXIRA will publish the detailed curriculum for this programme.
           </p>
           <p className="text-xs text-slate-500">
-            {isFormConfigured
-              ? 'Applications are open for candidate intake via Google Form.'
-              : 'Applications are not open yet. The application link is not available yet.'}
+            {settingsLoading || settingsError
+              ? 'Application status is currently unavailable.'
+              : isFormConfigured
+                ? 'Applications are open for candidate intake via Google Form.'
+                : 'Applications are not open yet. The application link is not available yet.'}
           </p>
         </div>
       )}

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Search, CheckCircle2, AlertCircle, Clock, RotateCcw, ArrowRight, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
-import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 const STATUS_LABELS = {
   APPLIED: {
@@ -29,6 +30,8 @@ const STATUS_LABELS = {
 
 export default function StatusPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } = useSiteSettings();
+  const noteMessage = (settingsLoading || settingsError) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [applicationId, setApplicationId] = useState(searchParams.get('id') || '');
@@ -302,9 +305,9 @@ export default function StatusPage() {
 
       {/* Helpful Quick Links */}
       <div className="text-center pt-2">
-        {isGoogleFormConfigured() ? (
+        {isFormConfigured ? (
           <a
-            href={GOOGLE_FORM_1_URL}
+            href={googleForm1Url}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1 transition"
@@ -314,9 +317,9 @@ export default function StatusPage() {
         ) : (
           <span
             className="text-xs text-slate-400 inline-flex items-center gap-1 cursor-not-allowed"
-            title={APPLICATION_UNAVAILABLE_MESSAGE}
+            title={noteMessage}
           >
-            Need to submit a new application? {APPLICATION_UNAVAILABLE_MESSAGE}
+            Need to submit a new application? {noteMessage}
           </span>
         )}
       </div>

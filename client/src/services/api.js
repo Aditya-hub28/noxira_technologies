@@ -104,5 +104,10 @@ export const api = {
     body: JSON.stringify(payload || {}),
     credentials: 'include'
   }),
-  adminActivateOfferTemplate: (id, payload) => request(`/admin/offer-templates/${encodeURIComponent(id)}/activate`, { method: 'POST', body: JSON.stringify(payload) })
+  adminActivateOfferTemplate: (id, payload) => request(`/admin/offer-templates/${encodeURIComponent(id)}/activate`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Site Settings (Form 1 intake link)
+  getPublicSettings: () => request('/settings/public'),
+  adminGetGoogleForm1: () => request('/admin/settings/google-form-1'),
+  adminUpdateGoogleForm1: (url) => request('/admin/settings/google-form-1', { method: 'PUT', body: JSON.stringify({ url }) })
 };

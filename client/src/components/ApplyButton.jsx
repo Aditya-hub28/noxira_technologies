@@ -1,6 +1,7 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
-import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 export default function ApplyButton({
   children = 'Apply Now',
@@ -13,12 +14,16 @@ export default function ApplyButton({
   title,
   ...props
 }) {
-  const isConfigured = isGoogleFormConfigured();
+  const { googleForm1Url, isFormConfigured, loading, error } = useSiteSettings();
 
-  if (isConfigured) {
+  const noteMessage = (loading || error)
+    ? APPLICATION_NEUTRAL_MESSAGE
+    : APPLICATION_UNAVAILABLE_MESSAGE;
+
+  if (isFormConfigured) {
     return (
       <a
-        href={GOOGLE_FORM_1_URL}
+        href={googleForm1Url}
         target="_blank"
         rel="noopener noreferrer"
         className={className}
@@ -39,7 +44,7 @@ export default function ApplyButton({
       <button
         type="button"
         disabled
-        title={title || APPLICATION_UNAVAILABLE_MESSAGE}
+        title={title || noteMessage}
         className={baseDisabledClasses}
         {...props}
       >
@@ -48,7 +53,7 @@ export default function ApplyButton({
       </button>
       {showNoteWhenDisabled && (
         <span className={noteClassName}>
-          {APPLICATION_UNAVAILABLE_MESSAGE}
+          {noteMessage}
         </span>
       )}
     </div>

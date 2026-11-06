@@ -14,7 +14,8 @@ import {
   Shield,
   BookOpen,
   UserCheck,
-  FileText
+  FileText,
+  Settings as SettingsIcon
 } from 'lucide-react';
 
 import PublicLayout from './components/PublicLayout';
@@ -35,6 +36,8 @@ import IssuanceBatchPage from './pages/IssuanceBatchPage';
 import CertificatesPage from './pages/CertificatesPage';
 import DistributionPage from './pages/DistributionPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import AdminSettingsPage from './pages/AdminSettingsPage';
+import { SiteSettingsProvider } from './context/SiteSettingsContext';
 
 function AdminConsole({ admin, onLogout }) {
   const navigate = useNavigate();
@@ -52,7 +55,8 @@ function AdminConsole({ admin, onLogout }) {
     { id: 'issuance', label: 'Batch Issuance', icon: Award },
     { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
     { id: 'distribution', label: 'Email Distribution', icon: Send },
-    { id: 'audit', label: 'Audit Trail', icon: History }
+    { id: 'audit', label: 'Audit Trail', icon: History },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon }
   ];
 
   return (
@@ -157,6 +161,9 @@ function AdminConsole({ admin, onLogout }) {
         {adminTab === 'audit' && (
           <AuditLogsPage />
         )}
+        {adminTab === 'settings' && (
+          <AdminSettingsPage />
+        )}
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
@@ -257,7 +264,9 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <SiteSettingsProvider>
+        <AppContent />
+      </SiteSettingsProvider>
     </BrowserRouter>
   );
 }

@@ -13,7 +13,8 @@ import {
   Sparkles,
   ExternalLink
 } from 'lucide-react';
-import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 const CATEGORIES = [
   'Development',
@@ -30,7 +31,8 @@ export default function ProgramsPage() {
   const [loadError, setLoadError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
-  const isFormConfigured = isGoogleFormConfigured();
+  const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } = useSiteSettings();
+  const noteMessage = (settingsLoading || settingsError) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
   const fetchPrograms = async () => {
     setLoading(true);
@@ -242,7 +244,7 @@ export default function ProgramsPage() {
 
                         {isFormConfigured ? (
                           <a
-                            href={GOOGLE_FORM_1_URL}
+                            href={googleForm1Url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1"
@@ -255,7 +257,7 @@ export default function ProgramsPage() {
                           <button
                             type="button"
                             disabled
-                            title={APPLICATION_UNAVAILABLE_MESSAGE}
+                            title={noteMessage}
                             className="px-3.5 py-1.5 bg-slate-900/60 text-white/70 rounded-lg text-xs font-semibold cursor-not-allowed"
                           >
                             Apply Now

@@ -118,6 +118,15 @@ export default function AdminProgramsPage() {
     }
   };
 
+  const handleNormalizeProgram = async (p) => {
+    try {
+      const res = await api.adminUpdateProgram(p.code, { durationWeeks: 4, feeInr: 99 });
+      setPrograms(prev => prev.map(item => item.code === p.code ? res.program : item));
+    } catch (err) {
+      alert(`Failed to normalize program: ${err.message}`);
+    }
+  };
+
   const handleSaveProgram = async (e) => {
     e.preventDefault();
     setFormError('');
@@ -128,8 +137,8 @@ export default function AdminProgramsPage() {
         title: formData.title.trim(),
         category: formData.category,
         description: formData.description.trim(),
-        durationWeeks: formData.durationWeeks !== '' ? Number(formData.durationWeeks) : null,
-        feeInr: formData.feeInr !== '' ? Number(formData.feeInr) : null,
+        durationWeeks: 4,
+        feeInr: 99,
         seats: formData.seats !== '' ? Number(formData.seats) : null,
         startDate: formData.startDate ? formData.startDate : null,
         endDate: formData.endDate ? formData.endDate : null,
@@ -258,7 +267,15 @@ export default function AdminProgramsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5 space-y-0.5">
-                        <div className="font-bold text-slate-900">{p.title}</div>
+                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                          <span>{p.title}</span>
+                          {p.needsNormalization && (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">
+                              <AlertCircle className="w-3 h-3 text-amber-600" />
+                              Needs normalization
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-400">{p.category || 'Unassigned'}</div>
                       </td>
                       <td className="px-5 py-3.5 text-[11px]">
@@ -305,7 +322,17 @@ export default function AdminProgramsPage() {
                           )}
                         </button>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        {p.needsNormalization && (
+                          <button
+                            type="button"
+                            onClick={() => handleNormalizeProgram(p)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition mr-2 shadow-2xs"
+                            title="Normalize to 1 Month (4 weeks) / Rs. 99"
+                          >
+                            Normalize
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditModal(p)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition"
@@ -417,30 +444,30 @@ export default function AdminProgramsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block uppercase font-bold text-[10px] tracking-wider text-slate-500 mb-1">
-                    Duration (Weeks)
+                    Duration
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 8"
-                    value={formData.durationWeeks}
-                    onChange={(e) => setFormData({ ...formData, durationWeeks: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                    type="text"
+                    disabled
+                    readOnly
+                    value="1 Month (4 weeks)"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 font-semibold text-xs cursor-not-allowed"
                   />
+                  <span className="text-[10px] text-slate-400">Fixed 1-month offering.</span>
                 </div>
 
                 <div>
                   <label className="block uppercase font-bold text-[10px] tracking-wider text-slate-500 mb-1">
-                    Review Fee (INR)
+                    Task Review Fee
                   </label>
                   <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 499"
-                    value={formData.feeInr}
-                    onChange={(e) => setFormData({ ...formData, feeInr: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+                    type="text"
+                    disabled
+                    readOnly
+                    value="₹99"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 font-semibold text-xs cursor-not-allowed"
                   />
+                  <span className="text-[10px] text-slate-400">Fixed Rs. 99 review fee.</span>
                 </div>
 
                 <div>
