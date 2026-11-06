@@ -133,6 +133,28 @@ export default function Form2ImportPage() {
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
     : 'bg-amber-50 text-amber-700 border-amber-200';
 
+  const paymentChip = (state) => {
+    if (state === 'VERIFIED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (state === 'NOT_FOUND') return 'bg-rose-50 text-rose-700 border-rose-200';
+    return 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+
+  const [paymentBusy, setPaymentBusy] = useState('');
+  const handleMarkPayment = async (s, state) => {
+    const label = state === 'VERIFIED' ? `mark payment VERIFIED for ${s.submissionId} (confirm you checked the bank/UPI app)` : `mark payment NOT_FOUND for ${s.submissionId}`;
+    if (!window.confirm(`Are you sure you want to ${label}?`)) return;
+    setPaymentBusy(s.submissionId);
+    setError('');
+    try {
+      await api.adminMarkPayment(s.submissionId, { state });
+      await fetchSubmissions();
+    } catch (err) {
+      setError(err.message || 'Payment update failed');
+    } finally {
+      setPaymentBusy('');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -336,6 +358,7 @@ export default function Form2ImportPage() {
                   <th className="px-3 py-2 text-left">Project Link</th>
                   <th className="px-3 py-2 text-left">UTR (unverified)</th>
                   <th className="px-3 py-2 text-left">Crosscheck</th>
+                  <th className="px-3 py-2 text-left">Payment (manual check)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -355,6 +378,31 @@ export default function Form2ImportPage() {
                         {s.matchState === 'MATCHED' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                         {s.matchState}{s.applicationId && s.applicationId.applicationId ? ` (${s.applicationId.applicationId})` : ''}
                       </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold ${paymentChip(s.paymentState)}`}>
+                          {s.paymentState || 'UNVERIFIED'}
+                        </span>
+                        {s.paymentState !== 'VERIFIED' && s.matchState === 'MATCHED' && (
+                          <button
+                            onClick={() => handleMarkPayment(s, 'VERIFIED')}
+                            disabled={paymentBusy === s.submissionId}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline disabled:opacity-50"
+                          >
+                            Mark verified
+                          </button>
+                        )}
+                        {s.paymentState === 'UNVERIFIED' && (
+                          <button
+                            onClick={() => handleMarkPayment(s, 'NOT_FOUND')}
+                            disabled={paymentBusy === s.submissionId}
+                            className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline disabled:opacity-50"
+                          >
+                            Not received
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

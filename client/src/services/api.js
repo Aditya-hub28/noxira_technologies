@@ -53,6 +53,7 @@ export const api = {
   previewForm2: (formData) => request('/intake/form2-preview', { method: 'POST', body: formData }),
   commitForm2: (payload) => request('/intake/form2-commit', { method: 'POST', body: JSON.stringify(payload) }),
   adminGetSubmissions: (matchState = '') => request(`/intake/submissions${matchState ? `?matchState=${matchState}` : ''}`),
+  adminMarkPayment: (submissionId, payload) => request(`/intake/submissions/${encodeURIComponent(submissionId)}/payment`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   // Participants & Completion
   getParticipants: (params = '') => request(`/participants?${params}`),
