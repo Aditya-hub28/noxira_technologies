@@ -3710,6 +3710,105 @@ async function runTestSuite() {
     assert.strictEqual(pubData.form1Extra, undefined, 'Public status must not leak form1Extra');
   });
 
+  await test('Module 5: Admin sets per-programme learning material; approved students receive tasks + learning material via status lookup, non-approved do not', async () => {
+    process.env.WEBSITE_INTAKE_BATCH_ID = 'BATCH-M5-ACCEPTANCE';
+
+    // 1. Admin create programme with learning material (string textarea shape)
+    const mockCreateM5 = mockReqRes({
+      body: {
+        code: 'M5-TRACK',
+        title: 'Module Five Verification Track',
+        category: 'Development',
+        durationWeeks: 4,
+        feeInr: 99,
+        syllabus: 'Week 1: Basics',
+        tasks: 'Task 1: Schema design\nTask 2: API endpoints',
+        learningMaterials: 'Reading: REST design guide\nhttps://example.com/practice-dataset'
+      }
+    });
+    await adminCreateProgram(mockCreateM5.req, mockCreateM5.res, mockCreateM5.next);
+    assert.strictEqual(mockCreateM5.getStatus(), 201, 'Programme with learning material must create');
+
+    const createdM5 = await Program.findOne({ code: 'M5-TRACK' });
+    assert.deepStrictEqual(createdM5.learningMaterials, ['Reading: REST design guide', 'https://example.com/practice-dataset'], 'Create must clean learningMaterials like tasks');
+
+    // 2. Admin update learning material; clearing with empty string empties array
+    const mockUpdateM5 = mockReqRes({
+      params: { code: 'M5-TRACK' },
+      body: { learningMaterials: 'Updated reading list\nVideo: schema walkthrough\nExtra: practice repo' }
+    });
+    await adminUpdateProgram(mockUpdateM5.req, mockUpdateM5.res, mockUpdateM5.next);
+    assert.strictEqual(mockUpdateM5.getStatus(), 200, 'Update learning material must succeed');
+    assert.deepStrictEqual(mockUpdateM5.getData().program.learningMaterials, ['Updated reading list', 'Video: schema walkthrough', 'Extra: practice repo']);
+
+    const mockClearM5 = mockReqRes({ params: { code: 'M5-TRACK' }, body: { learningMaterials: '' } });
+    await adminUpdateProgram(mockClearM5.req, mockClearM5.res, mockClearM5.next);
+    assert.strictEqual(mockClearM5.getStatus(), 200);
+    assert.deepStrictEqual(mockClearM5.getData().program.learningMaterials, [], 'Empty string must clear learning material');
+
+    // Restore content for the status assertions below
+    await Program.updateOne({ code: 'M5-TRACK' }, { $set: { learningMaterials: ['Updated reading list', 'Video: schema walkthrough', 'Extra: practice repo'] } });
+
+    // 3. Non-approved application: status lookup must NOT include tasks or learning material
+    const mockApplyM5 = mockReqRes({
+      body: {
+        fullName: 'Module Five Pending',
+        email: 'm5pending@example.com',
+        programCode: 'M5-TRACK',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockApplyM5.req, mockApplyM5.res, mockApplyM5.next);
+    assert.strictEqual(mockApplyM5.getStatus(), 201);
+    const pendingId = mockApplyM5.getData().application.applicationId;
+
+    const mockStatusPending = mockReqRes({ query: { email: 'm5pending@example.com', id: pendingId } });
+    await intakeController.getApplicationStatus(mockStatusPending.req, mockStatusPending.res, mockStatusPending.next);
+    assert.strictEqual(mockStatusPending.getStatus(), 200);
+    assert.strictEqual(mockStatusPending.getData().application.status, 'APPLIED');
+    assert.strictEqual(mockStatusPending.getData().application.tasks, undefined, 'APPLIED status must not expose tasks');
+    assert.strictEqual(mockStatusPending.getData().application.learningMaterials, undefined, 'APPLIED status must not expose learning material');
+
+    // 4. Approve the application: status lookup now returns tasks + learning material
+    await Application.updateOne({ applicationId: pendingId }, { $set: { status: 'APPROVED', decidedAt: new Date() } });
+
+    const mockStatusApproved = mockReqRes({ query: { email: 'M5PENDING@EXAMPLE.COM', id: pendingId.toLowerCase() } });
+    await intakeController.getApplicationStatus(mockStatusApproved.req, mockStatusApproved.res, mockStatusApproved.next);
+    assert.strictEqual(mockStatusApproved.getStatus(), 200);
+    const approvedApp = mockStatusApproved.getData().application;
+    assert.strictEqual(approvedApp.status, 'APPROVED');
+    assert.deepStrictEqual(approvedApp.tasks, ['Task 1: Schema design', 'Task 2: API endpoints'], 'Approved student must receive programme tasks');
+    assert.deepStrictEqual(approvedApp.learningMaterials, ['Updated reading list', 'Video: schema walkthrough', 'Extra: practice repo'], 'Approved student must receive learning material');
+    assert.strictEqual(approvedApp.adminNotes, undefined, 'PII shielding unchanged');
+    assert.strictEqual(approvedApp.participantId, undefined, 'PII shielding unchanged');
+
+    // 5. Approved application whose programme has empty tasks/materials: fields omitted, not empty arrays
+    const mockEmptyProgram = mockReqRes({
+      body: { code: 'M5-EMPTY', title: 'Empty Track', category: 'Design', feeInr: 99 }
+    });
+    await adminCreateProgram(mockEmptyProgram.req, mockEmptyProgram.res, mockEmptyProgram.next);
+    assert.strictEqual(mockEmptyProgram.getStatus(), 201);
+
+    const mockApplyEmpty = mockReqRes({
+      body: {
+        fullName: 'Empty Track Student',
+        email: 'm5empty@example.com',
+        programCode: 'M5-EMPTY',
+        feeAcknowledged: true
+      }
+    });
+    await intakeController.websiteApply(mockApplyEmpty.req, mockApplyEmpty.res, mockApplyEmpty.next);
+    assert.strictEqual(mockApplyEmpty.getStatus(), 201);
+    const emptyId = mockApplyEmpty.getData().application.applicationId;
+    await Application.updateOne({ applicationId: emptyId }, { $set: { status: 'APPROVED', decidedAt: new Date() } });
+
+    const mockStatusEmpty = mockReqRes({ query: { email: 'm5empty@example.com', id: emptyId } });
+    await intakeController.getApplicationStatus(mockStatusEmpty.req, mockStatusEmpty.res, mockStatusEmpty.next);
+    assert.strictEqual(mockStatusEmpty.getStatus(), 200);
+    assert.strictEqual(mockStatusEmpty.getData().application.tasks, undefined, 'Programme without tasks must omit the field');
+    assert.strictEqual(mockStatusEmpty.getData().application.learningMaterials, undefined, 'Programme without material must omit the field');
+  });
+
   // Cleanup
   await mongoose.disconnect();
   await mongod.stop();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Search, CheckCircle2, AlertCircle, Clock, RotateCcw, ArrowRight, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
+import { Search, CheckCircle2, AlertCircle, Clock, RotateCcw, ArrowRight, ShieldCheck, FileText, ExternalLink, ClipboardList, BookOpen } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
@@ -281,6 +281,48 @@ export default function StatusPage() {
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs space-y-1">
                 <span className="font-bold block text-emerald-950">Offer Letter Status</span>
                 <p className="text-emerald-800 leading-relaxed">{application.offerStatus}</p>
+              </div>
+            )}
+
+            {/* Module 5: Programme tasks & learning material (approved students) */}
+            {application.status === 'APPROVED' && ((Array.isArray(application.tasks) && application.tasks.length > 0) || (Array.isArray(application.learningMaterials) && application.learningMaterials.length > 0)) && (
+              <div className="space-y-3">
+                {Array.isArray(application.tasks) && application.tasks.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs space-y-2">
+                    <span className="font-bold text-blue-950 flex items-center gap-1.5">
+                      <ClipboardList className="w-3.5 h-3.5" /> Your Programme Tasks
+                    </span>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-900 leading-relaxed">
+                      {application.tasks.map((task, idx) => (
+                        <li key={idx}>{task}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+                {Array.isArray(application.learningMaterials) && application.learningMaterials.length > 0 && (
+                  <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 text-xs space-y-2">
+                    <span className="font-bold text-violet-950 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5" /> Learning Material
+                    </span>
+                    <ul className="space-y-1 text-violet-900 leading-relaxed">
+                      {application.learningMaterials.map((item, idx) => {
+                        const isLink = /^https?:\/\//i.test(item);
+                        return (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <span className="mt-0.5">•</span>
+                            {isLink ? (
+                              <a href={item} target="_blank" rel="noopener noreferrer" className="underline hover:text-violet-700 break-all inline-flex items-center gap-1">
+                                {item} <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                              </a>
+                            ) : (
+                              <span>{item}</span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

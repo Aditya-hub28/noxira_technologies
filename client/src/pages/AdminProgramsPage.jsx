@@ -51,6 +51,7 @@ export default function AdminProgramsPage() {
     endDate: '',
     syllabus: '',
     tasks: '',
+    learningMaterials: '',
     isActive: true
   });
 
@@ -85,6 +86,7 @@ export default function AdminProgramsPage() {
       endDate: '',
       syllabus: '',
       tasks: '',
+      learningMaterials: '',
       isActive: true
     });
     setIsCreating(true);
@@ -105,6 +107,7 @@ export default function AdminProgramsPage() {
       endDate: p.endDate ? new Date(p.endDate).toISOString().split('T')[0] : '',
       syllabus: Array.isArray(p.syllabus) ? p.syllabus.join('\n') : '',
       tasks: Array.isArray(p.tasks) ? p.tasks.join('\n') : '',
+      learningMaterials: Array.isArray(p.learningMaterials) ? p.learningMaterials.join('\n') : '',
       isActive: p.isActive !== false
     });
   };
@@ -144,6 +147,7 @@ export default function AdminProgramsPage() {
         endDate: formData.endDate ? formData.endDate : null,
         syllabus: formData.syllabus.split('\n').map(s => s.trim()).filter(Boolean),
         tasks: formData.tasks.split('\n').map(t => t.trim()).filter(Boolean),
+        learningMaterials: formData.learningMaterials.split('\n').map(m => m.trim()).filter(Boolean),
         isActive: formData.isActive
       };
 
@@ -258,6 +262,7 @@ export default function AdminProgramsPage() {
                 {filteredPrograms.map(p => {
                   const hasSyllabus = Array.isArray(p.syllabus) && p.syllabus.length > 0;
                   const hasTasks = Array.isArray(p.tasks) && p.tasks.length > 0;
+                  const hasMaterials = Array.isArray(p.learningMaterials) && p.learningMaterials.length > 0;
 
                   return (
                     <tr key={p.code} className="hover:bg-slate-50/80 transition">
@@ -279,7 +284,7 @@ export default function AdminProgramsPage() {
                         <div className="text-[10px] text-slate-400">{p.category || 'Unassigned'}</div>
                       </td>
                       <td className="px-5 py-3.5 text-[11px]">
-                        {hasSyllabus || hasTasks ? (
+                        {hasSyllabus || hasTasks || hasMaterials ? (
                           <div className="space-y-0.5">
                             {hasSyllabus && (
                               <span className="inline-block bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] mr-1">
@@ -287,8 +292,13 @@ export default function AdminProgramsPage() {
                               </span>
                             )}
                             {hasTasks && (
-                              <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">
+                              <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px] mr-1">
                                 {p.tasks.length} Tasks
+                              </span>
+                            )}
+                            {hasMaterials && (
+                              <span className="inline-block bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded text-[10px]">
+                                {p.learningMaterials.length} Learning materials
                               </span>
                             )}
                           </div>
@@ -532,6 +542,19 @@ export default function AdminProgramsPage() {
                   placeholder="Task 1: Design database schema and ER diagram&#10;Task 2: Build authenticated API endpoints&#10;Task 3: Deploy service with health check"
                   value={formData.tasks}
                   onChange={(e) => setFormData({ ...formData, tasks: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block uppercase font-bold text-[10px] tracking-wider text-slate-500 mb-1">
+                  Learning Material (One item or link per line)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Week 1 reading: REST API design guide&#10;https://example.com/practice-dataset&#10;Video walkthrough: schema design"
+                  value={formData.learningMaterials}
+                  onChange={(e) => setFormData({ ...formData, learningMaterials: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs"
                 />
               </div>

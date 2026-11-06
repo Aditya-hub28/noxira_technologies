@@ -50,6 +50,7 @@ async function adminCreateProgram(req, res, next) {
       endDate,
       syllabus,
       tasks,
+      learningMaterials,
       isActive
     } = req.body;
 
@@ -164,6 +165,7 @@ async function adminCreateProgram(req, res, next) {
       endDate: parsedEndDate || undefined,
       syllabus: cleanArray(syllabus),
       tasks: cleanArray(tasks),
+      learningMaterials: cleanArray(learningMaterials),
       isActive: isActive !== undefined ? Boolean(isActive) : true
     });
 
@@ -207,6 +209,7 @@ async function adminUpdateProgram(req, res, next) {
       endDate,
       syllabus,
       tasks,
+      learningMaterials,
       isActive
     } = req.body;
 
@@ -343,6 +346,9 @@ async function adminUpdateProgram(req, res, next) {
     }
     if (tasks !== undefined) {
       program.tasks = cleanArray(tasks);
+    }
+    if (learningMaterials !== undefined) {
+      program.learningMaterials = cleanArray(learningMaterials);
     }
 
     // 7. Active State Toggle

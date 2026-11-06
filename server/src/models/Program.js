@@ -59,6 +59,9 @@ const ProgramSchema = new mongoose.Schema({
   },
   tasks: {
     type: [String]
+  },
+  learningMaterials: {
+    type: [String]
   }
 }, {
   timestamps: true

@@ -354,6 +354,17 @@ exports.getApplicationStatus = async (req, res, next) => {
         // Includes QUEUED, PROCESSING, GENERATED, NONE
         appData.offerStatus = 'Application approved. Offer letter preparation is in progress.';
       }
+
+      // Module 5: approved students see their programme's tasks and learning material on the status page
+      const program = await Program.findOne({ code: application.programCode }).select('tasks learningMaterials');
+      if (program) {
+        if (Array.isArray(program.tasks) && program.tasks.length > 0) {
+          appData.tasks = program.tasks;
+        }
+        if (Array.isArray(program.learningMaterials) && program.learningMaterials.length > 0) {
+          appData.learningMaterials = program.learningMaterials;
+        }
+      }
     }
 
     if (typeof application.feeLocked === 'number') {
