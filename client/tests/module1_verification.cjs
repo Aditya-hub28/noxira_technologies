@@ -176,6 +176,34 @@ test('CONTENT RULES: Zero forbidden keywords in public client files', () => {
   }
 });
 
+// TEST 13: MODULE 3 - Form 1 Import tab in App.jsx and api.js methods
+test('MODULE 3: App.jsx mounts Form 1 Import tab and api.js exposes previewForm1 and commitForm1', () => {
+  const appContent = fs.readFileSync(path.join(clientSrcDir, 'App.jsx'), 'utf8');
+  assert.ok(appContent.includes("id: 'form1-import'"), 'App.jsx must declare form1-import tab');
+  assert.ok(appContent.includes('<Form1ImportPage'), 'App.jsx must render Form1ImportPage');
+
+  const apiContent = fs.readFileSync(path.join(clientSrcDir, 'services/api.js'), 'utf8');
+  assert.ok(apiContent.includes('previewForm1:'), 'api.js must export previewForm1');
+  assert.ok(apiContent.includes('commitForm1:'), 'api.js must export commitForm1');
+});
+
+// TEST 14: MODULE 3 - AdminApplicationsPage displays source badge and Form 1 responses
+test('MODULE 3: AdminApplicationsPage displays source badge and Form 1 responses', () => {
+  const appContent = fs.readFileSync(path.join(clientSrcDir, 'pages/AdminApplicationsPage.jsx'), 'utf8');
+  assert.ok(appContent.includes("app.intakeSource === 'FORM1_IMPORT'"), 'Must check app.intakeSource for source badge');
+  assert.ok(appContent.includes('Google Form 1 Responses'), 'Must render Form 1 responses in candidate detail drawer');
+});
+
+// TEST 15: MODULE 3 - generateApplicationsCsv escapes commas, quotes, line breaks, and formula injection
+test('MODULE 3: generateApplicationsCsv generator produces RFC 4180-compliant and formula-safe CSV', () => {
+  const form1PageContent = fs.readFileSync(path.join(clientSrcDir, 'pages/Form1ImportPage.jsx'), 'utf8');
+  assert.ok(form1PageContent.includes('export function generateApplicationsCsv'), 'Must export generateApplicationsCsv');
+  
+  // Test formula escaping pattern
+  assert.ok(form1PageContent.includes('/^[=+\\-@\\t\\r]/'), 'Must check for formula leading characters');
+  assert.ok(form1PageContent.includes('.replace(/"/g, \'""\')'), 'Must double internal quotes for RFC 4180');
+});
+
 console.log('\n------------------------------------------------------');
 console.log(`RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log('------------------------------------------------------\n');

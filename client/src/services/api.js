@@ -47,6 +47,10 @@ export const api = {
   previewCsv: (formData) => request('/intake/csv-preview', { method: 'POST', body: formData }),
   commitCsv: (payload) => request('/intake/csv-commit', { method: 'POST', body: JSON.stringify(payload) }),
 
+  // Form 1 Import Wizard
+  previewForm1: (formData) => request('/intake/form1-preview', { method: 'POST', body: formData }),
+  commitForm1: (payload) => request('/intake/form1-commit', { method: 'POST', body: JSON.stringify(payload) }),
+
   // Participants & Completion
   getParticipants: (params = '') => request(`/participants?${params}`),
   updateCompletion: (id, payload) => request(`/participants/${id}/completion`, { method: 'PATCH', body: JSON.stringify(payload) }),

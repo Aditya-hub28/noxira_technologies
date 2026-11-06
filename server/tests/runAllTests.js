@@ -34,6 +34,8 @@ const templateController = require('../src/controllers/templateController');
 const adminApplicationController = require('../src/controllers/adminApplicationController');
 const adminOfferTemplateController = require('../src/controllers/adminOfferTemplateController');
 const offerDownloadController = require('../src/controllers/offerDownloadController');
+const form1ImportController = require('../src/controllers/form1ImportController');
+const { generateApplicationsCsv } = require('../src/utils/csvExport');
 const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/programRoutes');
 const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('../src/routes/adminProgramRoutes');
 const { CATALOGUE_PROGRAMS, PROGRAM_CATEGORIES, seedProgramCatalogue } = require('../src/config/programsCatalogue');
@@ -3017,6 +3019,527 @@ async function runTestSuite() {
     const mockPubDetailPost = mockReqRes({ params: { code: 'LEGACY-CONFLICT' } });
     await getPublicProgramByCode(mockPubDetailPost.req, mockPubDetailPost.res, () => {});
     assert.strictEqual(mockPubDetailPost.getStatus(), 200, 'Normalized track must now return 200 in public detail');
+  });
+
+  // TEST 32: Module 3 - Google Form 1 CSV Import Acceptance Suite
+  await test('Module 3: Google Form 1 Import parses UTF-8 BOM, auto-suggests columns, detects duplicates, enforces linkable recovery & 4w/Rs.99 model with zero email side effects', async () => {
+    const adminUser = await Admin.findOne({ role: 'SUPER_ADMIN' }) || await Admin.create({
+      fullName: 'Super Admin',
+      email: 'admin_test_m3@example.com',
+      password: 'password123',
+      role: 'SUPER_ADMIN'
+    });
+
+    // Ensure test programmes are active & normalized (4 weeks / Rs.99)
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { durationWeeks: 4, feeInr: 99, isActive: true } });
+    await Program.updateOne({ code: 'AI-ENG' }, { $set: { durationWeeks: 4, feeInr: 99, isActive: true } });
+
+    // 1. Prepare Google-Forms-style fixture CSV with UTF-8 BOM on first column
+    const bomHeader = '\uFEFFTimestamp';
+    const fixtureRows = [
+      [
+        bomHeader,
+        'Email Address',
+        'Full Name',
+        'Internship Domain',
+        'Contact Number',
+        'Gender',
+        'Country',
+        'College / University',
+        'Qualification',
+        'Current Year of Study',
+        'Where did you hear about us?',
+        'Have you followed our LinkedIn page?',
+        'Have you joined the WhatsApp group?',
+        'User.Meta$Info'
+      ].join(','),
+      [
+        '2026/04/01 10:30:00 AM GMT+5:30',
+        'form1_applicant1@example.com',
+        'Aarav Sharma',
+        'Full Stack Web Development',
+        '+91 9876543210',
+        'Male',
+        'India',
+        'IIT Delhi',
+        'B.Tech CSE',
+        '3rd Year',
+        'LinkedIn',
+        'Yes',
+        'Yes',
+        'ref=banner.promo$1'
+      ].join(','),
+      [
+        '2026/04/01 11:00:00 AM GMT+5:30',
+        'form1_applicant2@example.com',
+        'Diya Patel',
+        'AI Engineering & Intelligent Systems',
+        '+91 9876543211',
+        'Female',
+        'India',
+        'BITS Pilani',
+        'B.Tech EEE',
+        '4th Year',
+        'College TPO',
+        'Yes',
+        'Yes',
+        'ref=campus.drive$2'
+      ].join(',')
+    ];
+    const fixtureCsvBuffer = Buffer.from(fixtureRows.join('\r\n'), 'utf8');
+
+    // 1. Header auto-suggestion on the fixture
+    const mockPreview1 = mockReqRes({
+      admin: adminUser,
+      file: { buffer: fixtureCsvBuffer, originalname: 'form1_fixture.csv' },
+      body: { batchId: 'BATCH-2026-F1' }
+    });
+    await form1ImportController.previewForm1(mockPreview1.req, mockPreview1.res, mockPreview1.next);
+    assert.strictEqual(mockPreview1.getStatus(), 200);
+    const p1Data = mockPreview1.getData();
+    assert.strictEqual(p1Data.success, true);
+    assert.ok(p1Data.headers.includes('Timestamp'), 'BOM must be stripped from first header');
+    assert.strictEqual(p1Data.headers[0], 'Timestamp');
+
+    // Verify auto-suggestions
+    const colSuggestions = p1Data.columnSuggestions;
+    assert.strictEqual(colSuggestions.find(s => s.target === 'email').header, 'Email Address');
+    assert.strictEqual(colSuggestions.find(s => s.target === 'fullName').header, 'Full Name');
+    assert.strictEqual(colSuggestions.find(s => s.target === 'domain').header, 'Internship Domain');
+    assert.strictEqual(colSuggestions.find(s => s.target === 'phone').header, 'Contact Number');
+    assert.strictEqual(colSuggestions.find(s => s.target === 'gender').header, 'Gender');
+    assert.strictEqual(colSuggestions.find(s => s.target === 'college').header, 'College / University');
+    assert.strictEqual(colSuggestions.find(s => s.target === 'timestamp').header, 'Timestamp');
+
+    // 2. Duplicate header names reject the file with a clear error
+    const dupHeaderCsv = Buffer.from('Timestamp,Email,Full Name,Domain,Domain\n2026-01-01,e@e.com,Name,FS-DEV,FS-DEV', 'utf8');
+    const mockDupHeader = mockReqRes({
+      admin: adminUser,
+      file: { buffer: dupHeaderCsv, originalname: 'dup.csv' },
+      body: { batchId: 'BATCH-2026-F1' }
+    });
+    await form1ImportController.previewForm1(mockDupHeader.req, mockDupHeader.res, mockDupHeader.next);
+    assert.strictEqual(mockDupHeader.getStatus(), 400);
+    assert.ok(mockDupHeader.getData().message.includes('duplicate column header'), 'Must reject duplicate header');
+    assert.ok(mockDupHeader.getData().message.includes('"Domain"'), 'Must list the duplicated column');
+
+    // 3. Manual column remapping is respected on preview & commit
+    const altHeadersCsv = Buffer.from('ColA,CandidateEmail,CandidateName,ChosenTrack\nTime1,remap_cand@example.com,Rohan Roy,Full Stack Web Development', 'utf8');
+    const manualColMapping = [
+      { target: 'email', header: 'CandidateEmail' },
+      { target: 'fullName', header: 'CandidateName' },
+      { target: 'domain', header: 'ChosenTrack' }
+    ];
+    const manualDomMapping = [
+      { value: 'Full Stack Web Development', programCode: 'FS-DEV' }
+    ];
+
+    const mockRemapPreview = mockReqRes({
+      admin: adminUser,
+      file: { buffer: altHeadersCsv, originalname: 'remap.csv' },
+      body: {
+        batchId: 'BATCH-2026-F1',
+        columnMapping: JSON.stringify(manualColMapping),
+        domainMapping: JSON.stringify(manualDomMapping)
+      }
+    });
+    await form1ImportController.previewForm1(mockRemapPreview.req, mockRemapPreview.res, mockRemapPreview.next);
+    assert.strictEqual(mockRemapPreview.getStatus(), 200);
+    assert.strictEqual(mockRemapPreview.getData().previewRows[0].email, 'remap_cand@example.com');
+    assert.strictEqual(mockRemapPreview.getData().previewRows[0].fullName, 'Rohan Roy');
+    assert.strictEqual(mockRemapPreview.getData().previewRows[0].programCode, 'FS-DEV');
+
+    // 4. Unmapped extra columns land in form1Extra as {header, value} entries - including dots and dollar signs
+    const colMapFixture = [
+      { target: 'email', header: 'Email Address' },
+      { target: 'fullName', header: 'Full Name' },
+      { target: 'domain', header: 'Internship Domain' },
+      { target: 'phone', header: 'Contact Number' },
+      { target: 'gender', header: 'Gender' },
+      { target: 'country', header: 'Country' },
+      { target: 'college', header: 'College / University' },
+      { target: 'qualification', header: 'Qualification' },
+      { target: 'currentYear', header: 'Current Year of Study' },
+      { target: 'referralSource', header: 'Where did you hear about us?' },
+      { target: 'linkedinFollow', header: 'Have you followed our LinkedIn page?' },
+      { target: 'whatsappJoin', header: 'Have you joined the WhatsApp group?' },
+      { target: 'timestamp', header: 'Timestamp' }
+    ];
+    const domMapFixture = [
+      { value: 'Full Stack Web Development', programCode: 'FS-DEV' },
+      { value: 'AI Engineering & Intelligent Systems', programCode: 'AI-ENG' }
+    ];
+
+    const mockPreviewFixtureReady = mockReqRes({
+      admin: adminUser,
+      file: { buffer: fixtureCsvBuffer, originalname: 'fixture.csv' },
+      body: {
+        batchId: 'BATCH-2026-F1',
+        columnMapping: JSON.stringify(colMapFixture),
+        domainMapping: JSON.stringify(domMapFixture)
+      }
+    });
+    await form1ImportController.previewForm1(mockPreviewFixtureReady.req, mockPreviewFixtureReady.res, mockPreviewFixtureReady.next);
+    assert.strictEqual(mockPreviewFixtureReady.getStatus(), 200);
+    const readyRows = mockPreviewFixtureReady.getData().fullRows;
+
+    // Execute Commit 1
+    const mockCommit1 = mockReqRes({
+      admin: adminUser,
+      body: {
+        rows: readyRows,
+        batchId: 'BATCH-2026-F1',
+        columnMapping: colMapFixture,
+        domainMapping: domMapFixture,
+        fileName: 'fixture.csv'
+      }
+    });
+    await form1ImportController.commitForm1(mockCommit1.req, mockCommit1.res, mockCommit1.next);
+    assert.strictEqual(mockCommit1.getStatus(), 200);
+    assert.strictEqual(mockCommit1.getData().counts.imported, 2);
+
+    // Verify participant 1 has form1Extra containing the dot and dollar sign header
+    const p1 = await Participant.findOne({ normalizedEmail: 'form1_applicant1@example.com' });
+    assert.ok(p1, 'Participant 1 must exist');
+    assert.strictEqual(p1.source, 'CSV_IMPORT');
+    assert.strictEqual(p1.batchId, 'BATCH-2026-F1');
+    assert.strictEqual(p1.gender, 'Male');
+    assert.strictEqual(p1.college, 'IIT Delhi');
+    assert.ok(Array.isArray(p1.form1Extra), 'form1Extra must be an array');
+    const extraEntry = p1.form1Extra.find(e => e.header === 'User.Meta$Info');
+    assert.ok(extraEntry, 'Must preserve unmapped column User.Meta$Info');
+    assert.strictEqual(extraEntry.value, 'ref=banner.promo$1');
+
+    // 7. Successful commit creates Participant + Application with unique NOX- ID, status APPLIED, intakeSource 'FORM1_IMPORT', correct feeLocked
+    const app1 = await Application.findOne({ participantId: p1._id });
+    assert.ok(app1, 'Application 1 must exist');
+    assert.ok(app1.applicationId.startsWith('NOX-'), 'Application ID must start with NOX-');
+    assert.strictEqual(app1.status, 'APPLIED');
+    assert.strictEqual(app1.intakeSource, 'FORM1_IMPORT');
+    assert.strictEqual(app1.feeLocked, 99);
+
+    // Verify ImportBatch was persisted with kind 'FORM1_RESPONSES'
+    const importBatchRecord = await ImportBatch.findById(p1.sourceImportBatchId);
+    assert.ok(importBatchRecord, 'ImportBatch must exist');
+    assert.strictEqual(importBatchRecord.kind, 'FORM1_RESPONSES');
+    assert.strictEqual(importBatchRecord.batchId, 'BATCH-2026-F1');
+
+    // 5. In-file duplicate and in-database duplicate detection
+    const dupCsv = [
+      'Timestamp,Email Address,Full Name,Internship Domain',
+      '2026/04/01,in_file_dup@example.com,Dup One,Full Stack Web Development',
+      '2026/04/01,in_file_dup@example.com,Dup Two,Full Stack Web Development',
+      '2026/04/01,form1_applicant1@example.com,Aarav Sharma,Full Stack Web Development'
+    ].join('\r\n');
+
+    const mockDupPreview = mockReqRes({
+      admin: adminUser,
+      file: { buffer: Buffer.from(dupCsv, 'utf8'), originalname: 'dups.csv' },
+      body: {
+        batchId: 'BATCH-2026-F1',
+        columnMapping: JSON.stringify([
+          { target: 'email', header: 'Email Address' },
+          { target: 'fullName', header: 'Full Name' },
+          { target: 'domain', header: 'Internship Domain' }
+        ]),
+        domainMapping: JSON.stringify([
+          { value: 'Full Stack Web Development', programCode: 'FS-DEV' }
+        ])
+      }
+    });
+    await form1ImportController.previewForm1(mockDupPreview.req, mockDupPreview.res, mockDupPreview.next);
+    assert.strictEqual(mockDupPreview.getStatus(), 200);
+    const dupStats = mockDupPreview.getData().stats;
+    assert.strictEqual(dupStats.validCount, 1);
+    assert.strictEqual(dupStats.duplicateInFileCount, 1);
+    assert.strictEqual(dupStats.duplicateInDbCount, 1);
+
+    // 6. NEEDS_PROGRAM rows are blocked from commit until mapped or skipped
+    const unmappedDomainCsv = [
+      'Timestamp,Email Address,Full Name,Internship Domain',
+      '2026/04/01,unmapped@example.com,Unmapped User,Unknown Quantum Computing'
+    ].join('\r\n');
+
+    const mockUnmappedPreview = mockReqRes({
+      admin: adminUser,
+      file: { buffer: Buffer.from(unmappedDomainCsv, 'utf8'), originalname: 'unmapped.csv' },
+      body: {
+        batchId: 'BATCH-2026-F1',
+        columnMapping: JSON.stringify([
+          { target: 'email', header: 'Email Address' },
+          { target: 'fullName', header: 'Full Name' },
+          { target: 'domain', header: 'Internship Domain' }
+        ]),
+        domainMapping: JSON.stringify([])
+      }
+    });
+    await form1ImportController.previewForm1(mockUnmappedPreview.req, mockUnmappedPreview.res, mockUnmappedPreview.next);
+    assert.strictEqual(mockUnmappedPreview.getStatus(), 200);
+    assert.strictEqual(mockUnmappedPreview.getData().stats.needsProgramCount, 1);
+    assert.strictEqual(mockUnmappedPreview.getData().canCommit, false, 'Cannot commit when domain is unmapped');
+
+    // Attempting to commit with unmapped domain returns 400
+    const mockUnmappedCommit = mockReqRes({
+      admin: adminUser,
+      body: {
+        rows: [{ email: 'unmapped@example.com', fullName: 'Unmapped User', domain: 'Unknown Quantum Computing' }],
+        batchId: 'BATCH-2026-F1',
+        columnMapping: [{ target: 'email', header: 'Email Address' }, { target: 'fullName', header: 'Full Name' }, { target: 'domain', header: 'Internship Domain' }],
+        domainMapping: [{ value: 'Unknown Quantum Computing', programCode: '__UNMAPPED__' }]
+      }
+    });
+    await form1ImportController.commitForm1(mockUnmappedCommit.req, mockUnmappedCommit.res, mockUnmappedCommit.next);
+    assert.strictEqual(mockUnmappedCommit.getStatus(), 400);
+
+    // Now test skipping the row with '__SKIP__'
+    const mockSkipCommit = mockReqRes({
+      admin: adminUser,
+      body: {
+        rows: [{ email: 'unmapped@example.com', fullName: 'Unmapped User', domain: 'Unknown Quantum Computing' }],
+        batchId: 'BATCH-2026-F1',
+        columnMapping: [{ target: 'email', header: 'Email Address' }, { target: 'fullName', header: 'Full Name' }, { target: 'domain', header: 'Internship Domain' }],
+        domainMapping: [{ value: 'Unknown Quantum Computing', programCode: '__SKIP__' }]
+      }
+    });
+    await form1ImportController.commitForm1(mockSkipCommit.req, mockSkipCommit.res, mockSkipCommit.next);
+    assert.strictEqual(mockSkipCommit.getStatus(), 200);
+    assert.strictEqual(mockSkipCommit.getData().counts.needsProgramSkipped, 1);
+    assert.strictEqual(mockSkipCommit.getData().counts.imported, 0);
+
+    // 8. LINKABLE:
+    // a) A WEBSITE participant without Application is linked
+    const pWeb = await Participant.create({
+      fullName: 'Website Stranded',
+      email: 'web_stranded@example.com',
+      normalizedEmail: 'web_stranded@example.com',
+      normalizedName: 'website stranded',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: 'BATCH-2026-F1',
+      source: 'WEBSITE'
+    });
+
+    // b) A crashed Form 1 commit (participant exists, no Application, kind 'FORM1_RESPONSES') is recovered
+    const crashBatch = await ImportBatch.create({
+      fileName: 'crashed.csv',
+      uploadedBy: adminUser._id,
+      kind: 'FORM1_RESPONSES',
+      batchId: 'BATCH-2026-F1'
+    });
+    const pCrashed = await Participant.create({
+      fullName: 'Form1 Crashed',
+      email: 'f1_crashed@example.com',
+      normalizedEmail: 'f1_crashed@example.com',
+      normalizedName: 'form1 crashed',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: 'BATCH-2026-F1',
+      source: 'CSV_IMPORT',
+      sourceImportBatchId: crashBatch._id
+    });
+
+    // c) A certificate-side 'PARTICIPANT_CSV' participant is NEVER linked or modified
+    const certBatch = await ImportBatch.create({
+      fileName: 'cert.csv',
+      uploadedBy: adminUser._id,
+      kind: 'PARTICIPANT_CSV',
+      programCode: 'FS-DEV',
+      batchId: 'BATCH-2026-F1'
+    });
+    const pCert = await Participant.create({
+      fullName: 'Cert Participant',
+      email: 'cert_part@example.com',
+      normalizedEmail: 'cert_part@example.com',
+      normalizedName: 'cert participant',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: 'BATCH-2026-F1',
+      source: 'CSV_IMPORT',
+      sourceImportBatchId: certBatch._id
+    });
+
+    // Preview rows for all three
+    const linkableTestCsv = [
+      'Timestamp,Email Address,Full Name,Internship Domain',
+      '2026/04/01,web_stranded@example.com,Website Stranded,Full Stack Web Development',
+      '2026/04/01,f1_crashed@example.com,Form1 Crashed,Full Stack Web Development',
+      '2026/04/01,cert_part@example.com,Cert Participant,Full Stack Web Development'
+    ].join('\r\n');
+
+    const mockLinkablePreview = mockReqRes({
+      admin: adminUser,
+      file: { buffer: Buffer.from(linkableTestCsv, 'utf8'), originalname: 'linkables.csv' },
+      body: {
+        batchId: 'BATCH-2026-F1',
+        columnMapping: JSON.stringify([
+          { target: 'email', header: 'Email Address' },
+          { target: 'fullName', header: 'Full Name' },
+          { target: 'domain', header: 'Internship Domain' }
+        ]),
+        domainMapping: JSON.stringify([
+          { value: 'Full Stack Web Development', programCode: 'FS-DEV' }
+        ])
+      }
+    });
+    await form1ImportController.previewForm1(mockLinkablePreview.req, mockLinkablePreview.res, mockLinkablePreview.next);
+    assert.strictEqual(mockLinkablePreview.getStatus(), 200);
+    const linkStats = mockLinkablePreview.getData().stats;
+    assert.strictEqual(linkStats.linkableCount, 2, 'Must recognize pWeb and pCrashed as LINKABLE');
+    assert.strictEqual(linkStats.duplicateInDbCount, 1, 'pCert must be DUPLICATE_IN_DB');
+
+    // Commit the linkables
+    const mockLinkCommit = mockReqRes({
+      admin: adminUser,
+      body: {
+        rows: mockLinkablePreview.getData().fullRows,
+        batchId: 'BATCH-2026-F1',
+        columnMapping: [{ target: 'email', header: 'Email Address' }, { target: 'fullName', header: 'Full Name' }, { target: 'domain', header: 'Internship Domain' }],
+        domainMapping: [{ value: 'Full Stack Web Development', programCode: 'FS-DEV' }],
+        fileName: 'linkables.csv'
+      }
+    });
+    await form1ImportController.commitForm1(mockLinkCommit.req, mockLinkCommit.res, mockLinkCommit.next);
+    assert.strictEqual(mockLinkCommit.getStatus(), 200);
+    assert.strictEqual(mockLinkCommit.getData().counts.linked, 2);
+    assert.strictEqual(mockLinkCommit.getData().counts.duplicatesSkipped, 1);
+
+    // Verify pWeb gained an Application with intakeSource 'WEBSITE'
+    const appWeb = await Application.findOne({ participantId: pWeb._id });
+    assert.ok(appWeb, 'pWeb must have Application linked');
+    assert.strictEqual(appWeb.intakeSource, 'WEBSITE');
+
+    // Verify pCrashed gained an Application with intakeSource 'FORM1_IMPORT'
+    const appCrashed = await Application.findOne({ participantId: pCrashed._id });
+    assert.ok(appCrashed, 'pCrashed must have Application linked');
+    assert.strictEqual(appCrashed.intakeSource, 'FORM1_IMPORT');
+
+    // Verify pCert has NO Application
+    const appCert = await Application.findOne({ participantId: pCert._id });
+    assert.strictEqual(appCert, null, 'Certificate participant must NOT have Application created');
+
+    // 9. Commit rejects rows mapped to unnormalized programme, blank batch, or >1,000 rows
+    await Program.deleteOne({ code: 'UNNORM-F1' });
+    await Program.create({
+      code: 'UNNORM-F1',
+      title: 'Unnormalized Track',
+      category: 'Development',
+      durationWeeks: 12,
+      feeInr: 499,
+      isActive: true
+    });
+
+    const mockUnnormCommit = mockReqRes({
+      admin: adminUser,
+      body: {
+        rows: [{ email: 'unnorm@example.com', fullName: 'Unnorm Student', domain: 'Unnorm Domain' }],
+        batchId: 'BATCH-2026-F1',
+        columnMapping: [{ target: 'email', header: 'Email' }, { target: 'fullName', header: 'Name' }, { target: 'domain', header: 'Domain' }],
+        domainMapping: [{ value: 'Unnorm Domain', programCode: 'UNNORM-F1' }]
+      }
+    });
+    await form1ImportController.commitForm1(mockUnnormCommit.req, mockUnnormCommit.res, mockUnnormCommit.next);
+    assert.strictEqual(mockUnnormCommit.getStatus(), 200);
+    assert.strictEqual(mockUnnormCommit.getData().counts.imported, 0);
+    assert.strictEqual(mockUnnormCommit.getData().counts.errors, 1);
+
+    // Blank batch rejected
+    const mockBlankBatch = mockReqRes({
+      admin: adminUser,
+      body: {
+        rows: [{ email: 't@t.com', fullName: 'Test', domain: 'Test' }],
+        batchId: '   '
+      }
+    });
+    await form1ImportController.commitForm1(mockBlankBatch.req, mockBlankBatch.res, mockBlankBatch.next);
+    assert.strictEqual(mockBlankBatch.getStatus(), 400);
+
+    // >1000 rows rejected
+    const giantRows = new Array(1001).fill({ email: 't@t.com', fullName: 'Test', domain: 'Test' });
+    const mockGiant = mockReqRes({
+      admin: adminUser,
+      body: { rows: giantRows, batchId: 'BATCH-1' }
+    });
+    await form1ImportController.commitForm1(mockGiant.req, mockGiant.res, mockGiant.next);
+    assert.strictEqual(mockGiant.getStatus(), 400);
+
+    // 10. Re-importing the same file produces all duplicates (idempotent, no double records)
+    const mockReimportPreview = mockReqRes({
+      admin: adminUser,
+      file: { buffer: fixtureCsvBuffer, originalname: 'fixture.csv' },
+      body: {
+        batchId: 'BATCH-2026-F1',
+        columnMapping: JSON.stringify(colMapFixture),
+        domainMapping: JSON.stringify(domMapFixture)
+      }
+    });
+    await form1ImportController.previewForm1(mockReimportPreview.req, mockReimportPreview.res, mockReimportPreview.next);
+    assert.strictEqual(mockReimportPreview.getStatus(), 200);
+    assert.strictEqual(mockReimportPreview.getData().stats.validCount, 0);
+    assert.strictEqual(mockReimportPreview.getData().stats.duplicateInDbCount, 2);
+
+    // 11. Public settings & public status confidentiality
+    const mockPubSettings = mockReqRes();
+    await getPublicSettings(mockPubSettings.req, mockPubSettings.res, mockPubSettings.next);
+    assert.strictEqual(mockPubSettings.getStatus(), 200);
+    assert.strictEqual(mockPubSettings.getData().form1ColumnMapping, undefined, 'Must NEVER leak form1ColumnMapping in public settings');
+    assert.strictEqual(mockPubSettings.getData().form1DomainMapping, undefined, 'Must NEVER leak form1DomainMapping in public settings');
+
+    const mockPubStatus = mockReqRes({
+      query: { email: 'form1_applicant1@example.com', id: app1.applicationId }
+    });
+    await intakeController.getApplicationStatus(mockPubStatus.req, mockPubStatus.res, mockPubStatus.next);
+    assert.strictEqual(mockPubStatus.getStatus(), 200);
+    const pubAppData = mockPubStatus.getData().application;
+    assert.strictEqual(pubAppData.applicationId, app1.applicationId);
+    assert.strictEqual(pubAppData.gender, undefined, 'Must not leak gender');
+    assert.strictEqual(pubAppData.college, undefined, 'Must not leak college');
+    assert.strictEqual(pubAppData.country, undefined, 'Must not leak country');
+    assert.strictEqual(pubAppData.form1Extra, undefined, 'Must not leak form1Extra');
+
+    // 12. Result-CSV generator escapes commas, quotes, line breaks and formula-leading characters
+    const testExportRows = [
+      {
+        fullName: 'Smith, Agent',
+        email: 'agent@matrix.com',
+        programCode: 'FS-DEV',
+        programTitle: 'Full Stack, Dev',
+        applicationId: 'NOX-123456',
+        batchId: 'BATCH-1'
+      },
+      {
+        fullName: 'John "The Boss" Doe',
+        email: 'boss@corp.com',
+        programCode: 'FS-DEV',
+        programTitle: 'Web Dev',
+        applicationId: 'NOX-234567',
+        batchId: 'BATCH-1'
+      },
+      {
+        fullName: '=1+2',
+        email: '+evil@hacker.com',
+        programCode: '-CMD',
+        programTitle: '@Formula',
+        applicationId: '\tTAB-ID',
+        batchId: '\rCR-BATCH'
+      }
+    ];
+
+    const generatedCsv = generateApplicationsCsv(testExportRows);
+    assert.ok(generatedCsv.includes('"Smith, Agent"'), 'Must quote commas');
+    assert.ok(generatedCsv.includes('"Full Stack, Dev"'), 'Must quote commas in titles');
+    assert.ok(generatedCsv.includes('"John ""The Boss"" Doe"'), 'Must double internal quotes');
+    assert.ok(generatedCsv.includes("'=1+2"), 'Must escape formula leading =');
+    assert.ok(generatedCsv.includes("'+evil@hacker.com"), 'Must escape formula leading +');
+    assert.ok(generatedCsv.includes("'-CMD"), 'Must escape formula leading -');
+    assert.ok(generatedCsv.includes("'@Formula"), 'Must escape formula leading @');
+    assert.ok(generatedCsv.includes("'\tTAB-ID"), 'Must escape formula leading tab');
+    assert.ok(generatedCsv.includes("'\rCR-BATCH"), 'Must escape formula leading CR');
+
+    // 13. No email side effects
+    const offerJobsCount = await OfferDeliveryJob.countDocuments({
+      applicationId: { $in: [app1.applicationId, appWeb.applicationId, appCrashed.applicationId] }
+    });
+    assert.strictEqual(offerJobsCount, 0, 'Must have zero email delivery jobs created during Form 1 import');
   });
 
   // Cleanup

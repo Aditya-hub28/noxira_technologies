@@ -55,6 +55,51 @@ const ParticipantSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ImportBatch'
   },
+
+  // Form 1 Intake Extensions (Additive & Optional)
+  gender: {
+    type: String,
+    trim: true
+  },
+  country: {
+    type: String,
+    trim: true
+  },
+  college: {
+    type: String,
+    trim: true
+  },
+  qualification: {
+    type: String,
+    trim: true
+  },
+  currentYear: {
+    type: String,
+    trim: true
+  },
+  referralSource: {
+    type: String,
+    trim: true
+  },
+  linkedinFollow: {
+    type: String,
+    trim: true
+  },
+  whatsappJoin: {
+    type: String,
+    trim: true
+  },
+  form1Timestamp: {
+    type: String,
+    trim: true
+  },
+  form1Extra: [
+    {
+      header: { type: String, required: true },
+      value: { type: String, default: '' },
+      _id: false
+    }
+  ],
   
   // Completion Gate (Registration NEVER auto-issues)
   completionStatus: {

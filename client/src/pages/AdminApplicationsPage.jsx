@@ -618,8 +618,17 @@ export default function AdminApplicationsPage() {
                         </span>
                       </td>
                       <td className="p-3">
-                        <div className="font-semibold text-slate-800">
-                          {app.participantId ? app.participantId.fullName : 'Applicant'}
+                        <div className="font-semibold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                          <span>{app.participantId ? app.participantId.fullName : 'Applicant'}</span>
+                          {app.intakeSource === 'FORM1_IMPORT' ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              Form 1
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                              Website
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-500">
                           {app.participantId ? app.participantId.email : ''}
@@ -1030,6 +1039,91 @@ export default function AdminApplicationsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Google Form 1 Intake Details (if present) */}
+            {detailApp.participantId && (
+              detailApp.participantId.gender ||
+              detailApp.participantId.country ||
+              detailApp.participantId.qualification ||
+              detailApp.participantId.currentYear ||
+              detailApp.participantId.referralSource ||
+              detailApp.participantId.linkedinFollow ||
+              detailApp.participantId.whatsappJoin ||
+              detailApp.participantId.form1Timestamp ||
+              (detailApp.participantId.form1Extra && detailApp.participantId.form1Extra.length > 0)
+            ) && (
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+                    Google Form 1 Responses
+                  </h3>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    Form 1 Intake
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                  {detailApp.participantId.form1Timestamp && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Submission Timestamp:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.form1Timestamp}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.gender && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Gender:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.gender}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.country && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Country:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.country}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.qualification && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Qualification / Degree:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.qualification}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.currentYear && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Current Year of Study:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.currentYear}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.referralSource && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Referral / Source:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.referralSource}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.linkedinFollow && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">LinkedIn Follow:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.linkedinFollow}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.whatsappJoin && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">WhatsApp Group:</span>
+                      <span className="font-semibold text-slate-900">{detailApp.participantId.whatsappJoin}</span>
+                    </div>
+                  )}
+                  {detailApp.participantId.form1Extra && detailApp.participantId.form1Extra.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Additional Unmapped Responses</span>
+                      {detailApp.participantId.form1Extra.map((ex, idx) => (
+                        <div key={idx} className="flex justify-between text-[11px]">
+                          <span className="text-slate-500 max-w-[50%] truncate" title={ex.header}>{ex.header}:</span>
+                          <span className="font-semibold text-slate-800 text-right max-w-[50%] truncate" title={ex.value}>{ex.value || '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Application & Selection Status */}
             <div className="space-y-3 text-xs">

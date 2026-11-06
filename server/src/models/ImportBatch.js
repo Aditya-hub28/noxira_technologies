@@ -13,18 +13,32 @@ const ImportBatchSchema = new mongoose.Schema({
     ref: 'Admin',
     required: true
   },
+  kind: {
+    type: String,
+    enum: ['PARTICIPANT_CSV', 'FORM1_RESPONSES'],
+    default: 'PARTICIPANT_CSV',
+    required: true
+  },
   programCode: {
     type: String,
-    required: true
+    required: function() {
+      return this.kind === 'PARTICIPANT_CSV';
+    }
   },
   batchId: {
     type: String,
     required: true
   },
   columnMapping: {
-    type: Map,
-    of: String
+    type: mongoose.Schema.Types.Mixed
   },
+  domainMapping: [
+    {
+      value: { type: String, trim: true },
+      programCode: { type: String, trim: true, uppercase: true },
+      _id: false
+    }
+  ],
   totalRows: {
     type: Number,
     default: 0

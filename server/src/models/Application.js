@@ -51,6 +51,11 @@ const ApplicationSchema = new mongoose.Schema(
       default: 'APPLIED',
       index: true
     },
+    intakeSource: {
+      type: String,
+      enum: ['WEBSITE', 'FORM1_IMPORT'],
+      default: undefined
+    },
     // Locked fee amount copied from Program.feeInr at apply time.
     // Always a number (>= 0) for applications created under fee rules; default null for legacy records.
     feeLocked: {

@@ -101,6 +101,7 @@ exports.websiteApply = async (req, res, next) => {
                 programTitle: existing.programTitle,
                 batchId: existing.batchId,
                 status: 'APPLIED',
+                intakeSource: 'WEBSITE',
                 feeLocked: Number(program.feeInr)
               });
               await healedApp.save();
@@ -198,6 +199,7 @@ exports.websiteApply = async (req, res, next) => {
             programTitle: participant.programTitle,
             batchId: participant.batchId,
             status: 'APPLIED',
+            intakeSource: 'WEBSITE',
             feeLocked: Number(program.feeInr)
           });
           await application.save();
