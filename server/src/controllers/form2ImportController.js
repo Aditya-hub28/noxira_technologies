@@ -500,7 +500,26 @@ exports.markPayment = async (req, res, next) => {
     submission.paymentMarkedBy = req.admin._id;
     submission.paymentMarkedAt = new Date();
     if (note !== undefined && note.trim()) submission.paymentNote = note.trim();
-    await submission.save();
+    try {
+      await submission.save();
+    } catch (saveErr) {
+      // DB-level race guard: a concurrent admin action verified this UTR for
+      // another submission between our pre-check and this save. The partial
+      // unique index on (transactionId where paymentState=VERIFIED) rejected
+      // the write - surface the same 409 as the pre-check path.
+      if (saveErr && saveErr.code === 11000) {
+        const concurrent = await Submission.findOne({
+          transactionId: submission.transactionId,
+          _id: { $ne: submission._id },
+          paymentState: 'VERIFIED'
+        }).select('submissionId email');
+        return res.status(409).json({
+          success: false,
+          message: `UTR ${submission.transactionId} is already marked VERIFIED for submission ${concurrent ? concurrent.submissionId : 'another submission'}${concurrent ? ` (${concurrent.email})` : ''}. One payment cannot be verified for two applicants; resolve manually.`
+        });
+      }
+      throw saveErr;
+    }
 
     await AuditLog.create({
       actorType: 'ADMIN',
@@ -508,7 +527,7 @@ exports.markPayment = async (req, res, next) => {
       action: 'PAYMENT_MARKED',
       targetEntity: 'SUBMISSION',
       targetId: submission._id,
-      summary: `Manual payment check for ${submission.submissionId}: marked ${state} by admin after bank/UPI app verification`,
+      summary: `Manual payment attestation for ${submission.submissionId}: marked ${state} by admin on their own bank/UPI app check (the system performs no payment check itself)`,
       ipAddress: req.ip || '127.0.0.1',
       metadata: {
         submissionId: submission.submissionId,

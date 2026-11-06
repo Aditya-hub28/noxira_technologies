@@ -108,6 +108,16 @@ const SubmissionSchema = new mongoose.Schema({
 // Idempotent re-import: same email+programme+transactionId never imports twice
 SubmissionSchema.index({ email: 1, programCode: 1, transactionId: 1 }, { unique: true });
 
+// Module 7 (race-safe): one UTR can be payment-VERIFIED only once, enforced by
+// the database itself - not by an application-level check-then-save, which two
+// concurrent admin actions could both pass. Only VERIFIED documents enter this
+// index, so a UTR shared across UNVERIFIED / NOT_FOUND submissions stays legal
+// (those are already flagged utrSharedFlag for manual review at import).
+SubmissionSchema.index(
+  { transactionId: 1 },
+  { unique: true, partialFilterExpression: { paymentState: 'VERIFIED' } }
+);
+
 /**
  * Human-friendly submission IDs: SUB- + 6 unambiguous chars
  * (same alphabet as NOX- application IDs: no 0/O/1/I/L).

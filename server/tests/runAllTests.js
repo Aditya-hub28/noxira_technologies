@@ -4051,6 +4051,40 @@ async function runTestSuite() {
     await form2ImportController.markPayment(mockDoubleVerify.req, mockDoubleVerify.res, mockDoubleVerify.next);
     assert.strictEqual(mockDoubleVerify.getStatus(), 409, 'Same UTR must never verify for two applicants');
 
+    // 4d. Parallel race: two admins verify the SAME UTR for two DIFFERENT matched
+    // applicants at the same time. Both can pass the in-memory pre-check; the
+    // DB partial unique index must let exactly one write through.
+    const mkApplicantM7 = async (name, email) => {
+      const m = mockReqRes({ body: { fullName: name, email, programCode: 'FS-DEV', feeAcknowledged: true } });
+      await intakeController.websiteApply(m.req, m.res, m.next);
+      assert.strictEqual(m.getStatus(), 201);
+      const appId = m.getData().application.applicationId;
+      await Application.updateOne({ applicationId: appId }, { $set: { status: 'APPROVED', decidedAt: new Date() } });
+      return appId;
+    };
+    const raceAppA = await mkApplicantM7('Race A', 'race.a.m7@example.com');
+    const raceAppB = await mkApplicantM7('Race B', 'race.b.m7@example.com');
+    const raceRaw = [
+      { 'Email': 'race.a.m7@example.com', 'Internship Domain': 'FS-DEV', 'Project Link': 'https://github.com/racea/p', 'UTR Number': 'UTR-M7-RACE', 'Application ID': raceAppA, 'Timestamp': '2026-11-06 15:00' },
+      { 'Email': 'race.b.m7@example.com', 'Internship Domain': 'FS-DEV', 'Project Link': 'https://github.com/raceb/p', 'UTR Number': 'UTR-M7-RACE', 'Application ID': raceAppB, 'Timestamp': '2026-11-06 15:01' }
+    ];
+    const mockCommitRace = mockReqRes({ body: { rows: raceRaw, batchId: 'BATCH-M7-RACE', columnMapping: m7ColMap } });
+    await form2ImportController.commitForm2(mockCommitRace.req, mockCommitRace.res, mockCommitRace.next);
+    assert.strictEqual(mockCommitRace.getStatus(), 201);
+    const raceSubA = await Submission.findOne({ email: 'race.a.m7@example.com', transactionId: 'UTR-M7-RACE' });
+    const raceSubB = await Submission.findOne({ email: 'race.b.m7@example.com', transactionId: 'UTR-M7-RACE' });
+    assert.strictEqual(raceSubA.matchState, 'MATCHED');
+    assert.strictEqual(raceSubB.matchState, 'MATCHED');
+    const callVerify = async (subId) => {
+      const m = mockReqRes({ params: { submissionId: subId }, body: { state: 'VERIFIED' } });
+      await form2ImportController.markPayment(m.req, m.res, m.next);
+      return m.getStatus();
+    };
+    const raceStatuses = (await Promise.all([callVerify(raceSubA.submissionId), callVerify(raceSubB.submissionId)])).sort();
+    assert.deepStrictEqual(raceStatuses, [200, 409], 'Concurrent verification of one UTR: exactly one succeeds, one is rejected');
+    const raceVerifiedCount = await Submission.countDocuments({ transactionId: 'UTR-M7-RACE', paymentState: 'VERIFIED' });
+    assert.strictEqual(raceVerifiedCount, 1, 'DB-level guard: one UTR can only be VERIFIED once even under a race');
+
     // 5. NOT_FOUND can later become VERIFIED (late-arriving payment)
     const strayApp = mockReqRes({ body: { fullName: 'Stray Later', email: 'stray.m7@example.com', programCode: 'FS-DEV', feeAcknowledged: true } });
     // (unmatched stays unmatched without an application; simulate a NOT_FOUND -> VERIFIED path using a matched then re-check)
