@@ -222,6 +222,34 @@ test('MODULE 3 FIX: preview SKIPPED note and result NEEDS_NORMALIZATION card/lis
   assert.ok(form1Content.includes('details.needsNormalization'), 'Result screen must list NEEDS_NORMALIZATION rows');
 });
 
+// TEST 18: MODULE 10 - public policy pages with owner-decided rules only, pending items visibly flagged
+test('MODULE 10: policy pages (Terms/Privacy/Refund/Review) wired with grounded content and honest pending flags', () => {
+  const pageContent = fs.readFileSync(path.join(clientSrcDir, 'pages/PolicyPage.jsx'), 'utf8');
+  const appContent = fs.readFileSync(path.join(clientSrcDir, 'App.jsx'), 'utf8');
+  const layoutContent = fs.readFileSync(path.join(clientSrcDir, 'components/PublicLayout.jsx'), 'utf8');
+
+  // Four routes wired
+  for (const route of ['/terms', '/privacy', '/payment-refund', '/review-rules']) {
+    assert.ok(appContent.includes(`path="${route}"`), `Route ${route} must be wired in App.jsx`);
+    assert.ok(layoutContent.includes(`to="${route}"`), `Footer must link ${route}`);
+  }
+
+  // Owner-decided rules present (6 Nov 2026 decisions)
+  assert.ok(pageContent.includes('one-time Rs. 99'), 'Fee is Rs. 99 one-time at final submission');
+  assert.ok(pageContent.includes('non-refundable'), 'Refund rule: non-refundable');
+  assert.ok(pageContent.includes('duplicate/accidental double payment'), 'Refund exception: duplicate payment');
+  assert.ok(pageContent.includes('up to 3 free re-reviews'), '3 free re-reviews');
+  assert.ok(pageContent.includes('3 calendar days'), '3 calendar days per correction');
+  assert.ok(pageContent.includes('2-3 working days'), 'Review turnaround 2-3 working days');
+  assert.ok(pageContent.includes('never shown publicly'), 'Email/phone never public');
+  assert.ok(pageContent.includes('no self-service deletion option'), 'No self-service deletion');
+
+  // Pending items are flagged, not invented
+  assert.ok(pageContent.includes('Being finalized before launch'), 'Pending callout must render');
+  assert.ok(pageContent.includes('PENDING_LAUNCH_ITEMS'), 'Pending items list must exist');
+  assert.ok(!/@[a-z]+\.(com|in|org)/i.test(pageContent.replace(/@[a-z]+\(\$/g, '')), 'No invented support email address may appear');
+});
+
 console.log('\n------------------------------------------------------');
 console.log(`RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log('------------------------------------------------------\n');

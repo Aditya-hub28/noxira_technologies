@@ -304,6 +304,17 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 Registry Verification Portal <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
+
+            {/* Col 4: Policies */}
+            <div>
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Policies</h4>
+              <ul className="space-y-2">
+                <li><Link to="/terms" className="hover:text-amber-400 transition">Terms &amp; Conditions</Link></li>
+                <li><Link to="/privacy" className="hover:text-amber-400 transition">Privacy Policy</Link></li>
+                <li><Link to="/payment-refund" className="hover:text-amber-400 transition">Payment &amp; Refund</Link></li>
+                <li><Link to="/review-rules" className="hover:text-amber-400 transition">Review Rules</Link></li>
+              </ul>
+            </div>
           </div>
 
           <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">

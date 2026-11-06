@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import PublicLayout from './components/PublicLayout';
+import PolicyPage from './pages/PolicyPage';
 import HomePage from './pages/HomePage';
 import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
@@ -228,6 +229,10 @@ function AppContent() {
         <Route path="/status" element={<StatusPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/verify/:token" element={<VerifyPage />} />
+        <Route path="/terms" element={<PolicyPage slug="terms" />} />
+        <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
+        <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
+        <Route path="/review-rules" element={<PolicyPage slug="review" />} />
       </Route>
 
       {/* Admin Login Route */}
