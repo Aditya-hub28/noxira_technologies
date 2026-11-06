@@ -4365,6 +4365,25 @@ async function runTestSuite() {
     assert.strictEqual(gateData[String(pNone._id)].eligible, false);
     assert.strictEqual(gateData[String(pGood._id)].eligible, true);
     assert.strictEqual(gateData[String(pGood._id)].submissionId, goodSub.submissionId);
+
+    // 9. Corrected replacement CANNOT bypass the gate: the successor is hard-bound
+    //    to the SAME participant + programme and carries the gate evidence forward
+    const pReplace = await mkParticipant('M9 Replace', 'm9.replace@example.com');
+    const repSub = await mkSubmission('REPL', 'm9.replace@example.com', { paymentState: 'VERIFIED', reviewStatus: 'PASSED' });
+    const issued = await issueCertificateForParticipant({ participantId: pReplace._id, adminId: admin._id });
+    const mockReplace = mockReqRes({
+      params: { id: String(issued.certificate._id) },
+      body: { reason: 'Name spelling corrected', correctedName: 'M9 Replace Corrected' },
+      admin: { _id: admin._id, email: admin.email }
+    });
+    await certificateController.replaceCertificate(mockReplace.req, mockReplace.res, mockReplace.next);
+    assert.strictEqual(mockReplace.getStatus(), 200, `Replacement succeeded: ${JSON.stringify(mockReplace.getData()).slice(0, 200)}`);
+    const successor = mockReplace.getData().newCertificate;
+    assert.strictEqual(String(successor.participantId), String(pReplace._id), 'Successor bound to SAME participant');
+    assert.strictEqual(successor.programCode, issued.certificate.programCode, 'Successor bound to SAME programme');
+    assert.strictEqual(successor.releaseGate && successor.releaseGate.submissionId, repSub.submissionId, 'Successor carries the release-gate evidence forward');
+    const oldAfter = await Certificate.findById(issued.certificate._id);
+    assert.strictEqual(oldAfter.status, 'REPLACED', 'Old certificate preserved as REPLACED, not destroyed');
   });
 
   // Cleanup

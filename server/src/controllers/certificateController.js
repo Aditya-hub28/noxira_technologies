@@ -275,6 +275,10 @@ exports.replaceCertificate = async (req, res, next) => {
       },
       version: oldCert.version + 1,
       supersedesCertificateId: oldCert._id,
+      // Carry the release-gate evidence forward: the successor stands on the
+      // same gated award (same participant + programme), so the proof of the
+      // original gate check must survive the correction.
+      releaseGate: oldCert.releaseGate,
       approvedBy: req.admin._id,
       approvedAt: new Date()
     });
