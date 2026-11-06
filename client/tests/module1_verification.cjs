@@ -117,6 +117,10 @@ test('STEP 2 & 5: ProgramDetailPage.jsx removes fee gate, fee is informational, 
   assert.strictEqual(detailContent.includes('Applications open once NOXIRA publishes the fee'), false, 'Must NOT contain fee-gate blocking statement');
   assert.ok(detailContent.includes('1 Month (4 Weeks)'), 'Must enforce 1 Month (4 Weeks) duration guard');
   assert.strictEqual(detailContent.includes('program.startDate'), false, 'Must not render raw cohort dates');
+  assert.ok(
+    detailContent.includes("isFormConfigured\n              ? 'Applications are open for candidate intake via Google Form.'\n              : 'Applications are not open yet. The application link is not available yet.'"),
+    'Empty-curriculum notice must conditionally match Form 1 configured state'
+  );
 });
 
 // TEST 10: StatusPage link points to Google Form 1

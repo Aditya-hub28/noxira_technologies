@@ -286,7 +286,9 @@ export default function ProgramDetailPage() {
             NOXIRA will publish the detailed curriculum for this programme.
           </p>
           <p className="text-xs text-slate-500">
-            Applications are open for candidate intake via Google Form.
+            {isFormConfigured
+              ? 'Applications are open for candidate intake via Google Form.'
+              : 'Applications are not open yet. The application link is not available yet.'}
           </p>
         </div>
       )}
