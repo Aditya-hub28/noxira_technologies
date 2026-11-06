@@ -2,6 +2,7 @@ const Certificate = require('../models/Certificate');
 const Participant = require('../models/Participant');
 const AuditLog = require('../models/AuditLog');
 const { issueCertificateForParticipant } = require('../services/issuanceService');
+const { checkReleaseEligibility } = require('../services/releaseGateService');
 const { generate128BitToken } = require('../services/qrService');
 const { generateCertificatePdf } = require('../services/pdfService');
 const { saveCertificateFile } = require('../services/storageService');
@@ -311,6 +312,28 @@ exports.replaceCertificate = async (req, res, next) => {
       oldCertificate: oldCert,
       newCertificate: newCert
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+/**
+ * Module 9: bulk release-gate status for the issuance UI. Read-only; the
+ * enforcement itself lives in the issuance choke point.
+ */
+exports.checkReleaseGate = async (req, res, next) => {
+  try {
+    const { participantIds } = req.body || {};
+    if (!Array.isArray(participantIds) || participantIds.length === 0 || participantIds.length > 500) {
+      return res.status(400).json({ success: false, message: 'Provide 1-500 participant IDs.' });
+    }
+    const participants = await Participant.find({ _id: { $in: participantIds } }).lean();
+    const results = {};
+    for (const p of participants) {
+      results[String(p._id)] = await checkReleaseEligibility(p);
+    }
+    res.json({ success: true, gate: results });
   } catch (error) {
     next(error);
   }

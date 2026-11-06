@@ -36,6 +36,7 @@ const adminOfferTemplateController = require('../src/controllers/adminOfferTempl
 const offerDownloadController = require('../src/controllers/offerDownloadController');
 const form1ImportController = require('../src/controllers/form1ImportController');
 const form2ImportController = require('../src/controllers/form2ImportController');
+const certificateController = require('../src/controllers/certificateController');
 const Submission = require('../src/models/Submission');
 const { generateApplicationsCsv } = require('../src/utils/csvExport');
 const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/programRoutes');
@@ -249,6 +250,24 @@ async function runTestSuite() {
     }
     assert.strictEqual(errorThrown, true, 'Issuance must reject non-eligible participant');
   });
+
+  // Module 9 fixture helper: bind a MATCHED + payment-VERIFIED + review-PASSED
+  // submission to a participant (email + programme) so the release gate passes.
+  const grantReleaseGate = async (email, programCode, tag) => {
+    const gateAdmin = await Admin.findOne({ email: 'root@noxira.com' });
+    const gateBatch = await ImportBatch.create({
+      fileName: `gate-${tag}.csv`, fileSizeBytes: 10, uploadedBy: gateAdmin._id,
+      kind: 'FORM2_RESPONSES', batchId: `GATE-${tag}`, columnMapping: [], status: 'COMMITTED'
+    });
+    await Submission.create({
+      submissionId: `SUB-GATE-${tag}`, email, programCode,
+      matchState: 'MATCHED', paymentState: 'VERIFIED', reviewStatus: 'PASSED',
+      projectLink: 'https://github.com/gate/project', transactionId: `UTR-GATE-${tag}`,
+      importBatchId: gateBatch._id,
+      reviewRounds: [{ round: 0, projectLink: 'https://github.com/gate/project', openedAt: new Date(), outcome: 'PASSED', requirementsComplete: true, projectWorking: true, reviewedAt: new Date() }]
+    });
+  };
+  await grantReleaseGate('aarav.sharma@example.com', 'FS-DEV', 'AARAV');
 
   // TEST 4: Seeded Template with Signatory Verification (Bug 1 Root Cause Test)
   await test('Bug 1 Fix: Template signatory properly resolved without undefined error during issuance', async () => {
@@ -3890,7 +3909,8 @@ async function runTestSuite() {
     assert.strictEqual(commitSummary.unmatched, 2);
     assert.strictEqual(commitSummary.errorRows, 2);
 
-    const savedSubs = await Submission.find({ programCode: 'FS-DEV' }).lean();
+    const m6Batch = await ImportBatch.findOne({ batchId: 'BATCH-M6-FORM2' });
+    const savedSubs = await Submission.find({ programCode: 'FS-DEV', importBatchId: m6Batch._id }).lean();
     assert.strictEqual(savedSubs.length, 3);
     const matchedSub = savedSubs.find((s) => s.transactionId === 'UTR000111');
     assert.strictEqual(matchedSub.matchState, 'MATCHED');
@@ -3915,7 +3935,7 @@ async function runTestSuite() {
     assert.strictEqual(mockReimport.getStatus(), 201);
     assert.strictEqual(mockReimport.getData().summary.committed, 0, 'Re-imported rows must all be duplicates');
     assert.strictEqual(mockReimport.getData().summary.duplicates, 3);
-    assert.strictEqual(await Submission.countDocuments({ programCode: 'FS-DEV' }), 3, 'No duplicate submissions created');
+    assert.strictEqual(await Submission.countDocuments({ programCode: 'FS-DEV', importBatchId: m6Batch._id }), 3, 'No duplicate submissions created');
 
     // 4b. Cross-applicant UTR reuse is flagged (not blocked, no payment conclusion)
     const csvShared = [
@@ -4253,6 +4273,98 @@ async function runTestSuite() {
     const resubAudit = await AuditLog.findOne({ action: 'REVIEW_RESUBMISSION', targetId: subA._id });
     assert.ok(outcomeAudit, 'REVIEW_OUTCOME audit exists');
     assert.ok(resubAudit, 'REVIEW_RESUBMISSION audit exists');
+  });
+
+  await test('Module 9: Certificate release gate - payment VERIFIED + review PASSED on the SAME bound submission, explicit issuance, negative gates, idempotent concurrency', async () => {
+    const admin = await Admin.findOne({ email: 'root@noxira.com' });
+    const mkParticipant = async (name, email) => Participant.create({
+      fullName: name, email, programCode: 'FS-DEV', programTitle: 'Full Stack Web Development',
+      batchId: 'BATCH-2026-Q4', source: 'WEBSITE', completionStatus: 'ELIGIBLE'
+    });
+    const mkBatch = async (tag) => ImportBatch.create({
+      fileName: `m9-${tag}.csv`, fileSizeBytes: 10, uploadedBy: admin._id,
+      kind: 'FORM2_RESPONSES', batchId: `M9B-${tag}`, columnMapping: [], status: 'COMMITTED'
+    });
+    const mkSubmission = async (tag, email, over = {}) => Submission.create({
+      submissionId: `SUB-M9-${tag}`, email, programCode: 'FS-DEV',
+      matchState: 'MATCHED', paymentState: 'UNVERIFIED', reviewStatus: 'NOT_STARTED',
+      projectLink: 'https://github.com/m9/p', transactionId: `UTR-M9-${tag}`,
+      importBatchId: (await mkBatch(tag))._id, ...over
+    });
+    const tryIssue = async (participant) => {
+      try {
+        return { ok: true, res: await issueCertificateForParticipant({ participantId: participant._id, adminId: admin._id }) };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    };
+
+    // 1. No submission at all -> blocked
+    const pNone = await mkParticipant('M9 NoSub', 'm9.none@example.com');
+    let r = await tryIssue(pNone);
+    assert.strictEqual(r.ok, false, 'No submission: issuance blocked');
+    assert.ok(r.error.includes('release gate not satisfied'), r.error);
+    assert.ok(r.error.includes('No final submission'), r.error);
+
+    // 2. Payment not verified -> blocked
+    const pUnpaid = await mkParticipant('M9 Unpaid', 'm9.unpaid@example.com');
+    await mkSubmission('UNPAID', 'm9.unpaid@example.com', { reviewStatus: 'PASSED' });
+    r = await tryIssue(pUnpaid);
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.error.includes('Payment is not verified'), r.error);
+
+    // 3. Payment verified but review not passed -> blocked
+    const pUnreviewed = await mkParticipant('M9 Unreviewed', 'm9.unreviewed@example.com');
+    await mkSubmission('UNREV', 'm9.unreviewed@example.com', { paymentState: 'VERIFIED', reviewStatus: 'IN_REVIEW' });
+    r = await tryIssue(pUnreviewed);
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.error.includes('review has not PASSED'), r.error);
+
+    // 4. BINDING: VERIFIED on one submission + PASSED on another (same email+programme) -> blocked
+    const pMixed = await mkParticipant('M9 Mixed', 'm9.mixed@example.com');
+    await mkSubmission('MIXA', 'm9.mixed@example.com', { paymentState: 'VERIFIED', reviewStatus: 'CHANGES_REQUESTED' });
+    await mkSubmission('MIXB', 'm9.mixed@example.com', { paymentState: 'UNVERIFIED', reviewStatus: 'PASSED' });
+    r = await tryIssue(pMixed);
+    assert.strictEqual(r.ok, false, 'Mixed VERIFIED/PASSED across submissions must NOT pass the gate');
+    assert.ok(r.error.includes('No SINGLE submission'), r.error);
+
+    // 5. Exhausted review -> blocked with exhaustion reason
+    const pExh = await mkParticipant('M9 Exhausted', 'm9.exh@example.com');
+    await mkSubmission('EXH', 'm9.exh@example.com', { paymentState: 'VERIFIED', reviewStatus: 'FAILED_EXHAUSTED' });
+    r = await tryIssue(pExh);
+    assert.strictEqual(r.ok, false);
+    assert.ok(r.error.includes('exhausted'), r.error);
+
+    // 6. Same SINGLE submission VERIFIED+PASSED -> issues, gate evidence recorded
+    const pGood = await mkParticipant('M9 Good', 'm9.good@example.com');
+    const goodSub = await mkSubmission('GOOD', 'm9.good@example.com', { paymentState: 'VERIFIED', reviewStatus: 'PASSED' });
+    r = await tryIssue(pGood);
+    assert.strictEqual(r.ok, true, `Gate satisfied: ${r.ok ? '' : r.error}`);
+    assert.strictEqual(r.res.certificate.status, 'ISSUED');
+    const cert = await Certificate.findById(r.res.certificate._id);
+    assert.strictEqual(cert.releaseGate.submissionId, goodSub.submissionId, 'Bound submission recorded on the certificate');
+    assert.ok(cert.releaseGate.checkedAt, 'Gate check time recorded');
+    const gateAudit = await AuditLog.findOne({ action: 'CERTIFICATE_ISSUED', targetId: cert._id });
+    assert.strictEqual(gateAudit.metadata.releaseGateSubmissionId, goodSub.submissionId, 'Audit carries the binding');
+
+    // 7. Concurrent issuance for the same gated participant -> exactly one certificate
+    const pRace = await mkParticipant('M9 Race', 'm9.race@example.com');
+    await mkSubmission('RACE', 'm9.race@example.com', { paymentState: 'VERIFIED', reviewStatus: 'PASSED' });
+    await Promise.all([
+      issueCertificateForParticipant({ participantId: pRace._id, adminId: admin._id }).catch(() => null),
+      issueCertificateForParticipant({ participantId: pRace._id, adminId: admin._id }).catch(() => null)
+    ]);
+    const raceCerts = await Certificate.countDocuments({ participantId: pRace._id, status: 'ISSUED' });
+    assert.strictEqual(raceCerts, 1, 'Concurrent release mints exactly one certificate');
+
+    // 8. Bulk gate-check endpoint mirrors the choke point
+    const mockGate = mockReqRes({ body: { participantIds: [pNone._id, pGood._id] } });
+    await certificateController.checkReleaseGate(mockGate.req, mockGate.res, mockGate.next);
+    assert.strictEqual(mockGate.getStatus(), 200);
+    const gateData = mockGate.getData().gate;
+    assert.strictEqual(gateData[String(pNone._id)].eligible, false);
+    assert.strictEqual(gateData[String(pGood._id)].eligible, true);
+    assert.strictEqual(gateData[String(pGood._id)].submissionId, goodSub.submissionId);
   });
 
   // Cleanup

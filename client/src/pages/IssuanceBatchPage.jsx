@@ -4,6 +4,7 @@ import { Award, CheckSquare, Square, ShieldCheck, AlertCircle, ArrowRight, Check
 
 export default function IssuanceBatchPage({ onBatchSuccess }) {
   const [eligibleParticipants, setEligibleParticipants] = useState([]);
+  const [gateStatus, setGateStatus] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [issuing, setIssuing] = useState(false);
@@ -22,7 +23,20 @@ export default function IssuanceBatchPage({ onBatchSuccess }) {
       const data = await api.getParticipants('completionStatus=ELIGIBLE&isIssued=false&limit=200');
       const list = data.participants || [];
       setEligibleParticipants(list);
-      setSelectedIds(list.map(p => p._id)); // Select all by default
+      // Module 9: annotate each candidate with the release gate (payment VERIFIED
+      // + review PASSED on the same submission). Only gate-passing candidates
+      // are selectable - no release option exists for the rest.
+      let gate = {};
+      if (list.length > 0) {
+        try {
+          const gres = await api.checkReleaseGate(list.map(p => p._id));
+          gate = gres.gate || {};
+        } catch (gerr) {
+          console.error('Release gate check failed:', gerr);
+        }
+      }
+      setGateStatus(gate);
+      setSelectedIds(list.filter(p => gate[p._id] && gate[p._id].eligible).map(p => p._id));
     } catch (err) {
       console.error('Failed to load eligible candidates:', err);
     } finally {
@@ -43,10 +57,11 @@ export default function IssuanceBatchPage({ onBatchSuccess }) {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === eligibleParticipants.length) {
+    const selectable = eligibleParticipants.filter(p => gateStatus[p._id] && gateStatus[p._id].eligible).map(p => p._id);
+    if (selectedIds.length === selectable.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(eligibleParticipants.map(p => p._id));
+      setSelectedIds(selectable);
     }
   };
 
@@ -188,17 +203,19 @@ export default function IssuanceBatchPage({ onBatchSuccess }) {
               ) : (
                 eligibleParticipants.map(p => {
                   const isChecked = selectedIds.includes(p._id);
+                  const gate = gateStatus[p._id];
+                  const gatePass = gate ? gate.eligible : false;
                   return (
                     <tr
                       key={p._id}
-                      onClick={() => handleToggleSelect(p._id)}
-                      className={`cursor-pointer transition ${isChecked ? 'bg-amber-50/40' : 'hover:bg-slate-50'}`}
+                      onClick={() => gatePass && handleToggleSelect(p._id)}
+                      className={`transition ${gatePass ? 'cursor-pointer' : 'opacity-70'} ${isChecked ? 'bg-amber-50/40' : 'hover:bg-slate-50'}`}
                     >
                       <td className="py-3 px-4">
                         {isChecked ? (
                           <CheckSquare className="w-4 h-4 text-amber-600" />
                         ) : (
-                          <Square className="w-4 h-4 text-slate-300" />
+                          <Square className={`w-4 h-4 ${gatePass ? 'text-slate-300' : 'text-slate-200'}`} />
                         )}
                       </td>
                       <td className="py-3 px-4">
@@ -213,9 +230,20 @@ export default function IssuanceBatchPage({ onBatchSuccess }) {
                         {p.completionEvidence || 'All criteria verified.'}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          APPROVED
-                        </span>
+                        {gatePass ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Bound submission: ${gate.submissionId}`}>
+                            RELEASE READY
+                          </span>
+                        ) : (
+                          <div className="text-left inline-block max-w-[260px]">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              GATE PENDING
+                            </span>
+                            {gate && gate.reasons && gate.reasons.length > 0 && (
+                              <div className="text-[10px] text-amber-800 mt-1 not-italic">{gate.reasons.join('; ')}</div>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

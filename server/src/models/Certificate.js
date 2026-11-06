@@ -58,6 +58,12 @@ const CertificateSchema = new mongoose.Schema({
     templateVersion: { type: String, required: true, default: '1.0.0' }
   },
   
+  // Module 9: evidence of the release-gate check at issuance time
+  releaseGate: {
+    submissionId: { type: String },
+    checkedAt: { type: Date },
+    checkedBy: { type: require('mongoose').Schema.Types.ObjectId, ref: 'Admin' }
+  },
   status: {
     type: String,
     enum: ['DRAFT', 'APPROVED', 'GENERATING', 'ISSUED', 'FAILED', 'REVOKED', 'REPLACED'],

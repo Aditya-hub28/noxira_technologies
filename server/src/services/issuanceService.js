@@ -4,6 +4,7 @@ const Participant = require('../models/Participant');
 const Program = require('../models/Program');
 const Template = require('../models/Template');
 const AuditLog = require('../models/AuditLog');
+const { checkReleaseEligibility } = require('./releaseGateService');
 const { generate128BitToken } = require('./qrService');
 const { generateCertificatePdf } = require('./pdfService');
 const { saveCertificateFile } = require('./storageService');
@@ -55,6 +56,15 @@ async function issueCertificateForParticipant({
   // 1. Completion Gate Validation
   if (participant.completionStatus !== 'ELIGIBLE') {
     throw new Error(`Participant completion status is "${participant.completionStatus}". Only "ELIGIBLE" participants can receive a certificate.`);
+  }
+
+  // 1b. Module 9 release gate: payment VERIFIED + review PASSED on the SAME
+  // submission bound to this participant (email + programme). This runs on
+  // EVERY issuance (bulk batch or single) because it lives in the one
+  // issuance choke point. There is no automatic release path anywhere.
+  const releaseGate = await checkReleaseEligibility(participant);
+  if (!releaseGate.eligible) {
+    throw new Error(`Certificate release gate not satisfied: ${releaseGate.reasons.join('; ')}`);
   }
 
   // 2. Deterministic Award Key
@@ -123,11 +133,21 @@ async function issueCertificateForParticipant({
       },
       status: 'GENERATING',
       approvedBy: adminId,
-      approvedAt: new Date()
+      approvedAt: new Date(),
+      releaseGate: {
+        submissionId: releaseGate.submissionId,
+        checkedAt: new Date(),
+        checkedBy: adminId
+      }
     });
     await certRecord.save();
   } else {
     certRecord.status = 'GENERATING';
+    certRecord.releaseGate = {
+      submissionId: releaseGate.submissionId,
+      checkedAt: new Date(),
+      checkedBy: adminId
+    };
     await certRecord.save();
   }
 
@@ -176,7 +196,8 @@ async function issueCertificateForParticipant({
       metadata: {
         certificateNumber: certRecord.certificateNumber,
         checksum: fileMeta.sha256Checksum,
-        filesize: fileMeta.fileSizeBytes
+        filesize: fileMeta.fileSizeBytes,
+        releaseGateSubmissionId: releaseGate.submissionId
       }
     });
 

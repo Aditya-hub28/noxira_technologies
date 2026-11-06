@@ -76,6 +76,7 @@ export const api = {
   // Certificates & Issuance
   getCertificates: (params = '') => request(`/certificates?${params}`),
   issueBatch: (payload) => request('/certificates/issue-batch', { method: 'POST', body: JSON.stringify(payload) }),
+  checkReleaseGate: (participantIds) => request('/certificates/release-gate/check', { method: 'POST', body: JSON.stringify({ participantIds }) }),
   revokeCertificate: (id, payload) => request(`/certificates/${id}/revoke`, { method: 'POST', body: JSON.stringify(payload) }),
   replaceCertificate: (id, payload) => request(`/certificates/${id}/replace`, { method: 'POST', body: JSON.stringify(payload) }),
 
