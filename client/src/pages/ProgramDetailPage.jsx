@@ -8,14 +8,14 @@ import {
   Clock,
   IndianRupee,
   Users,
-  Calendar,
   BookOpen,
   CheckCircle2,
   ListOrdered,
   RotateCcw,
   AlertTriangle,
-  Send
+  ExternalLink
 } from 'lucide-react';
+import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
 
 export default function ProgramDetailPage() {
   const { code } = useParams();
@@ -25,6 +25,8 @@ export default function ProgramDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notFound, setNotFound] = useState(false);
+
+  const isFormConfigured = isGoogleFormConfigured();
 
   const fetchDetail = async () => {
     if (!cleanCode) return;
@@ -54,15 +56,12 @@ export default function ProgramDetailPage() {
     fetchDetail();
   }, [cleanCode]);
 
-  // Determine if any owner-configured content fields exist
+  // Determine if owner-authored curriculum or content exists
   const hasContent = program && (
-    program.durationWeeks != null ||
-    program.feeInr != null ||
-    program.seats != null ||
-    program.startDate ||
-    program.endDate ||
     (Array.isArray(program.syllabus) && program.syllabus.length > 0) ||
-    (Array.isArray(program.tasks) && program.tasks.length > 0)
+    (Array.isArray(program.tasks) && program.tasks.length > 0) ||
+    program.seats != null ||
+    program.feeInr != null
   );
 
   if (loading) {
@@ -160,25 +159,38 @@ export default function ProgramDetailPage() {
           </p>
         </div>
 
-        {/* Apply CTA Bar */}
+        {/* Apply CTA Bar (No Fee Gate - Free Application via Form 1) */}
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-500 text-center sm:text-left">
-            {program.feeInr !== undefined && program.feeInr !== null
-              ? 'Submit candidate details for reviewed administrative intake.'
-              : 'Intake for this programme is currently pending fee publication.'}
+          <div className="text-xs text-slate-600 text-center sm:text-left leading-relaxed max-w-md">
+            Task Submission &amp; Review Fee is payable only at final submission. Applying is free.
           </div>
-          {program.feeInr !== undefined && program.feeInr !== null ? (
-            <Link
-              to={`/apply?program=${encodeURIComponent(program.code)}`}
+
+          {isFormConfigured ? (
+            <a
+              href={GOOGLE_FORM_1_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-2"
+              title="Apply via Google Form"
             >
               Apply for {program.code}
-              <Send className="w-3.5 h-3.5 text-amber-400" />
-            </Link>
+              <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+            </a>
           ) : (
-            <span className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-xl text-xs font-medium text-center">
-              Applications open once NOXIRA publishes the fee.
-            </span>
+            <div className="w-full sm:w-auto flex flex-col items-center sm:items-end">
+              <button
+                type="button"
+                disabled
+                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                className="w-full sm:w-auto px-6 py-3 bg-slate-900/60 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed inline-flex items-center justify-center gap-2"
+              >
+                Apply for {program.code}
+                <ExternalLink className="w-3.5 h-3.5 text-amber-400/50" />
+              </button>
+              <span className="text-[11px] text-slate-500 mt-1">
+                {APPLICATION_UNAVAILABLE_MESSAGE}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -187,31 +199,35 @@ export default function ProgramDetailPage() {
       {hasContent ? (
         <div className="space-y-6">
           {/* Key Specifications Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {program.durationWeeks != null && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Duration</span>
-                </div>
-                <div className="text-base font-bold text-slate-900">
-                  {program.durationWeeks} Weeks
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {/* Duration (Guarded to 1 Month / 4 Weeks) */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Duration</span>
               </div>
-            )}
+              <div className="text-base font-bold text-slate-900">
+                1 Month (4 Weeks)
+              </div>
+            </div>
 
+            {/* Task Submission & Review Fee (Only rendered when feeInr != null) */}
             {program.feeInr != null && (
               <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
                   <IndianRupee className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Review Fee</span>
+                  <span>Task Submission &amp; Review Fee</span>
                 </div>
                 <div className="text-base font-bold text-slate-900">
-                  {program.feeInr === 0 ? '₹0 (free)' : `₹${Number(program.feeInr).toLocaleString('en-IN')}`}
+                  {program.feeInr === 0 ? '₹0 (Free)' : `₹${Number(program.feeInr).toLocaleString('en-IN')}`}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+                  Payable only at final submission. Applying is free.
                 </div>
               </div>
             )}
 
+            {/* Available Seats (Only rendered when seats != null) */}
             {program.seats != null && (
               <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
@@ -220,18 +236,6 @@ export default function ProgramDetailPage() {
                 </div>
                 <div className="text-base font-bold text-slate-900">
                   {program.seats}
-                </div>
-              </div>
-            )}
-
-            {(program.startDate || program.endDate) && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Cohort Schedule</span>
-                </div>
-                <div className="text-xs font-semibold text-slate-800 mt-1">
-                  {program.startDate ? new Date(program.startDate).toLocaleDateString() : 'TBD'} – {program.endDate ? new Date(program.endDate).toLocaleDateString() : 'TBD'}
                 </div>
               </div>
             )}
@@ -282,9 +286,7 @@ export default function ProgramDetailPage() {
             NOXIRA will publish the detailed curriculum for this programme.
           </p>
           <p className="text-xs text-slate-500">
-            {program.feeInr !== undefined && program.feeInr !== null
-              ? 'Applications are open for administrative intake.'
-              : 'Applications will open once NOXIRA publishes the programme fee.'}
+            Applications are open for candidate intake via Google Form.
           </p>
         </div>
       )}

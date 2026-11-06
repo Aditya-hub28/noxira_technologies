@@ -3,26 +3,30 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import {
   ShieldCheck,
-  Award,
   ArrowRight,
   Code2,
-  FileCheck,
-  CheckCircle2,
+  Globe,
+  Smartphone,
   RotateCcw,
   Sparkles,
-  ClipboardList,
-  GitBranch,
-  Terminal,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  Clock,
+  Layers,
+  CheckCircle2,
+  Users
 } from 'lucide-react';
 
 import { resolveProgramDescription } from '../utils/programUtils';
+import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
 
 export default function HomePage() {
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+
+  const isFormConfigured = isGoogleFormConfigured();
 
   const fetchPrograms = async () => {
     setLoading(true);
@@ -45,29 +49,59 @@ export default function HomePage() {
 
   return (
     <div className="space-y-16 sm:space-y-24 py-8 sm:py-12">
-      {/* 1. Hero Section */}
+      {/* 1. Hero Section: Company Intro + Services + Internships */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-          <span>Engineering Internship & Certification Model</span>
+          <span>Software Engineering &amp; Industry Internships</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
-          Accelerate Your Career with <span className="text-amber-600">Structured Engineering Tracks</span>
+          Modern Software Development &amp; <span className="text-amber-600">Practical Engineering Internships</span>
         </h1>
 
-        <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-          Bridge the gap between academic theory and practical engineering. Explore structured engineering tracks, apply for upcoming cohorts, and verify authentic credentials through our official registry.
+        <p className="text-sm sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">
+          NOXIRA Technologies builds custom web applications and mobile software solutions for digital platforms, while offering structured internship programmes to train aspiring developers on real-world engineering workflows.
         </p>
 
+        {/* Hero CTAs */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <Link
-            to="/apply"
-            className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
+          {isFormConfigured ? (
+            <a
+              href={GOOGLE_FORM_1_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
+              title="Apply via Google Form"
+            >
+              Apply for Internship
+              <ExternalLink className="w-4 h-4 text-amber-400" />
+            </a>
+          ) : (
+            <div className="w-full sm:w-auto flex flex-col items-center">
+              <button
+                type="button"
+                disabled
+                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                className="w-full sm:w-auto px-6 py-3.5 bg-slate-900/60 text-white/70 rounded-xl text-sm font-bold cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                Apply for Internship
+                <ExternalLink className="w-4 h-4 text-amber-400/50" />
+              </button>
+              <span className="text-[11px] text-slate-500 mt-1">
+                {APPLICATION_UNAVAILABLE_MESSAGE}
+              </span>
+            </div>
+          )}
+
+          <a
+            href="#services"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
           >
-            Apply for Cohort
-            <ArrowRight className="w-4 h-4 text-amber-400" />
-          </Link>
+            <Code2 className="w-4 h-4 text-amber-600" />
+            Our Services
+          </a>
+
           <Link
             to="/verify"
             className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
@@ -81,19 +115,115 @@ export default function HomePage() {
         {!loading && !loadError && programs.length > 0 && (
           <div className="pt-2 text-xs text-slate-500 flex items-center justify-center gap-2">
             <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
-            <span>Published tracks: <strong>{programs.length} active engineering programs</strong></span>
+            <span>Published programmes: <strong>{programs.length} active engineering tracks</strong></span>
           </div>
         )}
       </section>
 
-      {/* 2. Featured Programs Section */}
+      {/* 2. Services Section: Web & App Development */}
+      <section id="services" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
+        <div className="text-center space-y-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+            Software Development Services
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            What We Build at NOXIRA Technologies
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mx-auto leading-relaxed">
+            We partner with businesses and founders to design, develop, and deploy production-ready digital software solutions.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Service 1: Web Application Development */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 shadow-xs hover:border-amber-300 hover:shadow-md transition space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <Globe className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                Web Application Development
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Full-stack web applications tailored to business operations. We build responsive frontends with React and modern UI frameworks, backed by secure, scalable Node.js and Python APIs and robust database architectures.
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <span className="text-xs font-semibold text-slate-900 block">Core Capabilities:</span>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Full-Stack Web Architectures
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  RESTful APIs &amp; Integrations
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Database Modeling &amp; Auth
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Admin Portals &amp; Dashboards
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Service 2: Mobile Application Development */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 shadow-xs hover:border-amber-300 hover:shadow-md transition space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <Smartphone className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                Mobile Application Development
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Native and cross-platform mobile applications engineered for performance and fluid user experience. From concept and UI design to cloud backend integration, we build reliable Android and iOS software.
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <span className="text-xs font-semibold text-slate-900 block">Core Capabilities:</span>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Cross-Platform Apps
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Native Android Solutions
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Mobile API Integration
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Clean UI/UX Implementation
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Featured Internship Programmes Section */}
       <section id="programs" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
         <div className="text-center space-y-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+            Industry Internship Tracks
+          </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Official Engineering Cohorts
+            Engineering Internship Programmes
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 max-w-xl mx-auto">
-            Practical, curriculum-backed engineering tracks designed for modern software teams.
+            Practical 1-month engineering tracks designed to build industry-ready technical skills.
           </p>
         </div>
 
@@ -111,16 +241,16 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* STRICT FALLBACK: Neutral Error Message with Retry (No fake/invented cards) */}
+        {/* Error State (Neutral English fallback) */}
         {!loading && loadError && (
           <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-md mx-auto space-y-4 shadow-sm">
             <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mx-auto text-amber-600">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h3 className="font-bold text-slate-900 text-sm">Programs abhi load nahi ho paye</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Unable to Load Programmes</h3>
               <p className="text-xs text-slate-500">
-                Network connection check karein ya thodi der baad dobara koshish karein.
+                Please check your network connection or try again shortly.
               </p>
             </div>
             <button
@@ -128,7 +258,7 @@ export default function HomePage() {
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              Retry Programs
+              Retry Programmes
             </button>
           </div>
         )}
@@ -136,7 +266,7 @@ export default function HomePage() {
         {/* Empty State */}
         {!loading && !loadError && programs.length === 0 && (
           <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-md mx-auto text-xs text-slate-500">
-            No active programs are currently published. Check back shortly.
+            No active programmes are currently published. Please check back shortly.
           </div>
         )}
 
@@ -165,38 +295,72 @@ export default function HomePage() {
                   <p className="text-xs text-slate-600 leading-relaxed">
                     {resolveProgramDescription(prg)}
                   </p>
+
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium pt-1">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Duration: 1 Month (4 Weeks)</span>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Curriculum Review Model
-                  </span>
                   <Link
-                    to={`/apply?program=${encodeURIComponent(prg.code)}`}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1.5"
+                    to={`/programs/${encodeURIComponent(prg.code)}`}
+                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 transition inline-flex items-center gap-1"
                   >
-                    Apply Now
-                    <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
+                    View Details <ArrowRight className="w-3 h-3" />
                   </Link>
+
+                  {isFormConfigured ? (
+                    <a
+                      href={GOOGLE_FORM_1_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1.5"
+                      title="Apply via Google Form 1"
+                    >
+                      Apply Now
+                      <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      title={APPLICATION_UNAVAILABLE_MESSAGE}
+                      className="px-4 py-2 bg-slate-900/60 text-white/70 rounded-lg text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5"
+                    >
+                      Apply Now
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
+
+        {programs.length > 0 && (
+          <div className="text-center pt-2">
+            <Link
+              to="/programs"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-amber-700 transition"
+            >
+              Browse all {programs.length} technical programmes <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
       </section>
 
-      {/* 3. 6-Step Journey Strip (Strictly Informational Process) */}
+      {/* 4. 6-Step Journey Section (Agreed Workflow) */}
       <section id="journey" className="bg-slate-900 text-white py-16 scroll-mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center space-y-2 max-w-2xl mx-auto">
             <span className="text-[11px] font-mono uppercase tracking-wider text-amber-400 font-bold">
-              Transparent & Merit-Driven
+              Transparent &amp; Structured Flow
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              The 6-Step Certification Journey
+              The 6-Step Internship Journey
             </h2>
             <p className="text-xs sm:text-sm text-slate-400">
-              Clear expectations from initial application to credential issuance.
+              Every candidate progresses through our defined, merit-oriented lifecycle.
             </p>
           </div>
 
@@ -204,39 +368,33 @@ export default function HomePage() {
             {[
               {
                 step: '01',
-                title: 'Explore & Apply',
-                badge: 'Live',
-                desc: 'Review available tracks and requirements. Submit your official candidate profile online.'
+                title: 'Apply via Google Form 1',
+                desc: 'Select your preferred engineering track and submit your candidate application through official Google Form 1. Applying is completely free.'
               },
               {
                 step: '02',
-                title: 'Application Review',
-                badge: 'Live',
-                desc: 'Administration screens applicant submissions and establishes cohort eligibility.'
+                title: 'Administrative Review',
+                desc: 'NOXIRA administration reviews applicant background, track selection, and eligibility for cohort intake.'
               },
               {
                 step: '03',
-                title: 'Official Offer Letter (Planned)',
-                badge: 'Planned',
-                desc: 'Planned future module: Approved candidates will receive an official enrollment confirmation letter.'
+                title: 'Official Offer Letter',
+                desc: 'Approved candidates receive a personalized, administrative offer letter delivered directly to their registered email address.'
               },
               {
                 step: '04',
-                title: 'Industry Tasks (Planned)',
-                badge: 'Planned',
-                desc: 'Planned future module: Task assignment and submission portal for project deliverables.'
+                title: 'Tasks & Cohort Guidance',
+                desc: 'Interns receive practical technical task deliverables, project requirements, and guidance through the dedicated WhatsApp cohort group.'
               },
               {
                 step: '05',
-                title: 'Evaluation & Rework (Planned)',
-                badge: 'Planned',
-                desc: 'Planned future module: Staff reviewer rubric evaluation and structured rework guidance.'
+                title: 'Final Project Submission (Form 2)',
+                desc: 'Submit your completed project repository link, Task Submission & Review Fee, and payment transaction ID through Google Form 2.'
               },
               {
                 step: '06',
-                title: 'Registry-Verified Certificate',
-                badge: 'Live',
-                desc: 'Upon approved completion, an official Certificate of Achievement is issued, recorded in the registry, and publicly verifiable.'
+                title: 'Verified Certificate Issuance',
+                desc: 'Once payment is manually verified and technical review is approved, your official Certificate of Achievement is explicitly released and publicly verifiable on the registry.'
               }
             ].map(item => (
               <div
@@ -247,15 +405,9 @@ export default function HomePage() {
                   <div className="font-mono text-xl font-black text-amber-500">
                     {item.step}
                   </div>
-                  {item.badge === 'Planned' ? (
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
-                      Planned
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded">
-                      Live Flow
-                    </span>
-                  )}
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
+                    Step {item.step}
+                  </span>
                 </div>
                 <h3 className="font-bold text-white text-sm">
                   {item.title}
@@ -269,7 +421,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4. Trust & Verification Teaser */}
+      {/* 5. Trust & Verification Teaser */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 border border-amber-200/80 rounded-3xl p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8 shadow-xs">
           <div className="space-y-3 max-w-xl">

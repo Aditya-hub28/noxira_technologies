@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Shield, Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, Lock } from 'lucide-react';
+import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
 
 export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const isFormConfigured = isGoogleFormConfigured();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -22,7 +24,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <div className="font-black tracking-wider text-base flex items-center gap-1 text-white">
                 NOXIRA <span className="text-amber-500 text-xs px-1.5 py-0.5 rounded-sm bg-amber-500/10 border border-amber-500/20 font-bold">TECH</span>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">Digital Engineering & Credentials</div>
+              <div className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">Software Services &amp; Internships</div>
             </div>
           </Link>
 
@@ -34,6 +36,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Home
             </Link>
+            <a
+              href="/#services"
+              className="hover:text-amber-400 transition"
+            >
+              Services
+            </a>
             <Link
               to="/programs"
               className={`hover:text-amber-400 transition ${location.pathname.startsWith('/programs') ? 'text-amber-400 font-bold' : ''}`}
@@ -88,23 +96,50 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               </button>
             )}
 
-            <Link
-              to="/apply"
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1.5"
-            >
-              Apply Now
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {isFormConfigured ? (
+              <a
+                href={GOOGLE_FORM_1_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                title="Apply via official Google Form"
+              >
+                Apply Now
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                className="px-4 py-2 bg-amber-500/60 text-slate-950/70 rounded-lg text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
+              >
+                Apply Now
+              </button>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2">
-            <Link
-              to="/apply"
-              className="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg sm:hidden"
-            >
-              Apply
-            </Link>
+            {isFormConfigured ? (
+              <a
+                href={GOOGLE_FORM_1_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg sm:hidden flex items-center gap-1"
+              >
+                Apply <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title={APPLICATION_UNAVAILABLE_MESSAGE}
+                className="px-3 py-1.5 bg-amber-500/60 text-slate-950/70 font-bold text-xs rounded-lg sm:hidden cursor-not-allowed"
+              >
+                Apply
+              </button>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 text-slate-400 hover:text-white rounded-lg focus:outline-none"
@@ -125,6 +160,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Home
             </Link>
+            <a
+              href="/#services"
+              onClick={closeMobileMenu}
+              className="block py-2 text-sm font-semibold text-slate-200 hover:text-amber-400"
+            >
+              Services
+            </a>
             <Link
               to="/programs"
               onClick={closeMobileMenu}
@@ -154,13 +196,27 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               Verify Certificate
             </Link>
             <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
-              <Link
-                to="/apply"
-                onClick={closeMobileMenu}
-                className="w-full text-center py-2.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg"
-              >
-                Apply for Cohort
-              </Link>
+              {isFormConfigured ? (
+                <a
+                  href={GOOGLE_FORM_1_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={closeMobileMenu}
+                  className="w-full text-center py-2.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg flex items-center justify-center gap-1.5"
+                >
+                  Apply for Cohort
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title={APPLICATION_UNAVAILABLE_MESSAGE}
+                  className="w-full text-center py-2.5 bg-amber-500/60 text-slate-950/70 font-bold text-xs rounded-lg cursor-not-allowed"
+                >
+                  Apply for Cohort (Unavailable)
+                </button>
+              )}
               {admin ? (
                 <Link
                   to="/admin"
@@ -200,7 +256,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <span className="font-bold text-white text-sm tracking-wider">NOXIRA TECHNOLOGIES</span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-md">
-                Industry-standard engineering tracks and technical programs. Credentials are issued only upon formal administrative review and confirmed eligibility.
+                NOXIRA Technologies designs and develops modern web and mobile software solutions, alongside practical engineering internship tracks with transparent credential verification.
               </p>
             </div>
 
@@ -209,9 +265,28 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Quick Navigation</h4>
               <ul className="space-y-2">
                 <li><Link to="/" className="hover:text-amber-400 transition">Home Overview</Link></li>
+                <li><a href="/#services" className="hover:text-amber-400 transition">Software Services</a></li>
                 <li><Link to="/programs" className="hover:text-amber-400 transition">All Programmes</Link></li>
-                <li><a href="/#journey" className="hover:text-amber-400 transition">6-Step Process</a></li>
-                <li><Link to="/apply" className="hover:text-amber-400 transition">Candidate Application</Link></li>
+                <li><a href="/#journey" className="hover:text-amber-400 transition">6-Step Journey</a></li>
+                <li>
+                  {isFormConfigured ? (
+                    <a
+                      href={GOOGLE_FORM_1_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-amber-400 transition inline-flex items-center gap-1"
+                    >
+                      Candidate Application <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span
+                      className="text-slate-500 cursor-not-allowed inline-flex items-center gap-1"
+                      title={APPLICATION_UNAVAILABLE_MESSAGE}
+                    >
+                      Candidate Application
+                    </span>
+                  )}
+                </li>
                 <li><Link to="/status" className="hover:text-amber-400 transition">Check Application Status</Link></li>
                 <li><Link to="/verify" className="hover:text-amber-400 transition">Public Verification Portal</Link></li>
               </ul>
@@ -234,7 +309,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               &copy; {new Date().getFullYear()} NOXIRA Technologies. All rights reserved.
             </div>
             <div className="flex items-center gap-4">
-              <span>Technical Intake & Issuance Engine</span>
+              <span>Software Engineering &amp; Verification Registry</span>
               <span>·</span>
               <Link to="/verify" className="text-amber-500/80 hover:text-amber-400">Public Verification</Link>
             </div>

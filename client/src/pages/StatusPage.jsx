@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Search, CheckCircle2, AlertCircle, Clock, RotateCcw, ArrowRight, ShieldCheck, FileText } from 'lucide-react';
+import { Search, CheckCircle2, AlertCircle, Clock, RotateCcw, ArrowRight, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
+import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
 
 const STATUS_LABELS = {
   APPLIED: {
@@ -301,12 +302,23 @@ export default function StatusPage() {
 
       {/* Helpful Quick Links */}
       <div className="text-center pt-2">
-        <Link
-          to="/apply"
-          className="text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1 transition"
-        >
-          Need to submit a new application? Open Application Intake <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        {isGoogleFormConfigured() ? (
+          <a
+            href={GOOGLE_FORM_1_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1 transition"
+          >
+            Need to submit a new application? Open Application Form <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        ) : (
+          <span
+            className="text-xs text-slate-400 inline-flex items-center gap-1 cursor-not-allowed"
+            title={APPLICATION_UNAVAILABLE_MESSAGE}
+          >
+            Need to submit a new application? {APPLICATION_UNAVAILABLE_MESSAGE}
+          </span>
+        )}
       </div>
     </div>
   );

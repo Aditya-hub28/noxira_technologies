@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node tests/module1_verification.cjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

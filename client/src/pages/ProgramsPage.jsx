@@ -8,11 +8,12 @@ import {
   Clock,
   IndianRupee,
   Users,
-  Calendar,
   RotateCcw,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
+import { GOOGLE_FORM_1_URL, isGoogleFormConfigured, APPLICATION_UNAVAILABLE_MESSAGE } from '../config/siteConfig';
 
 const CATEGORIES = [
   'Development',
@@ -28,6 +29,8 @@ export default function ProgramsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+
+  const isFormConfigured = isGoogleFormConfigured();
 
   const fetchPrograms = async () => {
     setLoading(true);
@@ -71,13 +74,13 @@ export default function ProgramsPage() {
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-          <span>Programme Directory</span>
+          <span>Engineering Tracks</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-          Engineering & Technical Programmes
+          Engineering &amp; Technical Programmes
         </h1>
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          Explore programmes across 6 professional domains. Browse track details and apply for cohort intake.
+          Explore structured 1-month technical tracks. Browse curriculum specifications and apply for cohort intake via Google Form.
         </p>
       </div>
 
@@ -206,19 +209,17 @@ export default function ProgramsPage() {
                           {resolveProgramDescription(prg)}
                         </p>
 
-                        {/* Optional Meta Rows - Only rendered if set by owner */}
+                        {/* Meta Rows (Duration guarded to 1-month, no batch dates) */}
                         <div className="space-y-1.5 pt-2 text-[11px] text-slate-600">
-                          {prg.durationWeeks != null && (
-                            <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                              <Clock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                              <span>{prg.durationWeeks} Weeks Structured Duration</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                            <span>Duration: 1 Month (4 Weeks)</span>
+                          </div>
 
                           {prg.feeInr != null && (
                             <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                               <IndianRupee className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                              <span>Task Submission & Review Fee: ₹{Number(prg.feeInr).toLocaleString('en-IN')}</span>
+                              <span>Task Submission &amp; Review Fee: {prg.feeInr === 0 ? '₹0 (Free)' : `₹${Number(prg.feeInr).toLocaleString('en-IN')}`}</span>
                             </div>
                           )}
 
@@ -226,15 +227,6 @@ export default function ProgramsPage() {
                             <div className="flex items-center gap-1.5 text-slate-700">
                               <Users className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                               <span>Seats: {prg.seats} Available</span>
-                            </div>
-                          )}
-
-                          {(prg.startDate || prg.endDate) && (
-                            <div className="flex items-center gap-1.5 text-slate-700">
-                              <Calendar className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                              <span>
-                                {prg.startDate ? new Date(prg.startDate).toLocaleDateString() : 'TBD'} – {prg.endDate ? new Date(prg.endDate).toLocaleDateString() : 'TBD'}
-                              </span>
                             </div>
                           )}
                         </div>
@@ -247,12 +239,28 @@ export default function ProgramsPage() {
                         >
                           View Curriculum <ArrowRight className="w-3 h-3" />
                         </Link>
-                        <Link
-                          to={`/apply?program=${encodeURIComponent(prg.code)}`}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition"
-                        >
-                          Apply Now
-                        </Link>
+
+                        {isFormConfigured ? (
+                          <a
+                            href={GOOGLE_FORM_1_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1"
+                            title="Apply via Google Form"
+                          >
+                            Apply Now
+                            <ExternalLink className="w-3 h-3 text-amber-400" />
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            title={APPLICATION_UNAVAILABLE_MESSAGE}
+                            className="px-3.5 py-1.5 bg-slate-900/60 text-white/70 rounded-lg text-xs font-semibold cursor-not-allowed"
+                          >
+                            Apply Now
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
