@@ -4129,6 +4129,11 @@ async function runTestSuite() {
       await form2ImportController.commitForm2(cm.req, cm.res, cm.next);
       return cm;
     };
+    const acceptCorrection = async (subId, body = {}) => {
+      const m = mockReqRes({ params: { submissionId: subId }, body });
+      await form2ImportController.acceptCorrection(m.req, m.res, m.next);
+      return m;
+    };
 
     const subA = await mkMatchedSubM8('Mira M8', 'mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v1');
 
@@ -4156,37 +4161,47 @@ async function runTestSuite() {
     r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'again' });
     assert.strictEqual(r.getStatus(), 409, 'Awaiting student correction');
 
-    // 4. Re-import with SAME link is still a duplicate, not a revision
+    // 4. Re-imports NEVER mutate a submission: same link OR new link, both are
+    // duplicates. While the correction window is open they are only FLAGGED as
+    // possible corrections for the admin.
     let cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v1', 'SAME');
     assert.strictEqual(cm.getStatus(), 201);
-    assert.strictEqual(cm.getData().summary.revisions, 0);
     assert.strictEqual(cm.getData().summary.duplicates, 1, 'Same link re-import stays a duplicate');
-
-    // 5. Re-import with NEW link while CHANGES_REQUESTED opens round 1 (on-time)
+    assert.strictEqual(cm.getData().summary.possibleCorrections, 1, 'Flagged as possible correction (open window)');
     cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v2', 'V2');
-    assert.strictEqual(cm.getData().summary.revisions, 1);
+    assert.strictEqual(cm.getData().summary.duplicates, 1, 'New-link re-import is also a duplicate - no auto-revision');
     let doc = await Submission.findById(subA._id);
+    assert.strictEqual(doc.reviewStatus, 'CHANGES_REQUESTED', 'Import alone never opens a round');
+    assert.strictEqual(doc.reviewRounds.length, 1, 'No round created by imports');
+
+    // 5. Admin ACCEPTS the correction with the SAME GitHub URL (normal updated-code
+    // resubmission): round 1 opens, on-time
+    let ac = await acceptCorrection(subA.submissionId, {});
+    assert.strictEqual(ac.getStatus(), 200);
+    doc = await Submission.findById(subA._id);
     assert.strictEqual(doc.reviewStatus, 'IN_REVIEW');
     assert.strictEqual(doc.currentReviewRound, 1);
-    assert.strictEqual(doc.projectLink, 'https://github.com/mira/v2');
+    assert.strictEqual(doc.projectLink, 'https://github.com/mira/v1', 'Same URL supported');
     assert.strictEqual(doc.reviewRounds[1].resubmittedLate, false, 'On-time correction not late');
 
-    // 6. Feedback on round 1, then make the window expire, then a LATE correction opens round 2 - flagged, not auto-failed
+    // 6. Feedback on round 1, expire the window, then a LATE accepted correction
+    // (different link this time) opens round 2 - flagged, not auto-failed
     r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Setup works, add error handling' });
     assert.strictEqual(r.getStatus(), 200);
     await Submission.updateOne({ _id: subA._id }, { $set: { 'reviewRounds.1.correctionDueAt': new Date(Date.now() - 86400000) } });
-    cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v3', 'V3');
-    assert.strictEqual(cm.getData().summary.revisions, 1);
+    ac = await acceptCorrection(subA.submissionId, { projectLink: 'https://github.com/mira/v3' });
+    assert.strictEqual(ac.getStatus(), 200);
     doc = await Submission.findById(subA._id);
     assert.strictEqual(doc.currentReviewRound, 2);
+    assert.strictEqual(doc.projectLink, 'https://github.com/mira/v3');
     assert.strictEqual(doc.reviewRounds[2].resubmittedLate, true, 'Late correction is flagged');
     assert.strictEqual(doc.reviewStatus, 'IN_REVIEW', 'Late correction is NOT auto-failed - admin decides');
 
-    // 7. Round 2 feedback, correction opens round 3 (the last re-review), feedback there exhausts attempts
+    // 7. Round 2 feedback, accepted correction opens round 3 (last re-review), feedback there exhausts attempts
     r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Error handling partial' });
     assert.strictEqual(r.getStatus(), 200);
-    cm = await reimport('mira.m8@example.com', 'UTR-M8-111', 'https://github.com/mira/v4', 'V4');
-    assert.strictEqual(cm.getData().summary.revisions, 1);
+    ac = await acceptCorrection(subA.submissionId, {});
+    assert.strictEqual(ac.getStatus(), 200);
     doc = await Submission.findById(subA._id);
     assert.strictEqual(doc.currentReviewRound, 3, 'Round 3 = third (last) free re-review');
     r = await review(subA.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'Still not passing' });
@@ -4217,6 +4232,21 @@ async function runTestSuite() {
     assert.deepStrictEqual(statuses, [200, 409], 'Concurrent review outcomes: exactly one succeeds');
     doc = await Submission.findById(subC._id);
     assert.strictEqual(doc.reviewRounds.length, 1, 'Exactly one round outcome persisted');
+
+    // 9b. Correction intake guards: no open window -> 409; invalid link -> 400;
+    // concurrent correction vs outcome -> exactly one wins
+    const subD = await mkMatchedSubM8('Ravi M8', 'ravi.m8@example.com', 'UTR-M8-444', 'https://github.com/ravi/final');
+    let ac2 = await acceptCorrection(subD.submissionId, {});
+    assert.strictEqual(ac2.getStatus(), 409, 'No correction window open yet');
+    r = await review(subD.submissionId, { action: 'CHANGES_REQUESTED', feedback: 'fix docs' });
+    assert.strictEqual(r.getStatus(), 200);
+    ac2 = await acceptCorrection(subD.submissionId, { projectLink: 'javascript:alert(1)' });
+    assert.strictEqual(ac2.getStatus(), 400, 'Non-http(s) correction link rejected');
+    const race2 = (await Promise.all([
+      acceptCorrection(subD.submissionId, {}),
+      review(subD.submissionId, { action: 'PASS', requirementsComplete: true, projectWorking: true })
+    ])).map((m) => m.getStatus()).sort();
+    assert.deepStrictEqual(race2, [200, 409], 'Concurrent correction acceptance vs outcome: exactly one succeeds');
 
     // 10. Audit trail
     const outcomeAudit = await AuditLog.findOne({ action: 'REVIEW_OUTCOME', targetId: subA._id });

@@ -192,8 +192,7 @@ async function evaluateRows(rows, colMap, programs) {
     }
 
     let duplicate = false;
-    let revision = false;
-    let revisionOf = null;
+    let possibleCorrection = false;
     let matchState = null;
     let matchReason = null;
     let applicationDoc = null;
@@ -202,15 +201,14 @@ async function evaluateRows(rows, colMap, programs) {
     if (errors.length === 0) {
       const existing = await Submission.findOne({ email, programCode: prog.code, transactionId });
       if (existing) {
-        // Module 8: a re-imported response with the SAME email+programme+UTR but a
-        // DIFFERENT project link, while a correction window is open, is the
-        // student's correction for the open review round - not a duplicate.
-        if (existing.reviewStatus === 'CHANGES_REQUESTED' && existing.projectLink !== projectLink) {
-          revision = true;
-          revisionOf = existing;
-        } else {
-          duplicate = true;
-        }
+        // Module 8: imports NEVER mutate an existing submission. A re-imported
+        // row is always a duplicate; when the existing submission has an open
+        // correction window it is only FLAGGED as a possible correction - the
+        // admin explicitly accepts a correction in the review UI (user: "re
+        // review accept ... admin dekhega"). Works with the same GitHub URL,
+        // the normal updated-code resubmission.
+        duplicate = true;
+        if (existing.reviewStatus === 'CHANGES_REQUESTED') possibleCorrection = true;
       } else {
         // A UTR is a payment reference: the same UTR claimed by a DIFFERENT
         // applicant is suspicious. Flag it for manual review - it is still
@@ -235,8 +233,7 @@ async function evaluateRows(rows, colMap, programs) {
       transactionId,
       formSubmittedAt,
       duplicate,
-      revision,
-      _revisionOf: revisionOf,
+      possibleCorrection,
       utrShared,
       errors,
       matchState,
@@ -251,7 +248,7 @@ async function evaluateRows(rows, colMap, programs) {
 
 function stripInternal(ev) {
   return ev.map((e) => {
-    const { _applicationDoc, _revisionOf, _raw, ...pub } = e;
+    const { _applicationDoc, _raw, ...pub } = e;
     return pub;
   });
 }
@@ -378,50 +375,12 @@ exports.commitForm2 = async (req, res, next) => {
     let unmatched = 0;
     let duplicates = 0;
     let errorRows = 0;
-    let revisions = 0;
+    let possibleCorrections = 0;
 
     for (const e of evaluated) {
       if (e.errors.length > 0) { errorRows++; continue; }
-      if (e.duplicate) { duplicates++; continue; }
-      if (e.revision && e._revisionOf) {
-        // Apply the correction to the EXISTING submission: open the next review
-        // round with the new link. Optimistic concurrency (__v) rejects a race
-        // with a concurrent admin review action.
-        const sub = e._revisionOf;
-        const now = new Date();
-        const prevRoundNo = sub.currentReviewRound;
-        const prevRound = sub.reviewRounds[prevRoundNo];
-        const late = Boolean(prevRound && prevRound.correctionDueAt && now > prevRound.correctionDueAt);
-        // Atomic transition: only while THIS correction window is still open.
-        // A concurrent admin outcome or another racing revision makes the
-        // filter match nothing and the row becomes an error, never a half-write.
-        const upd = await Submission.findOneAndUpdate(
-          { _id: sub._id, reviewStatus: 'CHANGES_REQUESTED', currentReviewRound: prevRoundNo },
-          {
-            $push: { reviewRounds: { round: prevRoundNo + 1, projectLink: e.projectLink, openedAt: now, resubmittedAt: now, resubmittedLate: late } },
-            $inc: { currentReviewRound: 1 },
-            $set: { reviewStatus: 'IN_REVIEW', projectLink: e.projectLink, ...(e.formSubmittedAt ? { formSubmittedAt: e.formSubmittedAt } : {}) }
-          },
-          { new: true }
-        );
-        if (!upd) { errorRows++; continue; }
-        revisions++;
-        await AuditLog.create({
-          actorType: 'ADMIN',
-          actorId: req.admin._id,
-          action: 'REVIEW_RESUBMISSION',
-          targetEntity: 'SUBMISSION',
-          targetId: sub._id,
-          summary: `Correction received for ${sub.submissionId}: review round ${upd.currentReviewRound} opened${late ? ' (late - after the 3 calendar day window; admin decides any extension)' : ''}`,
-          ipAddress: req.ip || '127.0.0.1',
-          metadata: {
-            submissionId: sub.submissionId,
-            round: upd.currentReviewRound,
-            resubmittedLate: late
-          }
-        });
-        continue;
-      }
+      if (e.duplicate) { duplicates++; if (e.possibleCorrection) possibleCorrections++; continue; }
+      // (Module 8: duplicate rows never mutate submissions; corrections are admin-accepted via /review/correction.)
       const submission = new Submission({
         submissionId: generateSubmissionId(),
         email: e.email,
@@ -444,7 +403,7 @@ exports.commitForm2 = async (req, res, next) => {
     importBatch.totalRows = evaluated.length;
     importBatch.validRows = committed;
     importBatch.duplicateRows = duplicates;
-    importBatch.revisionRows = revisions;
+    importBatch.possibleCorrectionRows = possibleCorrections;
     importBatch.errorRows = errorRows;
     importBatch.status = 'COMMITTED';
     await importBatch.save();
@@ -470,8 +429,8 @@ exports.commitForm2 = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: `Committed ${committed} submission(s): ${matched} matched to applications, ${unmatched} unmatched (manual review), ${duplicates} duplicate(s) skipped, ${revisions} correction(s) applied to open review rounds, ${errorRows} error row(s) skipped.`,
-      summary: { totalRows: evaluated.length, committed, matched, unmatched, duplicates, revisions, errorRows }
+      message: `Committed ${committed} submission(s): ${matched} matched to applications, ${unmatched} unmatched (manual review), ${duplicates} duplicate(s) skipped (${possibleCorrections} possible correction(s) for open review windows - accept them in the review UI), ${errorRows} error row(s) skipped.`,
+      summary: { totalRows: evaluated.length, committed, matched, unmatched, duplicates, possibleCorrections, errorRows }
     });
   } catch (error) {
     next(error);
@@ -737,6 +696,86 @@ exports.reviewOutcome = async (req, res, next) => {
         : updated.reviewStatus === 'FAILED_EXHAUSTED'
           ? `Feedback recorded for ${updated.submissionId}; all review attempts are exhausted - no certificate eligibility.`
           : `Feedback recorded for ${updated.submissionId}; student has 3 calendar days (until ${round.correctionDueAt.toISOString()}) to correct and resubmit.`,
+      review: {
+        submissionId: updated.submissionId,
+        reviewStatus: updated.reviewStatus,
+        currentReviewRound: updated.currentReviewRound,
+        rounds: updated.reviewRounds
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Module 8: admin-ACCEPTED correction intake. Imports never mutate a
+ * submission; when the student resubmits (same or different link - updating
+ * code at the same GitHub URL is the normal case), the admin confirms the
+ * correction here and the next review round opens atomically. Late corrections
+ * are flagged, never auto-failed.
+ */
+exports.acceptCorrection = async (req, res, next) => {
+  try {
+    const cleanId = (req.params.submissionId || '').trim().toUpperCase();
+    const { projectLink, formSubmittedAt } = req.body || {};
+    if (projectLink !== undefined && (typeof projectLink !== 'string' || !HTTP_URL_RE.test(projectLink.trim()))) {
+      return res.status(400).json({ success: false, message: 'Correction link must be an http(s) URL.' });
+    }
+    let submittedAt = null;
+    if (formSubmittedAt !== undefined) {
+      submittedAt = new Date(formSubmittedAt);
+      if (isNaN(submittedAt.getTime())) {
+        return res.status(400).json({ success: false, message: 'formSubmittedAt must be a valid date/time.' });
+      }
+    }
+
+    const submission = await Submission.findOne({ submissionId: cleanId });
+    if (!submission) {
+      return res.status(404).json({ success: false, message: `Submission ${cleanId} not found.` });
+    }
+    if (submission.reviewStatus !== 'CHANGES_REQUESTED') {
+      return res.status(409).json({ success: false, message: `Submission ${cleanId} has no open correction window (state: ${submission.reviewStatus}).` });
+    }
+
+    const now = new Date();
+    const prevRoundNo = submission.currentReviewRound;
+    const prevRound = submission.reviewRounds[prevRoundNo];
+    const late = Boolean(prevRound && prevRound.correctionDueAt && now > prevRound.correctionDueAt);
+    const link = projectLink ? projectLink.trim() : submission.projectLink;
+
+    const updated = await Submission.findOneAndUpdate(
+      { submissionId: cleanId, reviewStatus: 'CHANGES_REQUESTED', currentReviewRound: prevRoundNo },
+      {
+        $push: { reviewRounds: { round: prevRoundNo + 1, projectLink: link, openedAt: now, resubmittedAt: submittedAt || now, resubmittedLate: late } },
+        $inc: { currentReviewRound: 1 },
+        $set: { reviewStatus: 'IN_REVIEW', projectLink: link }
+      },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(409).json({ success: false, message: 'Review state changed concurrently; refresh and retry.' });
+    }
+
+    await AuditLog.create({
+      actorType: 'ADMIN',
+      actorId: req.admin._id,
+      action: 'REVIEW_RESUBMISSION',
+      targetEntity: 'SUBMISSION',
+      targetId: updated._id,
+      summary: `Correction accepted by admin for ${updated.submissionId}: review round ${updated.currentReviewRound} opened${late ? ' (late - after the 3 calendar day window; admin decides any extension)' : ''}`,
+      ipAddress: req.ip || '127.0.0.1',
+      metadata: {
+        submissionId: updated.submissionId,
+        round: updated.currentReviewRound,
+        sameLink: link === submission.projectLink,
+        resubmittedLate: late
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `Correction accepted for ${updated.submissionId}; re-review round ${updated.currentReviewRound} is now open${late ? ' (submitted after the 3 calendar day window - flagged LATE)' : ''}.`,
       review: {
         submissionId: updated.submissionId,
         reviewStatus: updated.reviewStatus,

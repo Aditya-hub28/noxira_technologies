@@ -55,6 +55,7 @@ export const api = {
   adminGetSubmissions: (matchState = '') => request(`/intake/submissions${matchState ? `?matchState=${matchState}` : ''}`),
   adminMarkPayment: (submissionId, payload) => request(`/intake/submissions/${encodeURIComponent(submissionId)}/payment`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminReviewOutcome: (submissionId, payload) => request(`/intake/submissions/${encodeURIComponent(submissionId)}/review`, { method: 'POST', body: JSON.stringify(payload) }),
+  adminAcceptCorrection: (submissionId, payload) => request(`/intake/submissions/${encodeURIComponent(submissionId)}/review/correction`, { method: 'POST', body: JSON.stringify(payload) }),
 
   // Participants & Completion
   getParticipants: (params = '') => request(`/participants?${params}`),

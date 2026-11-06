@@ -161,8 +161,23 @@ export default function Form2ImportPage() {
   }[st] || st || 'NOT STARTED');
   const fmtIst = (d) => d ? new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : '-';
 
+  const [correctionLink, setCorrectionLink] = useState('');
   const openReview = (sub) => {
     setReviewSub(sub); setReviewFeedback(''); setReqComplete(false); setProjWorking(false); setReviewError('');
+    setCorrectionLink(sub.projectLink || '');
+  };
+  const handleAcceptCorrection = async () => {
+    if (!window.confirm(`Accept the student's correction for ${reviewSub.submissionId} and open the next re-review round?`)) return;
+    setReviewBusy(true); setReviewError('');
+    try {
+      const res = await api.adminAcceptCorrection(reviewSub.submissionId, { projectLink: correctionLink });
+      await fetchSubmissions();
+      setReviewSub(res.review ? { ...reviewSub, projectLink: correctionLink, reviewStatus: res.review.reviewStatus, currentReviewRound: res.review.currentReviewRound, reviewRounds: res.review.rounds } : null);
+    } catch (err) {
+      setReviewError(err.message || 'Could not accept correction');
+    } finally {
+      setReviewBusy(false);
+    }
   };
   const handleReviewOutcome = async (action) => {
     const label = action === 'PASS'
@@ -522,8 +537,32 @@ export default function Form2ImportPage() {
               <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-[11px] text-rose-800 font-bold">All review attempts exhausted - no certificate eligibility for this submission.</div>
             )}
             {reviewSub.reviewStatus === 'CHANGES_REQUESTED' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
-                Awaiting the student's correction. It opens the next round automatically when a new Form 2 response arrives with a different project link.
+              <div className="space-y-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                  Awaiting the student's correction (3 calendar days). When it arrives - usually an updated
+                  project at the SAME link - confirm it here to open the next re-review round. Imported Form 2
+                  rows never change a submission on their own; a re-import matching this student is flagged as a
+                  possible correction in the import summary.
+                </div>
+                <label className="block text-[11px] text-slate-600">
+                  Correction project link (same link is fine when the code was updated there)
+                  <input
+                    type="url"
+                    value={correctionLink}
+                    onChange={(e) => setCorrectionLink(e.target.value)}
+                    className="mt-1 w-full border border-slate-300 rounded-xl p-2 text-xs"
+                  />
+                </label>
+                {reviewError && <div className="text-[11px] text-rose-700 font-bold">{reviewError}</div>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAcceptCorrection}
+                    disabled={reviewBusy}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Accept correction & open re-review
+                  </button>
+                </div>
               </div>
             )}
 
