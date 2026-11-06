@@ -496,6 +496,74 @@ exports.previewForm1 = async (req, res, next) => {
   }
 };
 
+
+/**
+ * Checks whether an existing participant may be linked by a Form 1 import:
+ * website applicants, or participants from an earlier Form 1 batch (crash recovery).
+ * Certificate-side PARTICIPANT_CSV participants are never linkable.
+ */
+async function isForm1Linkable(participant) {
+  if (participant.source === 'WEBSITE') return true;
+  if (participant.source === 'CSV_IMPORT' && participant.sourceImportBatchId) {
+    const parentBatch = await ImportBatch.findById(participant.sourceImportBatchId).select('kind').lean();
+    return !!(parentBatch && parentBatch.kind === 'FORM1_RESPONSES');
+  }
+  return false;
+}
+
+/**
+ * Creates ONLY the Application for an existing linkable participant.
+ * Same generateApplicationId retry + raced-application re-check pattern as websiteApply.
+ * intakeSource stays 'WEBSITE' for website applicants; never touches other participant data.
+ */
+async function createApplicationForExistingParticipant({ participant, cleanProgramCode, programTitle, cleanBatch, feeLocked, req }) {
+  let application = null;
+  let attempts = 0;
+  while (!application && attempts < 5) {
+    attempts++;
+    const candidateAppId = generateApplicationId();
+    try {
+      application = new Application({
+        applicationId: candidateAppId,
+        participantId: participant._id,
+        programCode: cleanProgramCode,
+        programTitle,
+        batchId: cleanBatch,
+        status: 'APPLIED',
+        intakeSource: participant.source === 'WEBSITE' ? 'WEBSITE' : 'FORM1_IMPORT',
+        feeLocked
+      });
+      await application.save();
+    } catch (appErr) {
+      if (appErr.code === 11000) {
+        const racedApp = await Application.findOne({ participantId: participant._id });
+        if (racedApp) {
+          application = racedApp;
+          break;
+        }
+        if (attempts < 5) continue;
+      }
+      throw appErr;
+    }
+  }
+  if (!application) {
+    throw new Error('Failed to create unique Application after retries.');
+  }
+
+  await AuditLog.create({
+    actorType: 'ADMIN',
+    actorId: req.admin._id,
+    action: 'APPLICATION_CREATED',
+    targetEntity: 'APPLICATION',
+    targetId: application._id,
+    ipAddress: req.ip || '127.0.0.1',
+    userAgent: (req.headers && req.headers['user-agent']) || 'Unknown',
+    summary: `Application ${application.applicationId} linked for existing participant ${participant.fullName} (${participant.email}) in ${cleanProgramCode}`
+  });
+
+  return application;
+}
+
 /**
  * Commit Form 1 CSV responses into Participants and Applications
  * POST /api/v1/intake/form1-commit
@@ -615,6 +683,7 @@ exports.commitForm1 = async (req, res, next) => {
     const duplicateList = [];
     const invalidList = [];
     const needsProgramSkippedList = [];
+    const needsNormalizationList = [];
     const errorList = [];
     const allCreatedApplications = [];
 
@@ -656,14 +725,14 @@ exports.commitForm1 = async (req, res, next) => {
         continue;
       }
 
-      // Re-verify programme fresh
+      // Re-verify programme fresh; non-normalized rows are classified explicitly, never created
       const program = programMap.get(progCode);
       if (!program || !program.isActive || program.durationWeeks !== 4 || program.feeInr !== 99) {
-        errorList.push({
+        needsNormalizationList.push({
           rowIndex,
           email: rawEmail,
           programCode: progCode,
-          error: `Programme ${progCode} requires normalization (must be 4 weeks & ₹99) and was blocked.`
+          reason: `Programme ${progCode} requires normalization (must be 4 weeks & ₹99). Normalize it in the programme manager, then re-import.`
         });
         continue;
       }
@@ -696,90 +765,35 @@ exports.commitForm1 = async (req, res, next) => {
         }
 
         // Linkable check
-        let isLinkable = false;
-        let appIntakeSource = 'FORM1_IMPORT';
-        if (existing.source === 'WEBSITE') {
-          isLinkable = true;
-          appIntakeSource = 'WEBSITE';
-        } else if (existing.source === 'CSV_IMPORT' && existing.sourceImportBatchId) {
-          const parentBatch = await ImportBatch.findById(existing.sourceImportBatchId).select('kind').lean();
-          if (parentBatch && parentBatch.kind === 'FORM1_RESPONSES') {
-            isLinkable = true;
-            appIntakeSource = 'FORM1_IMPORT';
-          }
-        }
-
-        if (!isLinkable) {
+        if (!(await isForm1Linkable(existing))) {
           duplicateList.push({ rowIndex, email: normEmail, programCode: cleanProgramCode, reason: 'Existing participant belongs to certificate import batch (cannot link)' });
           continue;
         }
 
         // Create ONLY Application for existing linkable participant
-        let application = null;
-        let attempts = 0;
         try {
-          while (!application && attempts < 5) {
-            attempts++;
-            const candidateAppId = generateApplicationId();
-            try {
-              application = new Application({
-                applicationId: candidateAppId,
-                participantId: existing._id,
-                programCode: cleanProgramCode,
-                programTitle,
-                batchId: cleanBatch,
-                status: 'APPLIED',
-                intakeSource: appIntakeSource,
-                feeLocked
-              });
-              await application.save();
-            } catch (appErr) {
-              if (appErr.code === 11000) {
-                const racedApp = await Application.findOne({ participantId: existing._id });
-                if (racedApp) {
-                  application = racedApp;
-                  break;
-                }
-                if (attempts < 5) continue;
-              }
-              throw appErr;
-            }
-          }
+          const application = await createApplicationForExistingParticipant({ participant: existing, cleanProgramCode, programTitle, cleanBatch, feeLocked, req });
 
-          if (application) {
-            await AuditLog.create({
-              actorType: 'ADMIN',
-              actorId: req.admin._id,
-              action: 'APPLICATION_CREATED',
-              targetEntity: 'APPLICATION',
-              targetId: application._id,
-              ipAddress: req.ip || '127.0.0.1',
-              userAgent: (req.headers && req.headers['user-agent']) || 'Unknown',
-              summary: `Application ${application.applicationId} linked for existing participant ${existing.fullName} (${existing.email}) in ${cleanProgramCode}`
-            });
+          linkedApps.push({
+            applicationId: application.applicationId,
+            fullName: existing.fullName,
+            email: existing.email,
+            programCode: cleanProgramCode,
+            programTitle
+          });
 
-            linkedApps.push({
-              applicationId: application.applicationId,
-              fullName: existing.fullName,
-              email: existing.email,
-              programCode: cleanProgramCode,
-              programTitle
-            });
-
-            allCreatedApplications.push({
-              applicationId: application.applicationId,
-              fullName: existing.fullName,
-              email: existing.email,
-              programCode: cleanProgramCode,
-              programTitle,
-              batchId: cleanBatch
-            });
-            continue;
-          }
+          allCreatedApplications.push({
+            applicationId: application.applicationId,
+            fullName: existing.fullName,
+            email: existing.email,
+            programCode: cleanProgramCode,
+            programTitle,
+            batchId: cleanBatch
+          });
         } catch (linkErr) {
           errorList.push({ rowIndex, email: normEmail, error: linkErr.message });
-          continue;
         }
+        continue;
       }
 
       // New VALID row: Create Participant + Application
@@ -834,6 +848,34 @@ exports.commitForm1 = async (req, res, next) => {
               duplicateList.push({ rowIndex, email: normEmail, programCode: cleanProgramCode, reason: 'Already registered in database with an application' });
               continue;
             }
+
+            // No Application yet: apply the same LINKABLE / DUPLICATE_IN_DB rules as the normal path
+            if (await isForm1Linkable(racedParticipant)) {
+              try {
+                const application = await createApplicationForExistingParticipant({ participant: racedParticipant, cleanProgramCode, programTitle, cleanBatch, feeLocked, req });
+                linkedApps.push({
+                  applicationId: application.applicationId,
+                  fullName: racedParticipant.fullName,
+                  email: racedParticipant.email,
+                  programCode: cleanProgramCode,
+                  programTitle
+                });
+                allCreatedApplications.push({
+                  applicationId: application.applicationId,
+                  fullName: racedParticipant.fullName,
+                  email: racedParticipant.email,
+                  programCode: cleanProgramCode,
+                  programTitle,
+                  batchId: cleanBatch
+                });
+              } catch (raceLinkErr) {
+                errorList.push({ rowIndex, email: normEmail, error: raceLinkErr.message });
+              }
+              continue;
+            }
+
+            duplicateList.push({ rowIndex, email: normEmail, programCode: cleanProgramCode, reason: 'Existing participant belongs to certificate import batch (cannot link)' });
+            continue;
           }
         }
         errorList.push({ rowIndex, email: normEmail, error: saveErr.message });
@@ -957,7 +999,7 @@ exports.commitForm1 = async (req, res, next) => {
       targetId: importBatch._id,
       ipAddress: req.ip || '127.0.0.1',
       userAgent: (req.headers && req.headers['user-agent']) || 'Unknown',
-      summary: `Form 1 import committed: ${importedApps.length} created, ${linkedApps.length} linked, ${duplicateList.length} duplicates skipped, ${invalidList.length} invalid, ${errorList.length} errors for batch ${cleanBatch}`
+      summary: `Form 1 import committed: ${importedApps.length} created, ${linkedApps.length} linked, ${duplicateList.length} duplicates skipped, ${invalidList.length} invalid, ${needsNormalizationList.length} needs-normalization, ${errorList.length} errors for batch ${cleanBatch}`
     });
 
     res.status(200).json({
@@ -970,6 +1012,7 @@ exports.commitForm1 = async (req, res, next) => {
         duplicatesSkipped: duplicateList.length,
         invalidRejected: invalidList.length,
         needsProgramSkipped: needsProgramSkippedList.length,
+        needsNormalizationSkipped: needsNormalizationList.length,
         errors: errorList.length
       },
       details: {
@@ -978,6 +1021,7 @@ exports.commitForm1 = async (req, res, next) => {
         duplicates: duplicateList.slice(0, 50),
         invalid: invalidList.slice(0, 50),
         needsProgramSkipped: needsProgramSkippedList.slice(0, 50),
+        needsNormalization: needsNormalizationList.slice(0, 50),
         errors: errorList.slice(0, 50)
       },
       createdApplications: allCreatedApplications

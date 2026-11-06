@@ -204,6 +204,24 @@ test('MODULE 3: generateApplicationsCsv generator produces RFC 4180-compliant an
   assert.ok(form1PageContent.includes('.replace(/"/g, \'""\')'), 'Must double internal quotes for RFC 4180');
 });
 
+// TEST 16: MODULE 3 FIX PASS - detail drawer fetches full record with stale-response guard
+test('MODULE 3 FIX: detail drawer fetches adminGetApplicationDetail on open with stale guard and error notice', () => {
+  const appContent = fs.readFileSync(path.join(clientSrcDir, 'pages/AdminApplicationsPage.jsx'), 'utf8');
+  assert.ok(appContent.includes('openApplicationDetail'), 'Must open the drawer through openApplicationDetail');
+  assert.ok(appContent.includes('api.adminGetApplicationDetail(app.applicationId || app._id)'), 'Drawer must fetch the full detail record on open');
+  assert.ok(appContent.includes('detailRequestRef.current !== requestId'), 'Stale fetch responses must be discarded');
+  assert.ok(appContent.includes('Could not load full details.'), 'Drawer must show a neutral error notice on fetch failure');
+  assert.ok(appContent.includes('closeApplicationDetail'), 'Closing the drawer must invalidate in-flight fetches');
+});
+
+// TEST 17: MODULE 3 FIX PASS - SKIPPED preview note + NEEDS_NORMALIZATION result classification
+test('MODULE 3 FIX: preview SKIPPED note and result NEEDS_NORMALIZATION card/list', () => {
+  const form1Content = fs.readFileSync(path.join(clientSrcDir, 'pages/Form1ImportPage.jsx'), 'utf8');
+  assert.ok(form1Content.includes('Skipped by admin domain mapping'), 'SKIPPED rows must show an honest skipped note');
+  assert.ok(form1Content.includes('needsNormalizationSkipped'), 'Result screen must show the NEEDS_NORMALIZATION count');
+  assert.ok(form1Content.includes('details.needsNormalization'), 'Result screen must list NEEDS_NORMALIZATION rows');
+});
+
 console.log('\n------------------------------------------------------');
 console.log(`RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log('------------------------------------------------------\n');

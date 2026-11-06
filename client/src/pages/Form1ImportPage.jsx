@@ -713,6 +713,8 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
                             <span className="text-rose-600">{row.errors.join(', ')}</span>
                           ) : row.status === 'LINKABLE' ? (
                             <span className="text-cyan-700 font-medium">Links existing participant without Application</span>
+                          ) : row.status === 'SKIPPED' ? (
+                            <span className="text-slate-500">Skipped by admin domain mapping</span>
                           ) : (
                             <span className="text-emerald-700">Ready to create application</span>
                           )}
@@ -774,7 +776,7 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
           </div>
 
           {/* Counts */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center text-xs">
             <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
               <span className="text-emerald-700 block text-[10px] uppercase font-bold">Imported</span>
               <span className="text-xl font-bold text-emerald-950">{commitResult.counts.imported}</span>
@@ -790,6 +792,10 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
             <div className="bg-slate-100 border border-slate-200 p-3 rounded-xl">
               <span className="text-slate-600 block text-[10px] uppercase font-bold">Domain Skipped</span>
               <span className="text-xl font-bold text-slate-800">{commitResult.counts.needsProgramSkipped || 0}</span>
+            </div>
+            <div className="bg-orange-50 border border-orange-200 p-3 rounded-xl">
+              <span className="text-orange-700 block text-[10px] uppercase font-bold">Needs Normalization</span>
+              <span className="text-xl font-bold text-orange-950">{commitResult.counts.needsNormalizationSkipped || 0}</span>
             </div>
             <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl">
               <span className="text-rose-700 block text-[10px] uppercase font-bold">Invalid Rejected</span>
@@ -869,6 +875,30 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
                       <div className="text-right">
                         <span className="font-mono font-bold text-cyan-900 block">{app.applicationId}</span>
                         <span className="text-[10px] text-slate-400">{app.programCode}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {commitResult.details?.needsNormalization && commitResult.details.needsNormalization.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-bold text-orange-800 text-[11px] uppercase tracking-wider">
+                  Needs Programme Normalization ({commitResult.details.needsNormalization.length})
+                </h3>
+                <p className="text-[11px] text-orange-700">
+                  These rows were not imported. Normalize the programme to 4 weeks / Rs.99 in the programme manager, then re-import the file.
+                </p>
+                <div className="max-h-48 overflow-y-auto border border-orange-200 rounded-xl divide-y divide-orange-100 bg-orange-50/30">
+                  {commitResult.details.needsNormalization.map((row) => (
+                    <div key={row.rowIndex} className="p-2.5 flex items-center justify-between">
+                      <div>
+                        <span className="font-semibold text-slate-900">Row {row.rowIndex}</span>
+                        <span className="block text-[11px] text-slate-500 font-mono">{row.email}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-orange-900 block">{row.programCode}</span>
+                        <span className="text-[10px] text-slate-400">needs normalization</span>
                       </div>
                     </div>
                   ))}

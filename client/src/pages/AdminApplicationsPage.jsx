@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import {
   Users,
@@ -43,6 +43,38 @@ export default function AdminApplicationsPage() {
 
   // Modals & Drawers
   const [detailApp, setDetailApp] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailLoadError, setDetailLoadError] = useState('');
+  const detailRequestRef = useRef(0);
+
+  // Opens the detail drawer with the list-row data immediately, then loads the full
+  // record (including Form 1 answers) from the admin detail endpoint. Stale responses
+  // from a closed drawer or a previously opened application are discarded.
+  const openApplicationDetail = (app) => {
+    const requestId = ++detailRequestRef.current;
+    setDetailApp(app);
+    setDetailLoadError('');
+    setDetailLoading(true);
+    api.adminGetApplicationDetail(app.applicationId || app._id)
+      .then((res) => {
+        if (detailRequestRef.current !== requestId) return;
+        if (res && res.application) setDetailApp(res.application);
+      })
+      .catch(() => {
+        if (detailRequestRef.current !== requestId) return;
+        setDetailLoadError('Could not load full details.');
+      })
+      .finally(() => {
+        if (detailRequestRef.current === requestId) setDetailLoading(false);
+      });
+  };
+
+  const closeApplicationDetail = () => {
+    detailRequestRef.current += 1;
+    setDetailApp(null);
+    setDetailLoading(false);
+    setDetailLoadError('');
+  };
   const [actionModal, setActionModal] = useState(null); // { type: 'APPROVE' | 'REJECT' | 'BATCH_APPROVE' | 'BATCH_REJECT', ids: [], app?: Object }
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionNotes, setActionNotes] = useState('');
@@ -659,7 +691,7 @@ export default function AdminApplicationsPage() {
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => setDetailApp(app)}
+                            onClick={() => openApplicationDetail(app)}
                             className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded"
                             title="View Details"
                           >
@@ -1008,7 +1040,7 @@ export default function AdminApplicationsPage() {
                 <h2 className="text-xl font-mono font-bold text-slate-900">{detailApp.applicationId}</h2>
               </div>
               <button
-                onClick={() => setDetailApp(null)}
+                onClick={() => closeApplicationDetail()}
                 className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg"
               >
                 &times;
@@ -1039,6 +1071,13 @@ export default function AdminApplicationsPage() {
                 </div>
               </div>
             </div>
+
+            {detailLoading && (
+              <div className="text-[11px] text-slate-400">Loading full details...</div>
+            )}
+            {detailLoadError && (
+              <div className="text-[11px] text-amber-600">{detailLoadError}</div>
+            )}
 
             {/* Google Form 1 Intake Details (if present) */}
             {detailApp.participantId && (

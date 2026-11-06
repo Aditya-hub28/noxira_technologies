@@ -3440,7 +3440,8 @@ async function runTestSuite() {
     await form1ImportController.commitForm1(mockUnnormCommit.req, mockUnnormCommit.res, mockUnnormCommit.next);
     assert.strictEqual(mockUnnormCommit.getStatus(), 200);
     assert.strictEqual(mockUnnormCommit.getData().counts.imported, 0);
-    assert.strictEqual(mockUnnormCommit.getData().counts.errors, 1);
+    assert.strictEqual(mockUnnormCommit.getData().counts.needsNormalizationSkipped, 1, 'Unnormalized programme rows classify as NEEDS_NORMALIZATION');
+    assert.strictEqual(mockUnnormCommit.getData().counts.errors, 0, 'No generic error for a normalization block');
 
     // Blank batch rejected
     const mockBlankBatch = mockReqRes({
@@ -3540,6 +3541,173 @@ async function runTestSuite() {
       applicationId: { $in: [app1.applicationId, appWeb.applicationId, appCrashed.applicationId] }
     });
     assert.strictEqual(offerJobsCount, 0, 'Must have zero email delivery jobs created during Form 1 import');
+  });
+
+  await test('Module 3 Fix Pass: raced participant LINKABLE reclassification, explicit NEEDS_NORMALIZATION & admin-only Form 1 detail', async () => {
+    const adminUser = await Admin.findOne({ role: 'SUPER_ADMIN' });
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { durationWeeks: 4, feeInr: 99, isActive: true } });
+
+    // A. NEEDS_NORMALIZATION: active programme NOT on the current 4-week / Rs.99 offering
+    await Program.create({
+      code: 'LEGACY-NN',
+      title: 'Legacy Non Normalized Track',
+      defaultBatch: 'BATCH-LEGACY',
+      durationWeeks: 8,
+      feeInr: 199
+    });
+    const nnCommit = mockReqRes({
+      admin: adminUser,
+      body: {
+        batchId: 'BATCH-NN-01',
+        columnMapping: [
+          { target: 'email', header: 'Email' },
+          { target: 'fullName', header: 'Name' },
+          { target: 'domain', header: 'Domain' }
+        ],
+        domainMapping: [{ value: 'Legacy Domain', programCode: 'LEGACY-NN' }],
+        rows: [{ rowIndex: 1, Email: 'nn_cand@example.com', Name: 'Nora Nair', Domain: 'Legacy Domain' }]
+      }
+    });
+    await form1ImportController.commitForm1(nnCommit.req, nnCommit.res, nnCommit.next);
+    assert.strictEqual(nnCommit.getStatus(), 200);
+    assert.strictEqual(nnCommit.getData().counts.needsNormalizationSkipped, 1, 'Non-normalized programme rows must be classified separately');
+    assert.strictEqual(nnCommit.getData().counts.errors, 0, 'Must NOT be bucketed as generic errors');
+    assert.strictEqual(nnCommit.getData().counts.imported, 0, 'Blocked rows create nothing');
+    assert.strictEqual(nnCommit.getData().details.needsNormalization.length, 1, 'Detail list must carry the blocked row');
+    assert.strictEqual(await Participant.countDocuments({ email: 'nn_cand@example.com' }), 0, 'Nothing may be created for blocked rows');
+    const nnProg = await Program.findOne({ code: 'LEGACY-NN' }).lean();
+    assert.strictEqual(nnProg.durationWeeks, 8, 'Programme record must remain untouched');
+    assert.strictEqual(nnProg.feeInr, 199, 'Programme record must remain untouched');
+
+    // B. Raced duplicate participant (real unique-index 11000) must follow LINKABLE / DUPLICATE_IN_DB rules
+    const racedBatch = 'BATCH-RACE-01';
+    const racedWeb = await Participant.create({
+      fullName: 'Riya Raced',
+      email: 'raced_web@example.com',
+      normalizedEmail: 'raced_web@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: racedBatch,
+      source: 'WEBSITE',
+      gender: 'Female',
+      college: 'IIT Bombay',
+      form1Extra: [{ header: 'User.Meta$Info', value: 'ref=race$9' }],
+      completionStatus: 'PENDING'
+    });
+    const crashedBatchDoc = await ImportBatch.create({
+      fileName: 'earlier_form1.csv',
+      uploadedBy: adminUser._id,
+      kind: 'FORM1_RESPONSES',
+      batchId: racedBatch,
+      totalRows: 1, validRows: 0, duplicateRows: 0, errorRows: 1,
+      status: 'COMMITTED'
+    });
+    const racedForm1 = await Participant.create({
+      fullName: 'Farhan Crashed',
+      email: 'raced_form1@example.com',
+      normalizedEmail: 'raced_form1@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: racedBatch,
+      source: 'CSV_IMPORT',
+      sourceImportBatchId: crashedBatchDoc._id,
+      completionStatus: 'PENDING'
+    });
+    const certBatchDoc = await ImportBatch.create({
+      fileName: 'cert_side.csv',
+      uploadedBy: adminUser._id,
+      kind: 'PARTICIPANT_CSV',
+      programCode: 'FS-DEV',
+      batchId: racedBatch,
+      totalRows: 1, validRows: 1, duplicateRows: 0, errorRows: 0,
+      status: 'COMMITTED'
+    });
+    const racedCert = await Participant.create({
+      fullName: 'Chetan Cert',
+      email: 'raced_cert@example.com',
+      normalizedEmail: 'raced_cert@example.com',
+      programCode: 'FS-DEV',
+      programTitle: 'Full Stack Web Development',
+      batchId: racedBatch,
+      source: 'CSV_IMPORT',
+      sourceImportBatchId: certBatchDoc._id,
+      completionStatus: 'PENDING'
+    });
+
+    // Simulate the race: each raced participant "appears" between the duplicate check and the write.
+    // The write then hits the REAL compound unique index (11000) - no save patching.
+    const racedEmails = new Set(['raced_web@example.com', 'raced_form1@example.com', 'raced_cert@example.com']);
+    const blinded = new Set();
+    const origFindOne = Participant.findOne;
+    Participant.findOne = function (query, ...rest) {
+      const email = query && query.normalizedEmail;
+      if (email && racedEmails.has(email) && !blinded.has(email)) {
+        blinded.add(email);
+        return Promise.resolve(null);
+      }
+      return origFindOne.call(this, query, ...rest);
+    };
+
+    const raceCommit = mockReqRes({
+      admin: adminUser,
+      body: {
+        batchId: racedBatch,
+        columnMapping: [
+          { target: 'email', header: 'Email' },
+          { target: 'fullName', header: 'Name' },
+          { target: 'domain', header: 'Domain' }
+        ],
+        domainMapping: [{ value: 'Full Stack Web Development', programCode: 'FS-DEV' }],
+        rows: [
+          { rowIndex: 1, Email: 'raced_web@example.com', Name: 'Riya Raced', Domain: 'Full Stack Web Development' },
+          { rowIndex: 2, Email: 'raced_form1@example.com', Name: 'Farhan Crashed', Domain: 'Full Stack Web Development' },
+          { rowIndex: 3, Email: 'raced_cert@example.com', Name: 'Chetan Cert', Domain: 'Full Stack Web Development' },
+          { rowIndex: 4, Email: 'fresh_candidate@example.com', Name: 'Nikhil Fresh', Domain: 'Full Stack Web Development' }
+        ]
+      }
+    });
+    try {
+      await form1ImportController.commitForm1(raceCommit.req, raceCommit.res, raceCommit.next);
+    } finally {
+      Participant.findOne = origFindOne;
+    }
+    assert.strictEqual(raceCommit.getStatus(), 200);
+    const rc = raceCommit.getData().counts;
+    assert.strictEqual(rc.linked, 2, 'Website + crashed Form 1 raced participants must be linked');
+    assert.strictEqual(rc.duplicatesSkipped, 1, 'Certificate-side raced participant must be DUPLICATE_IN_DB');
+    assert.strictEqual(rc.imported, 1, 'Clean row must import normally');
+    assert.strictEqual(rc.errors, 0, 'No raced row may fall into generic errors');
+
+    const appRacedWeb = await Application.findOne({ participantId: racedWeb._id });
+    assert.ok(appRacedWeb, 'Website raced participant must gain an Application');
+    assert.strictEqual(appRacedWeb.intakeSource, 'WEBSITE', 'Website participant keeps WEBSITE intakeSource');
+    const appRacedForm1 = await Application.findOne({ participantId: racedForm1._id });
+    assert.ok(appRacedForm1, 'Crashed Form 1 raced participant must be recovered');
+    assert.strictEqual(appRacedForm1.intakeSource, 'FORM1_IMPORT', 'Form 1 batch participant linked as FORM1_IMPORT');
+    assert.strictEqual(await Application.countDocuments({ participantId: racedCert._id }), 0, 'Certificate participant must NEVER gain an Application');
+
+    // C. Combined output: createdApplications carries imported + linked for the result CSV
+    assert.strictEqual(raceCommit.getData().createdApplications.length, 3, 'Result CSV source must include imported and linked');
+    const combinedCsv = generateApplicationsCsv(raceCommit.getData().createdApplications);
+    assert.ok(combinedCsv.includes('raced_web@example.com') && combinedCsv.includes('fresh_candidate@example.com'), 'CSV must cover linked and imported rows');
+    assert.ok(combinedCsv.split('\r\n').every((line) => !line.includes('raced_cert@example.com')), 'Certificate participant must never appear in the result CSV');
+
+    // D. Admin detail endpoint exposes Form 1 answers (drawer data source); public lookup must not
+    const detailMock = mockReqRes({ admin: adminUser, params: { id: appRacedWeb.applicationId } });
+    await adminApplicationController.getApplicationDetail(detailMock.req, detailMock.res, detailMock.next);
+    assert.strictEqual(detailMock.getStatus(), 200);
+    const detailParticipant = detailMock.getData().application.participantId;
+    assert.strictEqual(detailParticipant.gender, 'Female', 'Admin detail must include Form 1 answers');
+    assert.strictEqual(detailParticipant.college, 'IIT Bombay', 'Admin detail must include Form 1 answers');
+    assert.ok(Array.isArray(detailParticipant.form1Extra) && detailParticipant.form1Extra[0].header === 'User.Meta$Info', 'Admin detail must include form1Extra');
+
+    const pubStatusMock = mockReqRes({ query: { email: 'raced_web@example.com', id: appRacedWeb.applicationId } });
+    await intakeController.getApplicationStatus(pubStatusMock.req, pubStatusMock.res, pubStatusMock.next);
+    assert.strictEqual(pubStatusMock.getStatus(), 200);
+    const pubData = pubStatusMock.getData().application || pubStatusMock.getData();
+    assert.strictEqual(pubData.gender, undefined, 'Public status must not leak Form 1 answers');
+    assert.strictEqual(pubData.college, undefined, 'Public status must not leak Form 1 answers');
+    assert.strictEqual(pubData.form1Extra, undefined, 'Public status must not leak form1Extra');
   });
 
   // Cleanup
