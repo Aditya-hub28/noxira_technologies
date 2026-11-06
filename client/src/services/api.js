@@ -50,6 +50,9 @@ export const api = {
   // Form 1 Import Wizard
   previewForm1: (formData) => request('/intake/form1-preview', { method: 'POST', body: formData }),
   commitForm1: (payload) => request('/intake/form1-commit', { method: 'POST', body: JSON.stringify(payload) }),
+  previewForm2: (formData) => request('/intake/form2-preview', { method: 'POST', body: formData }),
+  commitForm2: (payload) => request('/intake/form2-commit', { method: 'POST', body: JSON.stringify(payload) }),
+  adminGetSubmissions: (matchState = '') => request(`/intake/submissions${matchState ? `?matchState=${matchState}` : ''}`),
 
   // Participants & Completion
   getParticipants: (params = '') => request(`/participants?${params}`),

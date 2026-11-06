@@ -32,6 +32,7 @@ import AdminOfferTemplatesPage from './pages/AdminOfferTemplatesPage';
 import ParticipantsPage from './pages/ParticipantsPage';
 import CsvImportPage from './pages/CsvImportPage';
 import Form1ImportPage from './pages/Form1ImportPage';
+import Form2ImportPage from './pages/Form2ImportPage';
 import TemplatePreviewPage from './pages/TemplatePreviewPage';
 import IssuanceBatchPage from './pages/IssuanceBatchPage';
 import CertificatesPage from './pages/CertificatesPage';
@@ -53,6 +54,7 @@ function AdminConsole({ admin, onLogout }) {
     { id: 'participants', label: 'Participants & Review', icon: Users },
     { id: 'import', label: 'CSV Import', icon: FileSpreadsheet },
     { id: 'form1-import', label: 'Form 1 Import', icon: FileSpreadsheet },
+    { id: 'form2-import', label: 'Form 2 Import', icon: FileSpreadsheet },
     { id: 'templates', label: 'Certificate Studio', icon: Sliders },
     { id: 'issuance', label: 'Batch Issuance', icon: Award },
     { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
@@ -150,6 +152,9 @@ function AdminConsole({ admin, onLogout }) {
         )}
         {adminTab === 'form1-import' && (
           <Form1ImportPage onNavigateToApplications={() => setAdminTab('applications')} />
+        )}
+        {adminTab === 'form2-import' && (
+          <Form2ImportPage />
         )}
         {adminTab === 'templates' && (
           <TemplatePreviewPage />
