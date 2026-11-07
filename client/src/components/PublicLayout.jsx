@@ -122,12 +122,6 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
 
           {/* Action CTAs - admin access is intentionally not linked from the public site; admins use the /admin route directly */}
           <div className="hidden sm:flex items-center gap-2.5">
-            <Link
-              to={student ? '/dashboard' : '/login'}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition ${student ? 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-sm' : 'border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900'}`}
-            >
-              {student ? 'Dashboard' : 'Login'}
-            </Link>
             {isFormConfigured ? (
               <a
                 href={googleForm1Url}
@@ -149,6 +143,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 Apply Now
               </button>
             )}
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition ${student ? 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-sm' : 'border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900'}`}
+            >
+              {student ? 'Dashboard' : 'Login'}
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
