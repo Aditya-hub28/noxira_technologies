@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Shield, Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, Lock, ChevronDown } from 'lucide-react';
+import { Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, Lock, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
@@ -15,29 +15,21 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
   const noteMessage = (loading || error) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen orbital-bg text-ink-950 flex flex-col font-sans">
       {/* Top Main Navigation Bar */}
       <header className="sticky top-3 z-40 px-3 sm:px-5">
         {/* Floating pill navbar (visual reference: tsec-assignment-hub.me translucent pill) */}
-        <div className="max-w-6xl mx-auto bg-white/85 backdrop-blur-md border border-slate-200/80 shadow-lg shadow-slate-900/5 rounded-full pl-4 pr-2.5 sm:pl-5 sm:pr-3 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-ink-950/5 rounded-full pl-4 pr-2.5 sm:pl-5 sm:pr-3 h-14 flex items-center justify-between">
           {/* Logo & Brand */}
           <Link to="/" onClick={closeMobileMenu} className="flex items-center gap-2.5 group">
-            <div className="h-9 w-9 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition">
-              <Shield className="h-4.5 w-4.5 text-slate-950 font-bold" />
-            </div>
-            <div>
-              <div className="font-black tracking-wider text-sm flex items-center gap-1 text-slate-900">
-                NOXIRA <span className="text-amber-600 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 font-bold">TECH</span>
-              </div>
-              <div className="text-[9px] text-slate-400 font-mono tracking-tight uppercase hidden sm:block">Software Services &amp; Internships</div>
-            </div>
+            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-7 w-auto group-hover:scale-[1.03] transition" />
           </Link>
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-1 text-xs font-semibold text-slate-600">
             <Link
               to="/"
-              className={`px-3 py-1.5 rounded-full transition ${location.pathname === '/' ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 hover:text-slate-900'}`}
+              className={`px-3 py-1.5 rounded-full transition ${location.pathname === '/' ? 'bg-ink-950 text-white' : 'hover:bg-slate-100 hover:text-slate-900'}`}
             >
               Home
             </Link>
@@ -60,7 +52,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 aria-expanded={internOpen}
                 aria-controls="internships-desktop-menu"
                 onClick={() => setInternOpen(!internOpen)}
-                className={`px-3 py-1.5 rounded-full transition flex items-center gap-1 ${['/programs', '/status', '/verify'].some(p => location.pathname.startsWith(p)) || internOpen ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 hover:text-slate-900'}`}
+                className={`px-3 py-1.5 rounded-full transition flex items-center gap-1 ${['/programs', '/status', '/verify'].some(p => location.pathname.startsWith(p)) || internOpen ? 'bg-ink-950 text-white' : 'hover:bg-slate-100 hover:text-slate-900'}`}
               >
                 Internships
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${internOpen ? 'rotate-180' : ''}`} />
@@ -72,10 +64,10 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                       href={googleForm1Url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-amber-700 transition"
+                      className="flex items-center justify-between mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                       title="Apply via official Google Form"
                     >
-                      Apply Now <ExternalLink className="w-3 h-3 text-amber-600" />
+                      Apply Now <ExternalLink className="w-3 h-3 text-cyan-600" />
                     </a>
                   ) : (
                     <span
@@ -88,36 +80,36 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   <Link
                     to="/programs"
                     onClick={() => setInternOpen(false)}
-                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-amber-700 transition"
+                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                   >
                     All Programmes
                   </Link>
                   <a
                     href="/#journey"
                     onClick={() => setInternOpen(false)}
-                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-amber-700 transition"
+                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                   >
                     6-Step Journey
                   </a>
                   <Link
                     to="/verify"
                     onClick={() => setInternOpen(false)}
-                    className="flex items-center gap-1.5 mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-amber-700 transition"
+                    className="flex items-center gap-1.5 mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />
                     Certificate Verification
                   </Link>
                   <Link
                     to="/status"
                     onClick={() => setInternOpen(false)}
-                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-amber-700 transition"
+                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                   >
                     Download Offer Letter
                   </Link>
                   <Link
                     to="/status"
                     onClick={() => setInternOpen(false)}
-                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-amber-700 transition"
+                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                   >
                     Check Application Status
                   </Link>
@@ -138,7 +130,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <div className="flex items-center gap-2">
                 <Link
                   to="/admin"
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-full text-xs font-semibold transition"
+                  className="px-3.5 py-1.5 bg-ink-950 hover:bg-ink-800 text-cyan-400 rounded-full text-xs font-semibold transition"
                 >
                   Admin Console
                 </Link>
@@ -164,7 +156,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 href={googleForm1Url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-full text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-slate-950 rounded-full text-xs font-bold shadow-sm transition flex items-center gap-1.5"
                 title="Apply via official Google Form"
               >
                 Apply Now
@@ -175,7 +167,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 type="button"
                 disabled
                 title={noteMessage}
-                className="px-4 py-2 bg-amber-500/60 text-slate-950/70 rounded-full text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
+                className="px-4 py-2 bg-cyan-400/50 text-slate-950/70 rounded-full text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
               >
                 Apply Now
               </button>
@@ -189,7 +181,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 href={googleForm1Url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-full sm:hidden flex items-center gap-1"
+                className="px-3 py-1.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-full sm:hidden flex items-center gap-1"
               >
                 Apply <ExternalLink className="w-3 h-3" />
               </a>
@@ -198,7 +190,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 type="button"
                 disabled
                 title={noteMessage}
-                className="px-3 py-1.5 bg-amber-500/60 text-slate-950/70 font-bold text-xs rounded-full sm:hidden cursor-not-allowed"
+                className="px-3 py-1.5 bg-cyan-400/50 text-slate-950/70 font-bold text-xs rounded-full sm:hidden cursor-not-allowed"
               >
                 Apply
               </button>
@@ -220,21 +212,21 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             <Link
               to="/"
               onClick={closeMobileMenu}
-              className="block py-2 text-sm font-semibold text-slate-700 hover:text-amber-700"
+              className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Home
             </Link>
             <a
               href="/#services"
               onClick={closeMobileMenu}
-              className="block py-2 text-sm font-semibold text-slate-700 hover:text-amber-700"
+              className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Services
             </a>
             <a
               href="/#portfolio"
               onClick={closeMobileMenu}
-              className="block py-2 text-sm font-semibold text-slate-700 hover:text-amber-700"
+              className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Portfolio
             </a>
@@ -244,7 +236,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 type="button"
                 aria-expanded={mobileInternOpen}
                 onClick={() => setMobileInternOpen(!mobileInternOpen)}
-                className="w-full flex items-center justify-between py-2 text-sm font-semibold text-slate-700 hover:text-amber-700"
+                className="w-full flex items-center justify-between py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
               >
                 Internships
                 <ChevronDown className={`w-4 h-4 transition-transform ${mobileInternOpen ? 'rotate-180' : ''}`} />
@@ -257,9 +249,9 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={closeMobileMenu}
-                      className="flex items-center gap-1.5 py-2 text-sm font-semibold text-slate-600 hover:text-amber-700"
+                      className="flex items-center gap-1.5 py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
                     >
-                      Apply Now <ExternalLink className="w-3 h-3 text-amber-600" />
+                      Apply Now <ExternalLink className="w-3 h-3 text-cyan-600" />
                     </a>
                   ) : (
                     <span
@@ -272,35 +264,35 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   <Link
                     to="/programs"
                     onClick={closeMobileMenu}
-                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-amber-700"
+                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
                   >
                     All Programmes
                   </Link>
                   <a
                     href="/#journey"
                     onClick={closeMobileMenu}
-                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-amber-700"
+                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
                   >
                     6-Step Journey
                   </a>
                   <Link
                     to="/verify"
                     onClick={closeMobileMenu}
-                    className="block py-2 text-sm font-semibold text-amber-700"
+                    className="block py-2 text-sm font-semibold text-cyan-700"
                   >
                     Certificate Verification
                   </Link>
                   <Link
                     to="/status"
                     onClick={closeMobileMenu}
-                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-amber-700"
+                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
                   >
                     Download Offer Letter
                   </Link>
                   <Link
                     to="/status"
                     onClick={closeMobileMenu}
-                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-amber-700"
+                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
                   >
                     Check Application Status
                   </Link>
@@ -310,7 +302,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             <a
               href="/#contact"
               onClick={closeMobileMenu}
-              className="block py-2 text-sm font-semibold text-slate-700 hover:text-amber-700"
+              className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Contact
             </a>
@@ -321,7 +313,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={closeMobileMenu}
-                  className="w-full text-center py-2.5 bg-amber-500 text-slate-950 font-bold text-xs rounded-full flex items-center justify-center gap-1.5"
+                  className="w-full text-center py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-full flex items-center justify-center gap-1.5"
                 >
                   Apply for Cohort
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -331,7 +323,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   type="button"
                   disabled
                   title={noteMessage}
-                  className="w-full text-center py-2.5 bg-amber-500/60 text-slate-950/70 font-bold text-xs rounded-full cursor-not-allowed"
+                  className="w-full text-center py-2.5 bg-cyan-400/50 text-slate-950/70 font-bold text-xs rounded-full cursor-not-allowed"
                 >
                   Apply for Cohort (Unavailable)
                 </button>
@@ -340,7 +332,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 <Link
                   to="/admin"
                   onClick={closeMobileMenu}
-                  className="w-full text-center py-2 bg-slate-900 text-slate-200 font-semibold text-xs rounded-full"
+                  className="w-full text-center py-2 bg-ink-950 text-slate-200 font-semibold text-xs rounded-full"
                 >
                   Admin Console
                 </Link>
@@ -363,16 +355,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
       </main>
 
       {/* Public Footer */}
-      <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 text-xs mt-16">
+      <footer className="bg-ink-950 border-t border-ink-800 text-slate-400 text-xs mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             {/* Col 1: Organization Branding */}
             <div className="space-y-3 md:col-span-2">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 bg-amber-500 rounded-lg flex items-center justify-center font-bold text-slate-950">
-                  <Shield className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-white text-sm tracking-wider">NOXIRA TECHNOLOGIES</span>
+                <img src="/noxira-wordmark-white.png" alt="NOXIRA Technologies" className="h-7 w-auto" />
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-md">
                 NOXIRA Technologies designs and develops modern web and mobile software solutions, alongside practical engineering internship tracks with transparent credential verification.
@@ -383,17 +372,17 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             <div>
               <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Quick Navigation</h4>
               <ul className="space-y-2">
-                <li><Link to="/" className="hover:text-amber-400 transition">Home Overview</Link></li>
-                <li><a href="/#services" className="hover:text-amber-400 transition">Software Services</a></li>
-                <li><Link to="/programs" className="hover:text-amber-400 transition">All Programmes</Link></li>
-                <li><a href="/#journey" className="hover:text-amber-400 transition">6-Step Journey</a></li>
+                <li><Link to="/" className="hover:text-cyan-400 transition">Home Overview</Link></li>
+                <li><a href="/#services" className="hover:text-cyan-400 transition">Software Services</a></li>
+                <li><Link to="/programs" className="hover:text-cyan-400 transition">All Programmes</Link></li>
+                <li><a href="/#journey" className="hover:text-cyan-400 transition">6-Step Journey</a></li>
                 <li>
                   {isFormConfigured ? (
                     <a
                       href={googleForm1Url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hover:text-amber-400 transition inline-flex items-center gap-1"
+                      className="hover:text-cyan-400 transition inline-flex items-center gap-1"
                     >
                       Candidate Application <ExternalLink className="w-3 h-3" />
                     </a>
@@ -406,8 +395,8 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                     </span>
                   )}
                 </li>
-                <li><Link to="/status" className="hover:text-amber-400 transition">Check Application Status</Link></li>
-                <li><Link to="/verify" className="hover:text-amber-400 transition">Public Verification Portal</Link></li>
+                <li><Link to="/status" className="hover:text-cyan-400 transition">Check Application Status</Link></li>
+                <li><Link to="/verify" className="hover:text-cyan-400 transition">Public Verification Portal</Link></li>
               </ul>
             </div>
 
@@ -417,7 +406,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <p className="text-slate-400 text-xs leading-relaxed mb-3">
                 Verify certificate authenticity and current record status directly against the official registry.
               </p>
-              <Link to="/verify" className="text-amber-400 hover:text-amber-300 font-semibold transition inline-flex items-center gap-1">
+              <Link to="/verify" className="text-cyan-400 hover:text-cyan-300 font-semibold transition inline-flex items-center gap-1">
                 Registry Verification Portal <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
@@ -426,22 +415,22 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             <div>
               <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Policies</h4>
               <ul className="space-y-2">
-                <li><Link to="/terms" className="hover:text-amber-400 transition">Terms &amp; Conditions</Link></li>
-                <li><Link to="/privacy" className="hover:text-amber-400 transition">Privacy Policy</Link></li>
-                <li><Link to="/payment-refund" className="hover:text-amber-400 transition">Payment &amp; Refund</Link></li>
-                <li><Link to="/review-rules" className="hover:text-amber-400 transition">Review Rules</Link></li>
+                <li><Link to="/terms" className="hover:text-cyan-400 transition">Terms &amp; Conditions</Link></li>
+                <li><Link to="/privacy" className="hover:text-cyan-400 transition">Privacy Policy</Link></li>
+                <li><Link to="/payment-refund" className="hover:text-cyan-400 transition">Payment &amp; Refund</Link></li>
+                <li><Link to="/review-rules" className="hover:text-cyan-400 transition">Review Rules</Link></li>
               </ul>
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
+          <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
             <div>
               &copy; {new Date().getFullYear()} NOXIRA Technologies. All rights reserved.
             </div>
             <div className="flex items-center gap-4">
               <span>Software Engineering &amp; Verification Registry</span>
               <span>·</span>
-              <Link to="/verify" className="text-amber-500/80 hover:text-amber-400">Public Verification</Link>
+              <Link to="/verify" className="text-cyan-400/80 hover:text-cyan-400">Public Verification</Link>
             </div>
           </div>
         </div>
