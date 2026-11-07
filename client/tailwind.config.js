@@ -18,7 +18,20 @@ export default {
           500: '#F59E0B',
           600: '#D97706',
           700: '#B45309'
+        },
+        ink: {
+          950: '#0B132B',
+          900: '#101B3C',
+          800: '#1C2541',
+          700: '#26325B'
         }
+      },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        glass: '0 8px 32px rgba(11, 19, 43, 0.08)',
+        'glass-lg': '0 16px 48px rgba(11, 19, 43, 0.12)',
       }
     },
   },
