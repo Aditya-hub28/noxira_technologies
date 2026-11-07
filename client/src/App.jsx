@@ -25,6 +25,7 @@ import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
 import StatusPage from './pages/StatusPage';
 import VerifyPage from './pages/VerifyPage';
+import ServicesPage from './pages/ServicesPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 
 // Admin console pages are code-split: the public site bundle does not ship admin code.
@@ -196,6 +197,22 @@ function AdminConsole({ admin, onLogout }) {
   );
 }
 
+// Handles in-app hash navigation (e.g. /#journey) and scroll restoration on route change.
+function ScrollManager() {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash) {
+      const target = document.querySelector(location.hash);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.hash]);
+  return null;
+}
+
 function AppContent() {
   const [admin, setAdmin] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -235,6 +252,7 @@ function AppContent() {
         }
       >
         <Route path="/" element={<HomePage />} />
+        <Route path="/services" element={<ServicesPage />} />
         <Route path="/programs" element={<ProgramsPage />} />
         <Route path="/programs/:code" element={<ProgramDetailPage />} />
         <Route path="/apply" element={<Navigate to="/" replace />} />
@@ -294,6 +312,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <SiteSettingsProvider>
+        <ScrollManager />
         <AppContent />
       </SiteSettingsProvider>
     </BrowserRouter>

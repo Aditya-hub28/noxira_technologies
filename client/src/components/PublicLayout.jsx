@@ -33,12 +33,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Home
             </Link>
-            <a
-              href="/#services"
-              className="px-3 py-1.5 rounded-full hover:bg-slate-100 hover:text-slate-900 transition"
+            <Link
+              to="/services"
+              className={`px-3 py-1.5 rounded-full transition ${location.pathname === '/services' ? 'bg-ink-950 text-white' : 'hover:bg-slate-100 hover:text-slate-900'}`}
             >
               Services
-            </a>
+            </Link>
             {/* Internships dropdown (structure reference: grouped internship menu) */}
             <div className="relative" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInternOpen(false); }} onKeyDown={event => { if (event.key === 'Escape') setInternOpen(false); }}>
               <button
@@ -78,13 +78,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   >
                     All Programmes
                   </Link>
-                  <a
-                    href="/#journey"
+                  <Link
+                    to="/#journey"
                     onClick={() => setInternOpen(false)}
                     className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
                   >
                     6-Step Journey
-                  </a>
+                  </Link>
                   <Link
                     to="/verify"
                     onClick={() => setInternOpen(false)}
@@ -110,12 +110,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 </div>
               )}
             </div>
-            <a
-              href="/#contact"
+            <Link
+              to="/#contact"
               className="px-3 py-1.5 rounded-full hover:bg-slate-100 hover:text-slate-900 transition"
             >
               Contact
-            </a>
+            </Link>
           </nav>
 
           {/* Action CTAs - admin access is intentionally not linked from the public site; admins use the /admin route directly */}
@@ -185,13 +185,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Home
             </Link>
-            <a
-              href="/#services"
+            <Link
+              to="/services"
               onClick={closeMobileMenu}
               className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Services
-            </a>
+            </Link>
             {/* Internships expandable submenu (mobile) */}
             <div>
               <button
@@ -230,13 +230,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   >
                     All Programmes
                   </Link>
-                  <a
-                    href="/#journey"
+                  <Link
+                    to="/#journey"
                     onClick={closeMobileMenu}
                     className="block py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
                   >
                     6-Step Journey
-                  </a>
+                  </Link>
                   <Link
                     to="/verify"
                     onClick={closeMobileMenu}
@@ -261,13 +261,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 </div>
               )}
             </div>
-            <a
-              href="/#contact"
+            <Link
+              to="/#contact"
               onClick={closeMobileMenu}
               className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Contact
-            </a>
+            </Link>
             <div className="pt-2 border-t border-slate-200 flex flex-col gap-2">
               {isFormConfigured ? (
                 <a
@@ -320,9 +320,9 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-3">Quick Navigation</h4>
               <ul className="space-y-2">
                 <li><Link to="/" className="hover:text-cyan-400 transition">Home Overview</Link></li>
-                <li><a href="/#services" className="hover:text-cyan-400 transition">Software Services</a></li>
+                <li><Link to="/services" className="hover:text-cyan-400 transition">Software Services</Link></li>
                 <li><Link to="/programs" className="hover:text-cyan-400 transition">All Programmes</Link></li>
-                <li><a href="/#journey" className="hover:text-cyan-400 transition">6-Step Journey</a></li>
+                <li><Link to="/#journey" className="hover:text-cyan-400 transition">6-Step Journey</Link></li>
                 <li>
                   {isFormConfigured ? (
                     <a
