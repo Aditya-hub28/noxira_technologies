@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, Lock, ChevronDown } from 'lucide-react';
+import { Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
@@ -19,10 +19,10 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
       {/* Top Main Navigation Bar */}
       <header className="sticky top-3 z-40 px-3 sm:px-5">
         {/* Floating pill navbar (visual reference: tsec-assignment-hub.me translucent pill) */}
-        <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-ink-950/5 rounded-full pl-4 pr-2.5 sm:pl-5 sm:pr-3 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-ink-950/5 rounded-full pl-4 pr-2.5 sm:pl-5 sm:pr-3 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
           <Link to="/" onClick={closeMobileMenu} className="flex items-center gap-2.5 group">
-            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-7 w-auto group-hover:scale-[1.03] transition" />
+            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-10 w-auto group-hover:scale-[1.03] transition" />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -118,33 +118,8 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             </a>
           </nav>
 
-          {/* Action CTAs */}
+          {/* Action CTAs - admin access is intentionally not linked from the public site; admins use the /admin route directly */}
           <div className="hidden sm:flex items-center gap-2.5">
-            {admin ? (
-              <div className="flex items-center gap-2">
-                <Link
-                  to="/admin"
-                  className="px-3.5 py-1.5 bg-ink-950 hover:bg-ink-800 text-cyan-400 rounded-full text-xs font-semibold transition"
-                >
-                  Admin Console
-                </Link>
-                <button
-                  onClick={onLogout}
-                  className="px-2 py-1.5 text-slate-400 hover:text-slate-800 text-xs font-semibold"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={onOpenAdminLogin}
-                className="px-2.5 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold transition flex items-center gap-1"
-              >
-                <Lock className="w-3 h-3" />
-                Admin
-              </button>
-            )}
-
             {isFormConfigured ? (
               <a
                 href={googleForm1Url}
@@ -161,7 +136,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 type="button"
                 disabled
                 title={noteMessage}
-                className="px-4 py-2 bg-cyan-400/50 text-slate-950/70 rounded-full text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
+                className="px-4 py-2 bg-slate-200/80 text-slate-400 rounded-full text-xs font-bold cursor-not-allowed flex items-center gap-1.5"
               >
                 Apply Now
               </button>
@@ -184,7 +159,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 type="button"
                 disabled
                 title={noteMessage}
-                className="px-3 py-1.5 bg-cyan-400/50 text-slate-950/70 font-bold text-xs rounded-full sm:hidden cursor-not-allowed"
+                className="px-3 py-1.5 bg-slate-200/80 text-slate-400 font-bold text-xs rounded-full sm:hidden cursor-not-allowed"
               >
                 Apply
               </button>
@@ -310,27 +285,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   type="button"
                   disabled
                   title={noteMessage}
-                  className="w-full text-center py-2.5 bg-cyan-400/50 text-slate-950/70 font-bold text-xs rounded-full cursor-not-allowed"
+                  className="w-full text-center py-2.5 bg-slate-200/80 text-slate-400 font-bold text-xs rounded-full cursor-not-allowed"
                 >
                   Apply for Cohort (Unavailable)
                 </button>
               )}
-              {admin ? (
-                <Link
-                  to="/admin"
-                  onClick={closeMobileMenu}
-                  className="w-full text-center py-2 bg-ink-950 text-slate-200 font-semibold text-xs rounded-full"
-                >
-                  Admin Console
-                </Link>
-              ) : (
-                <button
-                  onClick={() => { closeMobileMenu(); onOpenAdminLogin(); }}
-                  className="w-full text-center py-2 text-slate-400 hover:text-slate-700 text-xs font-semibold"
-                >
-                  Admin Sign In
-                </button>
-              )}
+
             </div>
           </div>
         )}
@@ -348,7 +308,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             {/* Col 1: Organization Branding */}
             <div className="space-y-3 md:col-span-2">
               <div className="flex items-center gap-2">
-                <img src="/noxira-wordmark-white.png" alt="NOXIRA Technologies" className="h-7 w-auto" />
+                <img src="/noxira-wordmark-white.png" alt="NOXIRA Technologies" className="h-8 w-auto" />
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-md">
                 NOXIRA Technologies designs and develops modern web and mobile software solutions, alongside practical engineering internship tracks with transparent credential verification.
