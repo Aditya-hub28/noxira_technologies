@@ -29,6 +29,9 @@ import ServicesPage from './pages/ServicesPage';
 import StudentLoginPage from './pages/StudentLoginPage';
 import StudentRegisterPage from './pages/StudentRegisterPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
+import SkillCoursesPage from './pages/SkillCoursesPage';
+import SkillCourseDetailPage from './pages/SkillCourseDetailPage';
+import SkillQuizPage from './pages/SkillQuizPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { StudentAuthProvider } from './context/StudentAuthContext';
 
@@ -266,6 +269,9 @@ function AppContent() {
         <Route path="/login" element={<StudentLoginPage />} />
         <Route path="/register" element={<StudentRegisterPage />} />
         <Route path="/dashboard" element={<StudentDashboardPage />} />
+        <Route path="/skill-courses" element={<SkillCoursesPage />} />
+        <Route path="/skill-courses/:code" element={<SkillCourseDetailPage />} />
+        <Route path="/skill-courses/:code/test" element={<SkillQuizPage />} />
         <Route path="/terms" element={<PolicyPage slug="terms" />} />
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />

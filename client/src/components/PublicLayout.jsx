@@ -74,6 +74,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                     </span>
                   )}
                   <Link
+                    to="/skill-courses"
+                    onClick={() => setInternOpen(false)}
+                    className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
+                  >
+                    Skill Courses
+                  </Link>
+                  <Link
                     to="/programs"
                     onClick={() => setInternOpen(false)}
                     className="block mx-2 px-3 py-2.5 rounded-xl hover:bg-slate-100 hover:text-cyan-700 transition"
@@ -244,6 +251,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                       Apply Now <ExternalLink className="w-3 h-3" />
                     </span>
                   )}
+                  <Link
+                    to="/skill-courses"
+                    onClick={closeMobileMenu}
+                    className="block py-2 text-sm font-semibold text-slate-600 hover:text-cyan-700"
+                  >
+                    Skill Courses
+                  </Link>
                   <Link
                     to="/programs"
                     onClick={closeMobileMenu}

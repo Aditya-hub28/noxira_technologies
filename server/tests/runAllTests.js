@@ -19,6 +19,11 @@ const Student = require('../src/models/Student');
 const studentAuthController = require('../src/controllers/studentAuthController');
 const { requireStudentAuth } = require('../src/middleware/studentAuth');
 const studentDataController = require('../src/controllers/studentDataController');
+const skillCourseController = require('../src/controllers/skillCourseController');
+const SkillCourse = require('../src/models/SkillCourse');
+const QuizQuestion = require('../src/models/QuizQuestion');
+const QuizAttempt = require('../src/models/QuizAttempt');
+const { seedSkillCourses } = require('../src/scripts/seedSkillCourses');
 const { getPublicSettings, getAdminGoogleForm1, updateGoogleForm1, validateGoogleFormUrl } = require('../src/controllers/settingsController');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
@@ -4641,6 +4646,126 @@ async function runTestSuite() {
       if (refMessage === null) refMessage = f.getData().message;
       assert.strictEqual(f.getData().message, refMessage, 'Identical generic message for every failure');
     }
+  });
+
+  await test('Skill courses: seed integrity, answer-blind start, scoring, pass gate, late submit, attempt isolation', async () => {
+    const jwt = require('jsonwebtoken');
+    const summary = await seedSkillCourses();
+    assert.strictEqual(summary.length, 2, 'Two banks seeded');
+
+    // Bank integrity
+    for (const code of ['WEB-DEV', 'PY-PROG']) {
+      const qs = await QuizQuestion.find({ courseCode: code });
+      assert.strictEqual(qs.length, 50, `${code} has 50 questions`);
+      for (const q of qs) {
+        assert.strictEqual(q.options.length, 4, 'Every question has exactly 4 options');
+        assert.ok(q.correctIndex >= 0 && q.correctIndex < 4, 'correctIndex in range');
+      }
+    }
+
+    // Public catalogue exposes metadata only
+    const list = mockReqRes({});
+    await skillCourseController.listCourses(list.req, list.res, list.next);
+    assert.strictEqual(list.getData().courses.length, 2, 'Catalogue lists both courses');
+    assert.ok(!JSON.stringify(list.getData()).includes('correctIndex'), 'Catalogue never leaks answers');
+
+    // A student starts an attempt
+    const reg = mockReqRes({ body: { name: 'Quizzer', email: 'quizzer@example.com', password: 'password123' } });
+    await studentAuthController.register(reg.req, reg.res, reg.next);
+    const token = reg.getData().token;
+    const authd = async () => {
+      const req = { headers: { authorization: `Bearer ${token}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+
+    const start = mockReqRes({}); start.req = await authd(); start.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(start.req, start.res, start.next);
+    assert.strictEqual(start.getStatus(), 200, 'Attempt started');
+    assert.strictEqual(start.getData().questions.length, 50, '50 questions served');
+    assert.ok(!JSON.stringify(start.getData().questions).includes('correctIndex'), 'Served questions carry NO answers');
+    const attemptId = start.getData().attempt.id;
+    const servedIds = start.getData().questions.map(q => q.id);
+
+    // Restarting resumes the SAME attempt (same questions)
+    const restart = mockReqRes({}); restart.req = await authd(); restart.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(restart.req, restart.res, restart.next);
+    assert.strictEqual(restart.getData().attempt.id, attemptId, 'Resume returns same attempt');
+
+    // Score a known-correct run: answer every served question with its true answer (from DB)
+    const trueAnswers = {};
+    for (const qid of servedIds) {
+      const q = await QuizQuestion.findById(qid);
+      trueAnswers[qid] = q.correctIndex;
+    }
+    const submit = mockReqRes({ body: { answers: trueAnswers } });
+    submit.req = await authd(); submit.req.params = { attemptId }; submit.req.body = { answers: trueAnswers };
+    await skillCourseController.submitAttempt(submit.req, submit.res, submit.next);
+    assert.strictEqual(submit.getData().result.score, 50, 'All-correct scores 50');
+    assert.strictEqual(submit.getData().result.scorePercent, 100);
+    assert.strictEqual(submit.getData().result.passed, true, '100% passes the 60% gate');
+
+    // Double submit is idempotent
+    const again = mockReqRes({}); again.req = await authd(); again.req.params = { attemptId };
+    await skillCourseController.submitAttempt(again.req, again.res, again.next);
+    assert.strictEqual(again.getData().alreadySubmitted, true, 'Re-submit returns stored result, no duplicate');
+
+    // A failing run: all answers wrong
+    const reg2 = mockReqRes({ body: { name: 'Quizzer2', email: 'quizzer2@example.com', password: 'password123' } });
+    await studentAuthController.register(reg2.req, reg2.res, reg2.next);
+    const token2 = reg2.getData().token;
+    const authd2 = async () => {
+      const req = { headers: { authorization: `Bearer ${token2}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start2 = mockReqRes({}); start2.req = await authd2(); start2.req.params = { code: 'WEB-DEV' };
+    await skillCourseController.startAttempt(start2.req, start2.res, start2.next);
+    const attempt2 = start2.getData().attempt.id;
+    const wrongAnswers = {};
+    for (const q of start2.getData().questions) {
+      const db = await QuizQuestion.findById(q.id);
+      wrongAnswers[q.id] = (db.correctIndex + 1) % 4;
+    }
+    const submit2 = mockReqRes({}); submit2.req = await authd2(); submit2.req.params = { attemptId: attempt2 }; submit2.req.body = { answers: wrongAnswers };
+    await skillCourseController.submitAttempt(submit2.req, submit2.res, submit2.next);
+    assert.strictEqual(submit2.getData().result.score, 0, 'All-wrong scores 0');
+    assert.strictEqual(submit2.getData().result.passed, false, '0% fails');
+
+    // Attempt isolation: student 2 cannot read or submit student 1's attempt
+    const foreign = mockReqRes({}); foreign.req = await authd2(); foreign.req.params = { attemptId };
+    foreign.req.body = { answers: {} };
+    await skillCourseController.submitAttempt(foreign.req, foreign.res, foreign.next);
+    assert.strictEqual(foreign.getStatus(), 404, 'Foreign attempt submit => 404');
+
+    // Late submission cannot pass even with perfect answers
+    const reg3 = mockReqRes({ body: { name: 'Late', email: 'late@example.com', password: 'password123' } });
+    await studentAuthController.register(reg3.req, reg3.res, reg3.next);
+    const token3 = reg3.getData().token;
+    const authd3 = async () => {
+      const req = { headers: { authorization: `Bearer ${token3}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start3 = mockReqRes({}); start3.req = await authd3(); start3.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(start3.req, start3.res, start3.next);
+    const attempt3id = start3.getData().attempt.id;
+    await QuizAttempt.findByIdAndUpdate(attempt3id, { deadlineAt: new Date(Date.now() - 60 * 1000) });
+    const perfectAnswers = {};
+    for (const q of start3.getData().questions) {
+      const db = await QuizQuestion.findById(q.id);
+      perfectAnswers[q.id] = db.correctIndex;
+    }
+    const submit3 = mockReqRes({}); submit3.req = await authd3(); submit3.req.params = { attemptId: attempt3id }; submit3.req.body = { answers: perfectAnswers };
+    await skillCourseController.submitAttempt(submit3.req, submit3.res, submit3.next);
+    assert.strictEqual(submit3.getData().result.lateSubmit, true, 'Late flag recorded');
+    assert.strictEqual(submit3.getData().result.passed, false, 'Late submission CANNOT pass even at 100%');
+
+    // History: student 1 sees only their own attempt
+    const hist = mockReqRes({}); hist.req = await authd();
+    await skillCourseController.getMyAttempts(hist.req, hist.res, hist.next);
+    assert.strictEqual(hist.getData().attempts.length, 1, 'History scoped to the account');
+    assert.strictEqual(hist.getData().attempts[0].courseCode, 'PY-PROG');
   });
 
   // Cleanup

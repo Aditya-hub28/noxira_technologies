@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
 export default function StudentLoginPage() {
   const { login } = useStudentAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const next = location.state && typeof location.state.next === 'string' && location.state.next.startsWith('/') ? location.state.next : '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,7 +20,7 @@ export default function StudentLoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate(next);
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {

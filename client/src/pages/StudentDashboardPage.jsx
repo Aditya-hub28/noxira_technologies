@@ -24,14 +24,16 @@ export default function StudentDashboardPage() {
   const { student, loading, logout, refresh } = useStudentAuth();
   const [applications, setApplications] = useState(null);
   const [offers, setOffers] = useState(null);
+  const [skillAttempts, setSkillAttempts] = useState(null);
   const [dataError, setDataError] = useState('');
 
   const reload = () => {
     if (!student) return;
-    Promise.all([api.studentApplications(), api.studentOffers()])
-      .then(([apps, ofs]) => {
+    Promise.all([api.studentApplications(), api.studentOffers(), api.mySkillAttempts()])
+      .then(([apps, ofs, atts]) => {
         setApplications(apps.applications || []);
         setOffers(ofs.offers || []);
+        setSkillAttempts(atts.attempts || []);
       })
       .catch(err => setDataError(err.message || 'Could not load your account data.'));
   };
@@ -39,6 +41,7 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     setApplications(null);
     setOffers(null);
+    setSkillAttempts(null);
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student?.id, student?.emailVerified]);
@@ -160,15 +163,40 @@ export default function StudentDashboardPage() {
           )}
         </section>
 
-        {/* Skill tests - wired when the courses module lands */}
         <section className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center">
-              <ClipboardList className="w-4.5 h-4.5" />
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center">
+                <ClipboardList className="w-4.5 h-4.5" />
+              </div>
+              <h2 className="text-base font-bold text-ink-950">Skill Tests</h2>
             </div>
-            <h2 className="text-base font-bold text-ink-950">Skill Tests</h2>
+            <Link to="/skill-courses" className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-600 hover:text-cyan-700 transition">
+              Take a test <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
-          <p className="text-sm text-slate-500 leading-relaxed">No skill tests taken yet. When skill courses go live, your scores and attempt history will appear here.</p>
+          {skillAttempts === null ? (
+            <p className="text-sm text-slate-400">Loading your attempts...</p>
+          ) : skillAttempts.length === 0 ? (
+            <p className="text-sm text-slate-500 leading-relaxed">No skill tests taken yet. Your scores and attempt history will appear here after your first assessment.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {skillAttempts.map(a => (
+                <li key={a.id} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-ink-950 truncate">{a.courseTitle}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {a.score}/{a.totalQuestions} correct · {a.scorePercent}%{a.lateSubmit ? ' · submitted after the time limit' : ''}
+                      {' · '}{new Date(a.submittedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 text-[10px] font-bold tracking-wide uppercase border rounded-full px-2.5 py-1 ${a.passed ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                    {a.passed ? 'Passed' : 'Failed'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* Certificates - wired when issuance is linked */}
