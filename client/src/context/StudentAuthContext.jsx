@@ -33,8 +33,15 @@ export function StudentAuthProvider({ children }) {
     setStudent(null);
   }, []);
 
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api.studentMe();
+      if (data?.student) setStudent(data.student);
+    } catch (e) { /* keep current state */ }
+  }, []);
+
   return (
-    <StudentAuthContext.Provider value={{ student, loading, login, register, logout }}>
+    <StudentAuthContext.Provider value={{ student, loading, login, register, logout, refresh }}>
       {children}
     </StudentAuthContext.Provider>
   );

@@ -7,19 +7,29 @@ const { createOfferDownloadToken } = require('../services/offerService');
 
 /**
  * Account-scoped data for the logged-in student's dashboard.
- * Everything is matched by the student's own account email - a student can
- * only ever read records tied to their own authenticated address.
+ * A record is visible only when the student has PROVEN ownership of the
+ * email it belongs to - either by verifying the account email (OTP) or by
+ * claiming the application with its secret application ID. Registering an
+ * account with someone else's address alone reveals nothing.
  */
-
-exports.getMyApplications = async (req, res, next) => {
-  try {
-    const email = req.student.email.toLowerCase().trim();
+async function visibleApplicationFilter(student, filter = {}) {
+  const or = [{ claimedByStudentId: student._id }];
+  if (student.emailVerifiedAt) {
+    const email = student.email.toLowerCase().trim();
     const participants = await Participant.find({
       $or: [{ normalizedEmail: email }, { email }]
     }).select('_id');
     const participantIds = participants.map(p => p._id);
+    if (participantIds.length > 0) {
+      or.push({ participantId: { $in: participantIds } });
+    }
+  }
+  return { ...filter, $or: or };
+}
 
-    const applications = participantIds.length === 0 ? [] : await Application.find({ participantId: { $in: participantIds } })
+exports.getMyApplications = async (req, res, next) => {
+  try {
+    const applications = await Application.find(await visibleApplicationFilter(req.student))
       .sort({ appliedAt: -1 })
       .select('applicationId programCode programTitle status appliedAt decidedAt offerState offerLetterId')
       .lean();
@@ -43,17 +53,10 @@ exports.getMyApplications = async (req, res, next) => {
 
 exports.getMyOfferLetters = async (req, res, next) => {
   try {
-    const email = req.student.email.toLowerCase().trim();
-    const participants = await Participant.find({
-      $or: [{ normalizedEmail: email }, { email }]
-    }).select('_id');
-    const participantIds = participants.map(p => p._id);
-
-    const applications = participantIds.length === 0 ? [] : await Application.find({
-      participantId: { $in: participantIds },
+    const applications = await Application.find(await visibleApplicationFilter(req.student, {
       status: 'APPROVED',
       offerLetterId: { $ne: null }
-    }).select('applicationId programCode programTitle offerLetterId decidedAt').lean();
+    })).select('applicationId programCode programTitle offerLetterId decidedAt').lean();
 
     const offers = [];
     for (const app of applications) {
@@ -91,24 +94,28 @@ exports.getMyOfferLetters = async (req, res, next) => {
 };
 
 /**
- * Public protected lookup: an applicant proves knowledge of their email +
- * programme and gets a download link for their offer letter. Every failure
- * mode returns the identical generic 404 so the endpoint cannot be used to
- * enumerate who applied to what.
+ * Public protected lookup: an applicant proves POSSESSION with three
+ * factors - their registered email, the programme, and the application ID
+ * that was issued only to them at apply time. Knowing someone's email and
+ * programme alone (both easy to guess) returns nothing. Every failure mode
+ * returns the identical generic 404.
  */
 exports.lookupOfferLetter = async (req, res, next) => {
   try {
-    const { email, programme } = req.query;
+    const { email, programme, applicationId } = req.query;
 
     if (
       typeof email !== 'string' ||
       typeof programme !== 'string' ||
+      typeof applicationId !== 'string' ||
       !email.trim() ||
       !programme.trim() ||
+      !applicationId.trim() ||
       email.trim().length > 254 ||
-      programme.trim().length > 32
+      programme.trim().length > 32 ||
+      applicationId.trim().length > 32
     ) {
-      return res.status(400).json({ success: false, message: 'Both email and programme are required.' });
+      return res.status(400).json({ success: false, message: 'Email, programme and application ID are all required.' });
     }
 
     const generic404 = () => res.status(404).json({
@@ -118,19 +125,18 @@ exports.lookupOfferLetter = async (req, res, next) => {
 
     const normEmail = email.trim().toLowerCase();
     const cleanProgramme = programme.trim().toUpperCase();
-
-    const participant = await Participant.findOne({
-      $or: [{ normalizedEmail: normEmail }, { email: normEmail }]
-    });
-    if (!participant) return generic404();
+    const cleanAppId = applicationId.trim().toUpperCase();
 
     const application = await Application.findOne({
-      participantId: participant._id,
+      applicationId: cleanAppId,
       programCode: cleanProgramme,
       status: 'APPROVED',
       offerLetterId: { $ne: null }
-    }).sort({ decidedAt: -1 });
-    if (!application) return generic404();
+    }).populate('participantId');
+    if (!application || !application.participantId) return generic404();
+
+    const participantEmail = (application.participantId.normalizedEmail || application.participantId.email || '').toLowerCase().trim();
+    if (participantEmail !== normEmail) return generic404();
 
     const offer = await OfferLetter.findById(application.offerLetterId);
     if (!offer) return generic404();

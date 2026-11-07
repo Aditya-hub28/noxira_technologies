@@ -45,7 +45,10 @@ export const api = {
   studentMe: () => request('/students/me'),
   studentApplications: () => request('/students/applications'),
   studentOffers: () => request('/students/offers'),
-  lookupOfferLetter: (email, programme) => request(`/offers/lookup?email=${encodeURIComponent(email)}&programme=${encodeURIComponent(programme)}`),
+  lookupOfferLetter: (email, programme, applicationId) => request(`/offers/lookup?email=${encodeURIComponent(email)}&programme=${encodeURIComponent(programme)}&applicationId=${encodeURIComponent(applicationId)}`),
+  studentRequestVerification: () => request('/students/verify/request', { method: 'POST' }),
+  studentConfirmVerification: (code) => request('/students/verify/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+  studentClaimApplication: (applicationId) => request('/students/claim', { method: 'POST', body: JSON.stringify({ applicationId }) }),
 
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),

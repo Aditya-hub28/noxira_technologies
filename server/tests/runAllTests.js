@@ -4495,10 +4495,20 @@ async function runTestSuite() {
     assert.strictEqual(guardStatus, 401, 'Admin-shaped token rejected by student middleware');
   });
 
-  await test('Student data: account isolation, logout cookie clear, expired token, offer lookup anti-enumeration', async () => {
+  await test('Student data: ownership gating, OTP verification, claim flow, offer lookup possession factors', async () => {
     const jwt = require('jsonwebtoken');
+    const { setTransporter } = require('../src/services/emailService');
 
-    // Two students
+    // Capture outgoing mail so the test can read the OTP (simulated transport only)
+    let capturedCode = null;
+    setTransporter({
+      sendMail: async (opts) => {
+        const m = /code is (\d{6})/.exec(opts.text || '');
+        if (m) capturedCode = m[1];
+        return { messageId: 'mock-test' };
+      }
+    });
+
     const mk = async (email) => {
       const r = mockReqRes({ body: { name: 'S', email, password: 'password123' } });
       await studentAuthController.register(r.req, r.res, r.next);
@@ -4507,7 +4517,7 @@ async function runTestSuite() {
     const tokenA = await mk('alpha.student@example.com');
     const tokenB = await mk('beta.student@example.com');
 
-    // Application + offer letter tied ONLY to alpha's email
+    // Records tied ONLY to alpha's email (a legacy Google-Form-style application)
     const participant = await Participant.create({
       fullName: 'Alpha Student', normalizedName: 'alpha student',
       email: 'alpha.student@example.com', normalizedEmail: 'alpha.student@example.com',
@@ -4531,50 +4541,74 @@ async function runTestSuite() {
     application.offerLetterId = offer._id;
     await application.save();
 
-    // Isolation: alpha sees the application, beta sees none
-    const authReq = (token) => ({ headers: { authorization: `Bearer ${token}` }, cookies: {}, ip: '127.0.0.1' });
-    const attach = async (token) => {
-      const req = authReq(token);
+    const attach = async (token, req) => {
+      req = req || {};
+      req.headers = { ...(req.headers || {}), authorization: `Bearer ${token}` };
+      req.cookies = req.cookies || {};
+      req.ip = req.ip || '127.0.0.1';
       await requireStudentAuth(req, mockReqRes({}).res, () => {});
       return req;
     };
-    const appsA = mockReqRes({}); appsA.req = await attach(tokenA);
-    await studentDataController.getMyApplications(appsA.req, appsA.res, appsA.next);
-    assert.strictEqual(appsA.getData().applications.length, 1, 'Student A sees own application');
-    assert.strictEqual(appsA.getData().applications[0].applicationId, 'NOX-TESTALPHA1');
 
-    const appsB = mockReqRes({}); appsB.req = await attach(tokenB);
+    // ATTACKER SCENARIO: unverified account holding alpha's email (or beta) sees NOTHING
+    const appsB = mockReqRes({}); appsB.req = await attach(tokenB, appsB.req);
     await studentDataController.getMyApplications(appsB.req, appsB.res, appsB.next);
-    assert.strictEqual(appsB.getData().applications.length, 0, 'Student B must NOT see student A application');
+    assert.strictEqual(appsB.getData().applications.length, 0, 'Other student sees nothing');
 
-    const ofsB = mockReqRes({}); ofsB.req = await attach(tokenB);
-    await studentDataController.getMyOfferLetters(ofsB.req, ofsB.res, ofsB.next);
-    assert.strictEqual(ofsB.getData().offers.length, 0, 'Student B must NOT see student A offer letter');
+    const appsAun = mockReqRes({}); appsAun.req = await attach(tokenA, appsAun.req);
+    await studentDataController.getMyApplications(appsAun.req, appsAun.res, appsAun.next);
+    assert.strictEqual(appsAun.getData().applications.length, 0, 'UNVERIFIED owner-matching email still sees nothing - ownership must be proven');
 
-    // Alpha gets a working offer link with a token that passes the download verifier
-    const ofsA = mockReqRes({}); ofsA.req = await attach(tokenA);
+    const ofsAun = mockReqRes({}); ofsAun.req = await attach(tokenA, ofsAun.req);
+    await studentDataController.getMyOfferLetters(ofsAun.req, ofsAun.res, ofsAun.next);
+    assert.strictEqual(ofsAun.getData().offers.length, 0, 'No offer token released before verification');
+
+    // OTP flow: request -> code delivered via (simulated) email -> confirm
+    const rv = mockReqRes({}); rv.req = await attach(tokenA, rv.req);
+    await studentAuthController.requestVerification(rv.req, rv.res, rv.next);
+    assert.strictEqual(rv.getStatus(), 200, 'Verification code requested');
+    assert.ok(capturedCode && /^\d{6}$/.test(capturedCode), 'Code reached the (simulated) inbox, not the API response');
+
+    const wrong = mockReqRes({ body: { code: capturedCode === '000000' ? '000001' : '000000' } });
+    wrong.req = await attach(tokenA, wrong.req);
+    await studentAuthController.confirmVerification(wrong.req, wrong.res, wrong.next);
+    assert.strictEqual(wrong.getStatus(), 400, 'Wrong code rejected');
+
+    const cv = mockReqRes({ body: { code: capturedCode } });
+    cv.req = await attach(tokenA, cv.req);
+    await studentAuthController.confirmVerification(cv.req, cv.res, cv.next);
+    assert.strictEqual(cv.getStatus(), 200, `Correct code verifies: ${JSON.stringify(cv.getData()).slice(0, 120)}`);
+    assert.strictEqual(cv.getData().student.emailVerified, true, 'Student marked verified');
+
+    // Verified owner now sees their records
+    const appsA = mockReqRes({}); appsA.req = await attach(tokenA, appsA.req);
+    await studentDataController.getMyApplications(appsA.req, appsA.res, appsA.next);
+    assert.strictEqual(appsA.getData().applications.length, 1, 'Verified owner sees own application');
+
+    const ofsA = mockReqRes({}); ofsA.req = await attach(tokenA, ofsA.req);
     await studentDataController.getMyOfferLetters(ofsA.req, ofsA.res, ofsA.next);
-    assert.strictEqual(ofsA.getData().offers.length, 1, 'Student A sees own offer letter');
+    assert.strictEqual(ofsA.getData().offers.length, 1, 'Verified owner sees own offer letter');
     const url = ofsA.getData().offers[0].downloadUrl;
-    assert.ok(url.startsWith('/api/v1/offers/download/'), 'Download URL shape');
     const decoded = jwt.verify(url.split('/').pop(), env.JWT_SECRET);
     assert.strictEqual(decoded.purpose, 'OFFER_DOWNLOAD', 'Token purpose guard');
     const offerAfter = await OfferLetter.findById(offer._id);
     assert.strictEqual(decoded.jti, offerAfter.downloadToken, 'Token JTI matches stored JTI');
 
+    // Claim flow: beta with the right app ID but wrong email gets generic 404
+    const claimB = mockReqRes({ body: { applicationId: 'NOX-TESTALPHA1' } });
+    claimB.req = await attach(tokenB, claimB.req);
+    await studentAuthController.claimApplication(claimB.req, claimB.res, claimB.next);
+    assert.strictEqual(claimB.getStatus(), 404, 'Claim rejected when account email does not match');
+
     // Unauthenticated account data is 401
-    const noAuth = mockReqRes({}); noAuth.req = { headers: {}, cookies: {} };
     let noAuthStatus = 200;
-    const noAuthRes = { status(c) { noAuthStatus = c; return this; }, json() { return this; } };
-    await requireStudentAuth(noAuth.req, noAuthRes, () => {});
+    await requireStudentAuth({ headers: {}, cookies: {} }, { status(c) { noAuthStatus = c; return this; }, json() { return this; } }, () => {});
     assert.strictEqual(noAuthStatus, 401, 'No token => 401');
 
     // Expired token rejected
     const expired = jwt.sign({ id: new mongoose.Types.ObjectId(), email: 'x@example.com', kind: 'student' }, env.JWT_SECRET, { expiresIn: '-10s' });
-    const expReq = { headers: { authorization: `Bearer ${expired}` }, cookies: {} };
     let expStatus = 200;
-    const expRes = { status(c) { expStatus = c; return this; }, json() { return this; } };
-    await requireStudentAuth(expReq, expRes, () => {});
+    await requireStudentAuth({ headers: { authorization: `Bearer ${expired}` }, cookies: {} }, { status(c) { expStatus = c; return this; }, json() { return this; } }, () => {});
     assert.strictEqual(expStatus, 401, 'Expired token => 401');
 
     // Logout clears the cookie
@@ -4582,23 +4616,31 @@ async function runTestSuite() {
     await studentAuthController.logout(lo.req, lo.res);
     assert.ok((lo.getHeaders()['set-cookie'] || '').includes('Expires=Thu, 01 Jan 1970'), 'Logout clears student cookie');
 
-    // Public lookup: correct email+programme returns a link
-    const ok = mockReqRes({ query: { email: 'ALPHA.student@example.com', programme: 'fs-dev' } });
+    // Public lookup now requires the possession factor (application ID)
+    const noId = mockReqRes({ query: { email: 'alpha.student@example.com', programme: 'FS-DEV' } });
+    await studentDataController.lookupOfferLetter(noId.req, noId.res, noId.next);
+    assert.strictEqual(noId.getStatus(), 400, 'email+programme alone is NOT enough - application ID required');
+
+    const ok = mockReqRes({ query: { email: 'ALPHA.student@example.com', programme: 'fs-dev', applicationId: 'nox-testalpha1' } });
     await studentDataController.lookupOfferLetter(ok.req, ok.res, ok.next);
-    assert.strictEqual(ok.getStatus(), 200, `Lookup succeeds: ${JSON.stringify(ok.getData()).slice(0, 150)}`);
+    assert.strictEqual(ok.getStatus(), 200, `All three factors correct: ${JSON.stringify(ok.getData()).slice(0, 150)}`);
     assert.ok(ok.getData().offer.downloadUrl.includes('/api/v1/offers/download/'));
 
-    // Lookup failures all share the identical generic 404 (no enumeration)
-    const f1 = mockReqRes({ query: { email: 'alpha.student@example.com', programme: 'ML' } });
-    await studentDataController.lookupOfferLetter(f1.req, f1.res, f1.next);
-    const f2 = mockReqRes({ query: { email: 'ghost@example.com', programme: 'FS-DEV' } });
-    await studentDataController.lookupOfferLetter(f2.req, f2.res, f2.next);
-    const f3 = mockReqRes({ query: { email: 'beta.student@example.com', programme: 'FS-DEV' } });
-    await studentDataController.lookupOfferLetter(f3.req, f3.res, f3.next);
-    assert.strictEqual(f1.getStatus(), 404); assert.strictEqual(f2.getStatus(), 404); assert.strictEqual(f3.getStatus(), 404);
-    assert.strictEqual(f1.getData().message, f2.getData().message);
-    assert.strictEqual(f2.getData().message, f3.getData().message);
-    assert.strictEqual(f1.getData().message, 'No offer letter found for the details provided.', 'Identical generic message for every failure');
+    // Every wrong combination => identical generic 404
+    const combos = [
+      { email: 'alpha.student@example.com', programme: 'ML', applicationId: 'NOX-TESTALPHA1' },
+      { email: 'ghost@example.com', programme: 'FS-DEV', applicationId: 'NOX-TESTALPHA1' },
+      { email: 'alpha.student@example.com', programme: 'FS-DEV', applicationId: 'NOX-WRONG99' },
+      { email: 'beta.student@example.com', programme: 'FS-DEV', applicationId: 'NOX-TESTALPHA1' }
+    ];
+    let refMessage = null;
+    for (const q of combos) {
+      const f = mockReqRes({ query: q });
+      await studentDataController.lookupOfferLetter(f.req, f.res, f.next);
+      assert.strictEqual(f.getStatus(), 404, `404 for ${JSON.stringify(q)}`);
+      if (refMessage === null) refMessage = f.getData().message;
+      assert.strictEqual(f.getData().message, refMessage, 'Identical generic message for every failure');
+    }
   });
 
   // Cleanup

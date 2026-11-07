@@ -36,6 +36,7 @@ export default function StatusPage() {
   // Offer letter lookup (email + programme)
   const [offerEmail, setOfferEmail] = useState('');
   const [offerProgramme, setOfferProgramme] = useState('');
+  const [offerAppId, setOfferAppId] = useState('');
   const [programmes, setProgrammes] = useState([]);
   const [offerLoading, setOfferLoading] = useState(false);
   const [offerResult, setOfferResult] = useState(null);
@@ -55,7 +56,7 @@ export default function StatusPage() {
     setOfferResult(null);
     setOfferLoading(true);
     try {
-      const data = await api.lookupOfferLetter(offerEmail, offerProgramme);
+      const data = await api.lookupOfferLetter(offerEmail, offerProgramme, offerAppId);
       setOfferResult(data.offer);
     } catch (err) {
       setOfferError(err.status === 429
@@ -387,7 +388,7 @@ export default function StatusPage() {
             <h2 className="text-lg font-bold text-slate-900 tracking-tight">Download Offer Letter</h2>
           </div>
           <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-            Enter the email you applied with and your programme. For privacy, we never reveal whether an email or application exists - a download link appears only when both details match an issued offer letter.
+            Enter the email you applied with, your programme, and the application ID you received when you applied. A download link appears only when all three match an issued offer letter - so knowing someone's email alone is never enough.
           </p>
           <form onSubmit={handleOfferLookup} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -401,6 +402,18 @@ export default function StatusPage() {
                   onChange={e => setOfferEmail(e.target.value)}
                   className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
                   placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label htmlFor="offer-appid" className="block text-xs font-semibold text-slate-600 mb-1.5">Application ID</label>
+                <input
+                  id="offer-appid"
+                  type="text"
+                  required
+                  value={offerAppId}
+                  onChange={e => setOfferAppId(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
+                  placeholder="e.g. NOX-K7M2QP"
                 />
               </div>
               <div>

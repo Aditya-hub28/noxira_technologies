@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Mail, CalendarDays, GraduationCap, FileText, Award, ClipboardList, LogOut, ArrowRight, Download, AlertCircle } from 'lucide-react';
+import { Mail, CalendarDays, GraduationCap, FileText, Award, ClipboardList, LogOut, ArrowRight, Download, AlertCircle, ShieldCheck, Link2, CheckCircle2 } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 import { api } from '../services/api';
 
@@ -21,23 +21,27 @@ function StatusPill({ status }) {
 }
 
 export default function StudentDashboardPage() {
-  const { student, loading, logout } = useStudentAuth();
+  const { student, loading, logout, refresh } = useStudentAuth();
   const [applications, setApplications] = useState(null);
   const [offers, setOffers] = useState(null);
   const [dataError, setDataError] = useState('');
 
-  useEffect(() => {
+  const reload = () => {
     if (!student) return;
-    let mounted = true;
     Promise.all([api.studentApplications(), api.studentOffers()])
       .then(([apps, ofs]) => {
-        if (!mounted) return;
         setApplications(apps.applications || []);
         setOffers(ofs.offers || []);
       })
-      .catch(err => { if (mounted) setDataError(err.message || 'Could not load your account data.'); });
-    return () => { mounted = false; };
-  }, [student]);
+      .catch(err => setDataError(err.message || 'Could not load your account data.'));
+  };
+
+  useEffect(() => {
+    setApplications(null);
+    setOffers(null);
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student?.id, student?.emailVerified]);
 
   if (loading) {
     return (
@@ -82,6 +86,10 @@ export default function StudentDashboardPage() {
           <span>{dataError}</span>
         </div>
       )}
+
+      {!student.emailVerified && <EmailVerifyCard onVerified={refresh} />}
+
+      <ClaimApplicationCard onClaimed={reload} />
 
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Applications - real data */}
@@ -177,6 +185,141 @@ export default function StudentDashboardPage() {
           </Link>
         </section>
       </div>
+    </div>
+  );
+}
+
+
+function EmailVerifyCard({ onVerified }) {
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+
+  const requestCode = async () => {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      await api.studentRequestVerification();
+      setSent(true);
+      setMsg('A 6-digit code has been sent to your email. It expires in 10 minutes.');
+    } catch (e) {
+      setErr(e.message || 'Could not send the code.');
+    } finally { setBusy(false); }
+  };
+
+  const confirm = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    try {
+      await api.studentConfirmVerification(code);
+      setMsg('Email verified.');
+      onVerified && onVerified();
+    } catch (e2) {
+      setErr(e2.message || 'Verification failed.');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-amber-50/70 border border-amber-200 rounded-3xl p-6 sm:p-7 mb-6">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+          <ShieldCheck className="w-4.5 h-4.5" />
+        </div>
+        <h2 className="text-base font-bold text-ink-950">Verify your email</h2>
+      </div>
+      <p className="text-sm text-slate-600 leading-relaxed mb-4">
+        Your applications and offer letters stay private until you prove this email is yours. Verify it once to unlock records linked to this address.
+      </p>
+      {msg && (
+        <div className="flex items-start gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 mb-3">
+          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /><span>{msg}</span>
+        </div>
+      )}
+      {err && (
+        <div className="flex items-start gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 mb-3">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{err}</span>
+        </div>
+      )}
+      {!sent ? (
+        <button onClick={requestCode} disabled={busy}
+          className="px-5 py-2.5 bg-ink-950 text-white text-xs font-bold rounded-full hover:bg-ink-900 transition disabled:opacity-60">
+          {busy ? 'Sending...' : 'Send verification code'}
+        </button>
+      ) : (
+        <form onSubmit={confirm} className="flex flex-col sm:flex-row gap-3">
+          <input
+            type="text" inputMode="numeric" maxLength={6} required
+            value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+            placeholder="6-digit code"
+            className="w-full sm:w-48 px-4 py-2.5 text-sm tracking-[0.3em] text-center rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
+          />
+          <button type="submit" disabled={busy || code.length !== 6}
+            className="px-5 py-2.5 bg-ink-950 text-white text-xs font-bold rounded-full hover:bg-ink-900 transition disabled:opacity-60">
+            {busy ? 'Verifying...' : 'Verify'}
+          </button>
+          <button type="button" onClick={requestCode} disabled={busy}
+            className="px-4 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition">
+            Resend code
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function ClaimApplicationCard({ onClaimed }) {
+  const [appId, setAppId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+
+  const claim = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const data = await api.studentClaimApplication(appId);
+      setMsg(`Linked: ${data.application.programTitle} (${data.application.applicationId})`);
+      setAppId('');
+      onClaimed && onClaimed();
+    } catch (e2) {
+      setErr(e2.status === 404 ? 'No application found for the details provided.' : (e2.message || 'Could not link the application.'));
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 mb-6">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center">
+          <Link2 className="w-4.5 h-4.5" />
+        </div>
+        <h2 className="text-base font-bold text-ink-950">Link an application</h2>
+      </div>
+      <p className="text-sm text-slate-500 leading-relaxed mb-4">
+        Applied before creating this account? Enter the application ID you received at apply time to link it here. The ID must belong to this account's email.
+      </p>
+      {msg && (
+        <div className="flex items-start gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 mb-3">
+          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /><span>{msg}</span>
+        </div>
+      )}
+      {err && (
+        <div className="flex items-start gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 mb-3">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{err}</span>
+        </div>
+      )}
+      <form onSubmit={claim} className="flex flex-col sm:flex-row gap-3">
+        <input
+          type="text" required
+          value={appId} onChange={e => setAppId(e.target.value)}
+          placeholder="e.g. NOX-K7M2QP"
+          className="w-full sm:w-56 px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
+        />
+        <button type="submit" disabled={busy}
+          className="px-5 py-2.5 bg-ink-950 text-white text-xs font-bold rounded-full hover:bg-ink-900 transition disabled:opacity-60">
+          {busy ? 'Linking...' : 'Link application'}
+        </button>
+      </form>
     </div>
   );
 }

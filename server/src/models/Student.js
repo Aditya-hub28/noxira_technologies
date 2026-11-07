@@ -26,6 +26,22 @@ const StudentSchema = new mongoose.Schema({
   },
   lastLoginAt: {
     type: Date
+  },
+  emailVerifiedAt: {
+    type: Date,
+    default: null
+  },
+  emailVerifyCodeHash: {
+    type: String,
+    default: null
+  },
+  emailVerifyExpiresAt: {
+    type: Date,
+    default: null
+  },
+  emailVerifyAttempts: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
