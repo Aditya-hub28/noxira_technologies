@@ -22,6 +22,7 @@ const adminProgramRoutes = require('./routes/adminProgramRoutes');
 const adminApplicationRoutes = require('./routes/adminApplicationRoutes');
 const adminOfferTemplateRoutes = require('./routes/adminOfferTemplateRoutes');
 const offerDownloadRoutes = require('./routes/offerDownloadRoutes');
+const studentAuthRoutes = require('./routes/studentAuthRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 
@@ -65,6 +66,7 @@ app.use('/api/v1/admin/programs', adminProgramRoutes);
 app.use('/api/v1/admin/applications', adminApplicationRoutes);
 app.use('/api/v1/admin/offer-templates', adminOfferTemplateRoutes);
 app.use('/api/v1/offers', offerDownloadRoutes);
+app.use('/api/v1/students', studentAuthRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/admin/settings', adminSettingsRoutes);
 

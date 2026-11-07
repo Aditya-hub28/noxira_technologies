@@ -28,7 +28,7 @@ const POLICIES = {
       },
       {
         heading: 'Eligibility',
-        body: 'Participants must be at least 18 years old. Programmes are open to everyone - college students, beginners, and working professionals.',
+        body: 'Programmes are open to college students, beginners, and working professionals. If you are below 18, please apply with a parent or guardian\u2019s awareness; specific eligibility requirements, if any, will be confirmed before launch.',
       },
       {
         heading: 'What a programme includes',

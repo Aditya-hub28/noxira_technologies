@@ -26,7 +26,11 @@ import ProgramDetailPage from './pages/ProgramDetailPage';
 import StatusPage from './pages/StatusPage';
 import VerifyPage from './pages/VerifyPage';
 import ServicesPage from './pages/ServicesPage';
+import StudentLoginPage from './pages/StudentLoginPage';
+import StudentRegisterPage from './pages/StudentRegisterPage';
+import StudentDashboardPage from './pages/StudentDashboardPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
+import { StudentAuthProvider } from './context/StudentAuthContext';
 
 // Admin console pages are code-split: the public site bundle does not ship admin code.
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
@@ -259,6 +263,9 @@ function AppContent() {
         <Route path="/status" element={<StatusPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/verify/:token" element={<VerifyPage />} />
+        <Route path="/login" element={<StudentLoginPage />} />
+        <Route path="/register" element={<StudentRegisterPage />} />
+        <Route path="/dashboard" element={<StudentDashboardPage />} />
         <Route path="/terms" element={<PolicyPage slug="terms" />} />
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
@@ -312,9 +319,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <SiteSettingsProvider>
+      <StudentAuthProvider>
         <ScrollManager />
         <AppContent />
-      </SiteSettingsProvider>
+            </StudentAuthProvider>
+    </SiteSettingsProvider>
     </BrowserRouter>
   );
 }

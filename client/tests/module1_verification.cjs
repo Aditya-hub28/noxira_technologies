@@ -237,7 +237,8 @@ test('MODULE 10: policy pages (Terms/Privacy/Refund/Review) wired with grounded 
   // Owner-decided rules present (6 Nov 2026 decisions)
   assert.ok(pageContent.includes('one-time Rs. 99'), 'Fee is Rs. 99 one-time at final submission');
   assert.ok(pageContent.includes('non-refundable'), 'Refund rule: non-refundable');
-  assert.ok(pageContent.includes('at least 18 years old'), 'Eligibility is 18+ (final owner decision)');
+  assert.ok(!pageContent.includes('at least 18 years old'), 'No hardcoded 18+ eligibility (owner removed it; final wording pending his review)');
+  assert.ok(pageContent.includes('parent or guardian'), 'Under-18 handled via guardian-awareness wording, pending owner confirmation');
   assert.ok(pageContent.includes('not legal advice'), 'Draft pages must disclaim legal conclusions');
   assert.ok(!pageContent.includes('15 years old'), 'Superseded 15+ wording must not appear');
   assert.ok(pageContent.includes('duplicate/accidental double payment'), 'Refund exception: duplicate payment');

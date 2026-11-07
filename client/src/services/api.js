@@ -38,6 +38,12 @@ export const api = {
   getProgramDetail: (code) => request(`/programs/${encodeURIComponent(code)}`),
   getApplicationStatus: (email, id) => request(`/intake/status?email=${encodeURIComponent(email)}&id=${encodeURIComponent(id)}`),
 
+  // Student accounts
+  studentRegister: (payload) => request('/students/register', { method: 'POST', body: JSON.stringify(payload) }),
+  studentLogin: (credentials) => request('/students/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  studentLogout: () => request('/students/logout', { method: 'POST' }),
+  studentMe: () => request('/students/me'),
+
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),
   adminCreateProgram: (payload) => request('/admin/programs', { method: 'POST', body: JSON.stringify(payload) }),

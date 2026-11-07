@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useStudentAuth } from '../context/StudentAuthContext';
 import { Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
+  const { student } = useStudentAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [internOpen, setInternOpen] = useState(false);
   const [mobileInternOpen, setMobileInternOpen] = useState(false);
@@ -116,6 +118,12 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Contact
             </Link>
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              className={`ml-1 px-4 py-1.5 rounded-full transition ${student ? 'bg-cyan-600 text-white hover:bg-cyan-700' : 'border border-slate-300 hover:border-slate-400 hover:text-slate-900'}`}
+            >
+              {student ? 'Dashboard' : 'Login'}
+            </Link>
           </nav>
 
           {/* Action CTAs - admin access is intentionally not linked from the public site; admins use the /admin route directly */}
@@ -191,6 +199,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Services
+            </Link>
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              onClick={closeMobileMenu}
+              className="block py-2 text-sm font-semibold text-cyan-700 hover:text-cyan-800"
+            >
+              {student ? 'My Dashboard' : 'Login / Create account'}
             </Link>
             {/* Internships expandable submenu (mobile) */}
             <div>
