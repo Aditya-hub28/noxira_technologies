@@ -1,4 +1,5 @@
 const SkillCourse = require('../models/SkillCourse');
+const skillCertificateService = require('../services/skillCertificateService');
 const QuizQuestion = require('../models/QuizQuestion');
 const QuizAttempt = require('../models/QuizAttempt');
 
@@ -106,6 +107,10 @@ exports.saveAnswers = async (req, res, next) => {
     if (!attempt) {
       return res.status(404).json({ success: false, message: 'Attempt not found or already submitted.' });
     }
+    if (Date.now() > attempt.deadlineAt.getTime()) {
+      // Answers freeze at the deadline; nothing received after it counts.
+      return res.json({ success: true, frozen: true, savedAt: new Date() });
+    }
     const answers = req.body?.answers;
     if (answers && typeof answers === 'object') {
       const validIds = new Set(attempt.questionIds.map(id => String(id)));
@@ -122,8 +127,6 @@ exports.saveAnswers = async (req, res, next) => {
   }
 };
 
-const LATE_GRACE_MS = 30 * 1000; // network/submit grace only
-
 exports.submitAttempt = async (req, res, next) => {
   try {
     const attempt = await QuizAttempt.findOne({
@@ -138,11 +141,12 @@ exports.submitAttempt = async (req, res, next) => {
     }
 
     const now = Date.now();
-    const late = now > attempt.deadlineAt.getTime() + LATE_GRACE_MS;
+    const late = now > attempt.deadlineAt.getTime();
 
-    // Accept any final answers sent with the submit
+    // Final answers sent with the submit only count when they arrive before
+    // the deadline. After it, only answers autosaved in time are scored.
     const answers = req.body?.answers;
-    if (answers && typeof answers === 'object') {
+    if (!late && answers && typeof answers === 'object') {
       const validIds = new Set(attempt.questionIds.map(id => String(id)));
       for (const [qid, idx] of Object.entries(answers)) {
         if (validIds.has(qid) && Number.isInteger(idx) && idx >= 0 && idx <= 3) {
@@ -170,19 +174,20 @@ exports.submitAttempt = async (req, res, next) => {
     attempt.passed = scorePercent >= passPercent;
     attempt.submittedAt = new Date(now);
     attempt.lateSubmit = late;
-    if (late) {
-      // Late submissions are recorded but cannot pass, whatever the score
-      attempt.passed = false;
-    }
     await attempt.save();
 
-    res.json({ success: true, result: resultPayload(attempt, passPercent) });
+    let certificate = null;
+    if (attempt.passed) {
+      certificate = await skillCertificateService.issueForAttempt(attempt, req.student, course);
+    }
+
+    res.json({ success: true, result: resultPayload(attempt, passPercent, certificate) });
   } catch (error) {
     next(error);
   }
 };
 
-function resultPayload(attempt, passPercent) {
+function resultPayload(attempt, passPercent, certificate) {
   return {
     attemptId: String(attempt._id),
     courseCode: attempt.courseCode,
@@ -192,9 +197,70 @@ function resultPayload(attempt, passPercent) {
     passed: attempt.passed,
     lateSubmit: attempt.lateSubmit,
     passPercent: passPercent ?? undefined,
-    submittedAt: attempt.submittedAt
+    submittedAt: attempt.submittedAt,
+    certificate: certificate ? {
+      certificateNumber: certificate.certificateNumber,
+      verificationToken: certificate.verificationToken,
+      issuedAt: certificate.issuedAt
+    } : undefined
   };
 }
+
+// TEST HOOK: answer key for end-to-end tests. Hard-disabled in production and
+// unless ALLOW_TEST_HOOKS=true is set explicitly; never committed enabled.
+exports.answerKey = async (req, res, next) => {
+  try {
+    const env = require('../config/env');
+    if (env.NODE_ENV === 'production' || process.env.ALLOW_TEST_HOOKS !== 'true') {
+      return res.status(404).json({ success: false, message: 'Not found.' });
+    }
+    const QuizQuestion = require('../models/QuizQuestion');
+    const attempt = await QuizAttempt.findOne({
+      _id: req.params.attemptId,
+      studentId: req.student._id,
+      submittedAt: null
+    });
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found.' });
+    }
+    const questions = await QuizQuestion.find({ _id: { $in: attempt.questionIds } }).select('correctIndex').lean();
+    const key = {};
+    for (const q of questions) key[String(q._id)] = q.correctIndex;
+    res.json({ success: true, key });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Skill certificates earned by the signed-in student
+exports.getMyCertificates = async (req, res, next) => {
+  try {
+    const SkillCertificate = require('../models/SkillCertificate');
+    const certs = await SkillCertificate.find({ studentId: req.student._id })
+      .sort({ issuedAt: -1 })
+      .select('certificateNumber verificationToken courseCode courseTitle score totalQuestions scorePercent issuedAt')
+      .lean();
+    res.json({ success: true, certificates: certs.map(c => ({ ...c, id: String(c._id) })) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Public verification of a skill certificate by token (no private data beyond the certificate itself)
+exports.verifySkillCertificate = async (req, res, next) => {
+  try {
+    const SkillCertificate = require('../models/SkillCertificate');
+    const cert = await SkillCertificate.findOne({ verificationToken: req.params.token })
+      .select('certificateNumber studentName courseTitle scorePercent issuedAt')
+      .lean();
+    if (!cert) {
+      return res.status(404).json({ success: false, message: 'Certificate not found.' });
+    }
+    res.json({ success: true, certificate: { ...cert, kind: 'SKILL_TEST' } });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // Attempt history for the dashboard
 exports.getMyAttempts = async (req, res, next) => {

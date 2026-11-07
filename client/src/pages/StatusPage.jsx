@@ -178,7 +178,7 @@ export default function StatusPage() {
                 id="statusAppId"
                 type="text"
                 required
-                placeholder="e.g. NOX-K7M2QP"
+                placeholder="e.g. NOX-K7M2QP4TD9HS"
                 value={applicationId}
                 onChange={(e) => setApplicationId(e.target.value.toUpperCase())}
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm font-mono uppercase focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
@@ -413,7 +413,7 @@ export default function StatusPage() {
                   value={offerAppId}
                   onChange={e => setOfferAppId(e.target.value)}
                   className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
-                  placeholder="e.g. NOX-K7M2QP"
+                  placeholder="e.g. NOX-K7M2QP4TD9HS"
                 />
               </div>
               <div>

@@ -8,6 +8,8 @@ function normalizeResult(r = {}) {
     score: r.score,
     totalQuestions: r.totalQuestions,
     percent: r.scorePercent,
+    certificateNumber: r.certificate && r.certificate.certificateNumber,
+    verificationToken: r.certificate && r.certificate.verificationToken,
     status: r.passed ? 'PASSED' : (r.lateSubmit ? 'TIME_EXPIRED' : 'FAILED')
   };
 }
@@ -121,7 +123,14 @@ export default function SkillQuizPage() {
         <div className="bg-white border border-slate-200 rounded-3xl p-8 mb-8">
           <p className="text-5xl font-black text-ink-950 tracking-tight">{result.score}<span className="text-2xl text-slate-400">/{result.totalQuestions}</span></p>
           <p className="text-xs font-bold text-slate-500 mt-2 tracking-wide uppercase">{result.percent}% &middot; {pass ? 'passed' : `needed ${attempt.passPercent}%`}</p>
-          {result.status === 'TIME_EXPIRED' && <p className="text-[11px] text-amber-600 font-medium mt-3">Your attempt reached the time limit and was closed by the system.</p>}
+          {result.status === 'TIME_EXPIRED' && <p className="text-[11px] text-amber-600 font-medium mt-3">Your final submit arrived after the deadline, so only your saved answers were scored.</p>}
+          {pass && result.certificateNumber && (
+            <div className="mt-5 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5">
+              <p className="text-[10px] font-bold tracking-widest text-emerald-600 uppercase mb-1">Skill certificate issued</p>
+              <p className="font-mono text-sm font-bold text-emerald-800">{result.certificateNumber}</p>
+              <p className="text-[11px] text-emerald-700 mt-1.5">Anyone can verify it on the certificate verification page using your secure link. It is also saved on your dashboard.</p>
+            </div>
+          )}
         </div>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button onClick={() => navigate('/dashboard')} className="bg-ink-950 text-white text-xs font-bold rounded-full px-6 py-3 hover:bg-ink-900 transition">Go to dashboard</button>

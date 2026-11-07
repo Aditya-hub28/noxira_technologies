@@ -91,7 +91,7 @@ export default function SkillCourseDetailPage() {
         <div className="flex items-start gap-2.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 mb-7">
           <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            One attempt runs at a time and is server-timed. You can resume an in-progress attempt if you leave; a 30-second grace applies after time expires. Answers save automatically as you go.
+            One attempt runs at a time and is server-timed. You can leave and resume an in-progress attempt; answers save automatically as you go and count up to the deadline. If your final submit arrives late, only your saved answers are scored.
           </p>
         </div>
 

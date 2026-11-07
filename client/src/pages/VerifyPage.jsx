@@ -9,6 +9,7 @@ export default function VerifyPage({ initialToken }) {
   const [tokenInput, setTokenInput] = useState(effectiveToken);
   const [loading, setLoading] = useState(false);
   const [cert, setCert] = useState(null);
+  const [skillCert, setSkillCert] = useState(null);
   const [error, setError] = useState('');
 
   const handleVerify = async (queryToken) => {
@@ -18,12 +19,18 @@ export default function VerifyPage({ initialToken }) {
     setLoading(true);
     setError('');
     setCert(null);
+    setSkillCert(null);
 
     try {
       const data = await api.verifyToken(q.trim());
       setCert(data);
     } catch (err) {
-      setError(err.message || 'Credential not found or invalid token');
+      try {
+        const skill = await api.verifySkillCertificate(q.trim());
+        setSkillCert(skill.certificate);
+      } catch (err2) {
+        setError(err.message || 'Credential not found or invalid token');
+      }
     } finally {
       setLoading(false);
     }
@@ -91,6 +98,24 @@ export default function VerifyPage({ initialToken }) {
       )}
 
       {/* Verified Credential Card */}
+      {skillCert && (
+        <div className="bg-white border border-emerald-200 rounded-2xl shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <CheckCircle2 className="w-7 h-7 text-emerald-500 shrink-0" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Valid skill test certificate</h2>
+              <p className="font-mono text-xs text-slate-500">{skillCert.certificateNumber}</p>
+            </div>
+          </div>
+          <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div><dt className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Awarded to</dt><dd className="font-semibold text-slate-800 mt-0.5">{skillCert.studentName}</dd></div>
+            <div><dt className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Assessment</dt><dd className="font-semibold text-slate-800 mt-0.5">{skillCert.courseTitle}</dd></div>
+            <div><dt className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Score</dt><dd className="font-semibold text-slate-800 mt-0.5">{skillCert.scorePercent}%</dd></div>
+            <div><dt className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Issued</dt><dd className="font-semibold text-slate-800 mt-0.5">{new Date(skillCert.issuedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</dd></div>
+          </dl>
+        </div>
+      )}
+
       {cert && (
         <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-sm overflow-hidden">
           {/* Status Banner */}

@@ -57,6 +57,8 @@ export const api = {
   saveSkillAnswers: (attemptId, answers) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}`, { method: 'PATCH', body: JSON.stringify({ answers }) }),
   submitSkillAttempt: (attemptId, answers) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }),
   mySkillAttempts: () => request('/skill-courses/attempts/mine'),
+  mySkillCertificates: () => request('/skill-courses/certificates/mine'),
+  verifySkillCertificate: (token) => request(`/skill-courses/certificates/verify/${encodeURIComponent(token)}`),
 
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),

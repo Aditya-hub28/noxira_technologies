@@ -3,10 +3,14 @@ const crypto = require('crypto');
 
 const CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 
+// 12 chars from a 32-char alphabet = ~60 bits of entropy. Application IDs
+// act as a possession secret for status lookup and account claiming, so the
+// earlier 6-char (~30 bit) space was too small. Legacy 6-char IDs stay valid.
 function generateApplicationId() {
-  const bytes = crypto.randomBytes(6);
+  const length = 12;
+  const bytes = crypto.randomBytes(length);
   let code = '';
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < length; i++) {
     code += CHARSET[bytes[i] % CHARSET.length];
   }
   return `NOX-${code}`;
