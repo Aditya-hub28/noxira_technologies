@@ -39,12 +39,6 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Services
             </a>
-            <a
-              href="/#portfolio"
-              className="px-3 py-1.5 rounded-full hover:bg-slate-100 hover:text-slate-900 transition"
-            >
-              Portfolio
-            </a>
             {/* Internships dropdown (structure reference: grouped internship menu) */}
             <div className="relative" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInternOpen(false); }} onKeyDown={event => { if (event.key === 'Escape') setInternOpen(false); }}>
               <button
@@ -222,13 +216,6 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Services
-            </a>
-            <a
-              href="/#portfolio"
-              onClick={closeMobileMenu}
-              className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
-            >
-              Portfolio
             </a>
             {/* Internships expandable submenu (mobile) */}
             <div>
