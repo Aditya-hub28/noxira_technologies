@@ -158,33 +158,8 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile action pair: hamburger, Apply Now, then Login/Dashboard extreme right - mirrors desktop Apply Now | Login order */}
           <div className="lg:hidden flex items-center gap-1.5">
-            <Link
-              to={student ? '/dashboard' : '/login'}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition ${student ? 'bg-cyan-600 text-white' : 'border border-slate-300 text-slate-700'}`}
-            >
-              {student ? 'Dashboard' : 'Login'}
-            </Link>
-            {isFormConfigured ? (
-              <a
-                href={googleForm1Url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-full sm:hidden flex items-center gap-1"
-              >
-                Apply <ExternalLink className="w-3 h-3" />
-              </a>
-            ) : (
-              <button
-                type="button"
-                disabled
-                title={noteMessage}
-                className="px-3 py-1.5 bg-slate-200/80 text-slate-400 font-bold text-xs rounded-full sm:hidden cursor-not-allowed"
-              >
-                Apply
-              </button>
-            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 text-slate-500 hover:text-slate-900 rounded-full hover:bg-slate-100 focus:outline-none transition"
@@ -193,6 +168,31 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+            {isFormConfigured ? (
+              <a
+                href={googleForm1Url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-cyan-500 text-slate-950 font-bold text-[11px] rounded-full flex items-center gap-1"
+              >
+                Apply Now <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title={noteMessage}
+                className="px-3 py-1.5 bg-slate-200/80 text-slate-400 font-bold text-[11px] rounded-full cursor-not-allowed"
+              >
+                Apply Now
+              </button>
+            )}
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition ${student ? 'bg-cyan-600 text-white' : 'border border-slate-300 text-slate-700'}`}
+            >
+              {student ? 'Dashboard' : 'Login'}
+            </Link>
           </div>
         </div>
 

@@ -11,9 +11,9 @@ import { analyze, ROLE_KEYWORDS } from '../lib/atsAnalyzer';
  * proprietary and differ per company, so any single number would be made up.
  */
 
-function Verdict({ ok, warn, children }) {
-  const Icon = ok ? CheckCircle2 : warn ? AlertTriangle : XCircle;
-  const color = ok ? 'text-emerald-600' : warn ? 'text-amber-600' : 'text-rose-600';
+function Verdict({ ok, warn, info, children }) {
+  const Icon = info ? Info : ok ? CheckCircle2 : warn ? AlertTriangle : XCircle;
+  const color = info ? 'text-slate-400' : ok ? 'text-emerald-600' : warn ? 'text-amber-600' : 'text-rose-600';
   return (
     <li className="flex items-start gap-2.5 text-sm">
       <Icon className={`w-4.5 h-4.5 w-5 h-5 ${color} shrink-0 mt-0.5`} />
@@ -92,7 +92,7 @@ export default function AtsCheckPage() {
               <Verdict ok={result.longBullets === 0} warn={result.bulletCount > 0}>
                 {result.longBullets === 0 ? 'All bullets are a scannable length.' : `${result.longBullets} bullet(s) run over 30 words - split or tighten them.`}
               </Verdict>
-              <Verdict ok>
+              <Verdict info>
                 {result.words} words total. For reference, one page (roughly 300-600 words) is the common expectation for students and freshers - this is guidance, not a pass/fail rule.
               </Verdict>
             </ul>
