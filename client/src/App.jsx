@@ -32,6 +32,7 @@ import StudentDashboardPage from './pages/StudentDashboardPage';
 import SkillCoursesPage from './pages/SkillCoursesPage';
 import SkillCourseDetailPage from './pages/SkillCourseDetailPage';
 import SkillQuizPage from './pages/SkillQuizPage';
+import AtsCheckPage from './pages/AtsCheckPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { StudentAuthProvider } from './context/StudentAuthContext';
 
@@ -270,6 +271,7 @@ function AppContent() {
         <Route path="/register" element={<StudentRegisterPage />} />
         <Route path="/dashboard" element={<StudentDashboardPage />} />
         <Route path="/skill-courses" element={<SkillCoursesPage />} />
+        <Route path="/ats-check" element={<AtsCheckPage />} />
         <Route path="/skill-courses/:code" element={<SkillCourseDetailPage />} />
         <Route path="/skill-courses/:code/test" element={<SkillQuizPage />} />
         <Route path="/terms" element={<PolicyPage slug="terms" />} />

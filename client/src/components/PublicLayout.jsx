@@ -378,6 +378,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                   )}
                 </li>
                 <li><Link to="/status" className="hover:text-cyan-400 transition">Check Application Status</Link></li>
+                <li><Link to="/ats-check" className="hover:text-cyan-400 transition">Resume Check</Link></li>
                 <li><Link to="/verify" className="hover:text-cyan-400 transition">Public Verification Portal</Link></li>
               </ul>
             </div>
