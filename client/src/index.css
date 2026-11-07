@@ -32,3 +32,41 @@
       #ffffff;
   }
 }
+
+/* Hero entrance: pure-CSS staggered reveal (robust without JS-driven animation frames) */
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes hero-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.hero-badge { animation: hero-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.hero-title-line { animation: hero-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.hero-title-line:nth-child(1) { animation-delay: 0.15s; }
+.hero-title-line:nth-child(2) { animation-delay: 0.3s; }
+.hero-subtitle { animation: hero-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both; }
+.hero-cta { animation: hero-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.hero-cta:nth-child(1) { animation-delay: 0.55s; }
+.hero-cta:nth-child(2) { animation-delay: 0.63s; }
+.hero-cta:nth-child(3) { animation-delay: 0.71s; }
+.hero-cta:nth-child(4) { animation-delay: 0.79s; }
+.hero-meta { animation: hero-rise 0.5s ease-out 0.9s both; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-badge, .hero-title-line, .hero-subtitle, .hero-cta, .hero-meta { animation: none; }
+}
+
+/* Scroll reveal (driven by Reveal.jsx via IntersectionObserver) */
+.reveal-hidden {
+  opacity: 0;
+  transform: translateY(26px);
+}
+.reveal-hidden.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-hidden { opacity: 1; transform: none; }
+}
