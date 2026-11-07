@@ -70,7 +70,7 @@ export default function ProgramDetailPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 space-y-6">
         <div className="h-6 w-32 bg-slate-200 rounded animate-pulse"></div>
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 space-y-6 shadow-xs animate-pulse">
+        <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-8 space-y-6 shadow-xs animate-pulse">
           <div className="h-8 bg-slate-200 rounded-md w-1/3"></div>
           <div className="h-10 bg-slate-200 rounded-md w-3/4"></div>
           <div className="h-20 bg-slate-100 rounded-md"></div>
@@ -92,7 +92,7 @@ export default function ProgramDetailPage() {
         <div className="pt-2">
           <Link
             to="/programs"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-semibold shadow-xs transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to All Programmes
@@ -105,14 +105,14 @@ export default function ProgramDetailPage() {
   if (error) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
-        <div className="w-12 h-12 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto text-amber-600">
+        <div className="w-12 h-12 bg-cyan-50 border border-cyan-200 rounded-2xl flex items-center justify-center mx-auto text-cyan-600">
           <AlertTriangle className="w-6 h-6" />
         </div>
         <h2 className="text-lg font-bold text-slate-900">Failed to Load Programme</h2>
         <p className="text-xs text-slate-600">{error}</p>
         <button
           onClick={fetchDetail}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-ink-950 text-white rounded-lg text-xs font-semibold hover:bg-ink-800 transition"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           Retry
@@ -127,7 +127,7 @@ export default function ProgramDetailPage() {
       <div>
         <Link
           to="/programs"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-amber-700 transition"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-cyan-700 transition"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to All Programmes
@@ -135,10 +135,10 @@ export default function ProgramDetailPage() {
       </div>
 
       {/* Hero Header Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
+      <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+            <span className="font-mono text-xs font-bold text-cyan-700 bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-200">
               {program.code}
             </span>
             {program.category && (
@@ -172,11 +172,11 @@ export default function ProgramDetailPage() {
               href={googleForm1Url}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-2"
               title="Apply via Google Form"
             >
               Apply for {program.code}
-              <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+              <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
             </a>
           ) : (
             <div className="w-full sm:w-auto flex flex-col items-center sm:items-end">
@@ -184,10 +184,10 @@ export default function ProgramDetailPage() {
                 type="button"
                 disabled
                 title={noteMessage}
-                className="w-full sm:w-auto px-6 py-3 bg-slate-900/60 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed inline-flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 bg-ink-950/50 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed inline-flex items-center justify-center gap-2"
               >
                 Apply for {program.code}
-                <ExternalLink className="w-3.5 h-3.5 text-amber-400/50" />
+                <ExternalLink className="w-3.5 h-3.5 text-cyan-400/50" />
               </button>
               <span className="text-[11px] text-slate-500 mt-1">
                 {noteMessage}
@@ -203,9 +203,9 @@ export default function ProgramDetailPage() {
           {/* Key Specifications Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {/* Duration (Guarded to 1 Month / 4 Weeks) */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+            <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-4 shadow-2xs">
               <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <Clock className="w-3.5 h-3.5 text-cyan-600" />
                 <span>Duration</span>
               </div>
               <div className="text-base font-bold text-slate-900">
@@ -215,7 +215,7 @@ export default function ProgramDetailPage() {
 
             {/* Task Submission & Review Fee (Only rendered when feeInr != null) */}
             {program.feeInr != null && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
                   <IndianRupee className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Task Submission &amp; Review Fee</span>
@@ -231,7 +231,7 @@ export default function ProgramDetailPage() {
 
             {/* Available Seats (Only rendered when seats != null) */}
             {program.seats != null && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-4 shadow-2xs">
                 <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
                   <Users className="w-3.5 h-3.5 text-slate-500" />
                   <span>Available Seats</span>
@@ -245,15 +245,15 @@ export default function ProgramDetailPage() {
 
           {/* Syllabus Section */}
           {Array.isArray(program.syllabus) && program.syllabus.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+            <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-amber-600" />
+                <BookOpen className="w-5 h-5 text-cyan-600" />
                 <h2 className="text-lg font-bold text-slate-900">Programme Syllabus</h2>
               </div>
               <ul className="space-y-2.5 pt-2">
                 {program.syllabus.map((item, idx) => (
                   <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm text-slate-700">
-                    <span className="font-mono text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 mt-0.5 flex-shrink-0">
+                    <span className="font-mono text-xs font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 mt-0.5 flex-shrink-0">
                       {String(idx + 1).padStart(2, '0')}
                     </span>
                     <span className="leading-relaxed">{item}</span>
@@ -265,9 +265,9 @@ export default function ProgramDetailPage() {
 
           {/* Practical Tasks Section */}
           {Array.isArray(program.tasks) && program.tasks.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+            <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
               <div className="flex items-center gap-2">
-                <ListOrdered className="w-5 h-5 text-amber-600" />
+                <ListOrdered className="w-5 h-5 text-cyan-600" />
                 <h2 className="text-lg font-bold text-slate-900">Task Deliverables</h2>
               </div>
               <ul className="space-y-2.5 pt-2">
@@ -283,7 +283,7 @@ export default function ProgramDetailPage() {
         </div>
       ) : (
         /* Neutral Notice when Owner Has Not Configured Curriculum Yet */
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-2 shadow-xs">
+        <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-8 text-center space-y-2 shadow-xs">
           <p className="text-sm font-medium text-slate-700">
             NOXIRA will publish the detailed curriculum for this programme.
           </p>

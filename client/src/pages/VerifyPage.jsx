@@ -40,8 +40,8 @@ export default function VerifyPage({ initialToken }) {
     <div className="max-w-3xl mx-auto py-10 px-4">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center p-3 bg-slate-900 rounded-2xl mb-3 shadow-md">
-          <ShieldCheck className="w-8 h-8 text-amber-500" />
+        <div className="inline-flex items-center justify-center p-3 bg-ink-950 rounded-2xl mb-3 shadow-md">
+          <ShieldCheck className="w-8 h-8 text-cyan-500" />
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
           Public Credential Verification
@@ -52,7 +52,7 @@ export default function VerifyPage({ initialToken }) {
       </div>
 
       {/* Verification Lookup Input */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-6 mb-3">
+      <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-sm p-4 sm:p-6 mb-3">
         <form onSubmit={(e) => { e.preventDefault(); handleVerify(); }} className="flex gap-2">
           <div className="relative flex-1">
             <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
@@ -61,13 +61,13 @@ export default function VerifyPage({ initialToken }) {
               placeholder="Enter Certificate ID (e.g. NOX-2026-FSD-0001) or Verification Token"
               value={tokenInput}
               onChange={(e) => setTokenInput(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+              className="w-full pl-11 pr-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
             />
           </div>
           <button
             type="submit"
             disabled={loading || !tokenInput.trim()}
-            className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
+            className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'Verify'}
           </button>
@@ -92,7 +92,7 @@ export default function VerifyPage({ initialToken }) {
 
       {/* Verified Credential Card */}
       {cert && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-sm overflow-hidden">
           {/* Status Banner */}
           {cert.status === 'VALID' && (
             <div className="bg-emerald-600 text-white px-6 py-4 flex items-center justify-between">
@@ -153,7 +153,7 @@ export default function VerifyPage({ initialToken }) {
               </div>
               <div>
                 <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Unique Certificate ID</p>
-                <p className="text-base font-mono font-bold text-amber-600 mt-0.5">{cert.certificateNumber}</p>
+                <p className="text-base font-mono font-bold text-cyan-600 mt-0.5">{cert.certificateNumber}</p>
               </div>
             </div>
 
@@ -184,7 +184,7 @@ export default function VerifyPage({ initialToken }) {
                     setTokenInput(cert.replacement.publicVerificationToken);
                     handleVerify(cert.replacement.publicVerificationToken);
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
                 >
                   Inspect Corrected Certificate ({cert.replacement.certificateNumber})
                   <ArrowRight className="w-3.5 h-3.5" />

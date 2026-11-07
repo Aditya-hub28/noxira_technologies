@@ -54,13 +54,13 @@ export default function HomePage() {
     <div className="space-y-16 sm:space-y-24 py-8 sm:py-12">
       {/* 1. Hero Section: Company Intro + Services + Internships */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
-          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-700 border border-cyan-500/30">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
           <span>Software Engineering &amp; Industry Internships</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
-          Modern Software Development &amp; <span className="text-amber-600">Practical Engineering Internships</span>
+          Modern Software Development &amp; <span className="text-cyan-600">Practical Engineering Internships</span>
         </h1>
 
         <p className="text-sm sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">
@@ -74,11 +74,11 @@ export default function HomePage() {
               href={googleForm1Url}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center justify-center gap-2"
               title="Apply via Google Form"
             >
               Apply for Internship
-              <ExternalLink className="w-4 h-4 text-amber-400" />
+              <ExternalLink className="w-4 h-4 text-cyan-400" />
             </a>
           ) : (
             <div className="w-full sm:w-auto flex flex-col items-center">
@@ -86,10 +86,10 @@ export default function HomePage() {
                 type="button"
                 disabled
                 title={noteMessage}
-                className="w-full sm:w-auto px-6 py-3.5 bg-slate-900/60 text-white/70 rounded-xl text-sm font-bold cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 bg-ink-950/50 text-white/70 rounded-xl text-sm font-bold cursor-not-allowed flex items-center justify-center gap-2"
               >
                 Apply for Internship
-                <ExternalLink className="w-4 h-4 text-amber-400/50" />
+                <ExternalLink className="w-4 h-4 text-cyan-400/50" />
               </button>
               <span className="text-[11px] text-slate-500 mt-1">
                 {noteMessage}
@@ -99,25 +99,25 @@ export default function HomePage() {
 
           <a
             href="#services"
-            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white/70 backdrop-blur-md hover:bg-white/90 text-slate-800 border border-white/60 shadow-glass rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
           >
-            <Code2 className="w-4 h-4 text-amber-600" />
+            <Code2 className="w-4 h-4 text-cyan-600" />
             Our Services
           </a>
 
           <Link
             to="/verify"
-            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white/70 backdrop-blur-md hover:bg-white/90 text-slate-800 border border-white/60 shadow-glass rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
           >
-            <ShieldCheck className="w-4 h-4 text-amber-600" />
+            <ShieldCheck className="w-4 h-4 text-cyan-600" />
             Verify Credential
           </Link>
 
           <Link
             to="/status"
-            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white/70 backdrop-blur-md hover:bg-white/90 text-slate-800 border border-white/60 shadow-glass rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
           >
-            <ArrowRight className="w-4 h-4 text-amber-600" />
+            <ArrowRight className="w-4 h-4 text-cyan-600" />
             Download Offer Letter
           </Link>
         </div>
@@ -136,7 +136,7 @@ export default function HomePage() {
       {/* 2. Services Section: Web & App Development */}
       <section id="services" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
         <div className="text-center space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-600 font-bold">
             Software Development Services
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -149,8 +149,8 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Service 1: Web Application Development */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 shadow-xs hover:border-amber-300 hover:shadow-md transition space-y-5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+          <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-8 sm:p-10 shadow-xs hover:border-cyan-300 hover:shadow-md transition space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-600 flex items-center justify-center">
               <Globe className="w-6 h-6" />
             </div>
 
@@ -167,19 +167,19 @@ export default function HomePage() {
               <span className="text-xs font-semibold text-slate-900 block">Core Capabilities:</span>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Full-Stack Web Architectures
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   RESTful APIs &amp; Integrations
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Database Modeling &amp; Auth
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Admin Portals &amp; Dashboards
                 </li>
               </ul>
@@ -187,8 +187,8 @@ export default function HomePage() {
           </div>
 
           {/* Service 2: Mobile Application Development */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 shadow-xs hover:border-amber-300 hover:shadow-md transition space-y-5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+          <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-8 sm:p-10 shadow-xs hover:border-cyan-300 hover:shadow-md transition space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-600 flex items-center justify-center">
               <Smartphone className="w-6 h-6" />
             </div>
 
@@ -205,19 +205,19 @@ export default function HomePage() {
               <span className="text-xs font-semibold text-slate-900 block">Core Capabilities:</span>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Cross-Platform Apps
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Native Android Solutions
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Mobile API Integration
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
                   Clean UI/UX Implementation
                 </li>
               </ul>
@@ -230,7 +230,7 @@ export default function HomePage() {
       {/* 2b. About NOXIRA (structure placeholder - content pending) */}
       <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 scroll-mt-20">
         <div className="text-center space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-600 font-bold">
             About NOXIRA
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -248,7 +248,7 @@ export default function HomePage() {
 
       <section id="programs" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
         <div className="text-center space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-600 font-bold">
             Industry Internship Tracks
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -275,8 +275,8 @@ export default function HomePage() {
 
         {/* Error State (Neutral English fallback) */}
         {!loading && loadError && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-md mx-auto space-y-4 shadow-sm">
-            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mx-auto text-amber-600">
+          <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-8 text-center max-w-md mx-auto space-y-4 shadow-sm">
+            <div className="w-10 h-10 bg-cyan-50 rounded-xl flex items-center justify-center mx-auto text-cyan-600">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div className="space-y-1">
@@ -287,7 +287,7 @@ export default function HomePage() {
             </div>
             <button
               onClick={fetchPrograms}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition"
+              className="px-4 py-2 bg-ink-950 hover:bg-ink-800 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Retry Programmes
@@ -297,7 +297,7 @@ export default function HomePage() {
 
         {/* Empty State */}
         {!loading && !loadError && programs.length === 0 && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-md mx-auto text-xs text-slate-500">
+          <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-8 text-center max-w-md mx-auto text-xs text-slate-500">
             No active programmes are currently published. Please check back shortly.
           </div>
         )}
@@ -308,15 +308,15 @@ export default function HomePage() {
             {programs.map(prg => (
               <div
                 key={prg.code}
-                className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs hover:border-amber-300 hover:shadow-md transition flex flex-col justify-between space-y-6"
+                className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-6 sm:p-7 shadow-xs hover:border-cyan-300 hover:shadow-md transition flex flex-col justify-between space-y-6"
               >
-                <div className="relative -mx-6 -mt-6 sm:-mx-7 sm:-mt-7 h-32 rounded-t-2xl bg-gradient-to-br from-slate-100 via-amber-50 to-slate-100 border-b border-slate-200 flex items-center justify-center">
-                  <span className="absolute top-3 left-3 text-[10px] font-bold uppercase text-amber-700 bg-white/85 border border-amber-200 px-2 py-0.5 rounded-md">{prg.category || 'Engineering'}</span>
+                <div className="relative -mx-6 -mt-6 sm:-mx-7 sm:-mt-7 h-32 rounded-t-2xl bg-gradient-to-br from-slate-100 via-cyan-50 to-slate-100 border-b border-slate-200 flex items-center justify-center">
+                  <span className="absolute top-3 left-3 text-[10px] font-bold uppercase text-cyan-700 bg-white/85 border border-cyan-200 px-2 py-0.5 rounded-md">{prg.category || 'Engineering'}</span>
                   <span className="font-mono text-2xl font-black text-slate-300 tracking-widest">{prg.code}</span>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                    <span className="font-mono text-xs font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-md border border-cyan-200">
                       {prg.code}
                     </span>
                     <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
@@ -333,7 +333,7 @@ export default function HomePage() {
                   </p>
 
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium pt-1">
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <Clock className="w-3.5 h-3.5 text-cyan-600" />
                     <span>Duration: 1 Month (4 Weeks)</span>
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export default function HomePage() {
                 <div className="pt-4 border-t border-slate-100 flex flex-col items-stretch gap-3">
                   <Link
                     to={`/programs/${encodeURIComponent(prg.code)}`}
-                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 transition inline-flex items-center gap-1"
+                    className="text-xs font-semibold text-cyan-700 hover:text-cyan-800 transition inline-flex items-center gap-1"
                   >
                     View Details <ArrowRight className="w-3 h-3" />
                   </Link>
@@ -351,18 +351,18 @@ export default function HomePage() {
                       href={googleForm1Url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition inline-flex justify-center items-center gap-1.5"
+                      className="w-full px-4 py-2.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition inline-flex justify-center items-center gap-1.5"
                       title="Apply via Google Form 1"
                     >
                       Apply Now
-                      <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                      <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
                     </a>
                   ) : (
                     <button
                       type="button"
                       disabled
                       title={noteMessage}
-                      className="w-full px-4 py-2.5 bg-slate-900/60 text-white/70 rounded-xl text-xs font-semibold cursor-not-allowed inline-flex justify-center items-center gap-1.5"
+                      className="w-full px-4 py-2.5 bg-ink-950/50 text-white/70 rounded-xl text-xs font-semibold cursor-not-allowed inline-flex justify-center items-center gap-1.5"
                     >
                       Apply Now
                     </button>
@@ -377,7 +377,7 @@ export default function HomePage() {
           <div className="text-center pt-2">
             <Link
               to="/programs"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-amber-700 transition"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-cyan-700 transition"
             >
               Browse all {programs.length} technical programmes <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -389,7 +389,7 @@ export default function HomePage() {
       {/* 4b. Portfolio (structure placeholder - real projects pending) */}
       <section id="portfolio" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
         <div className="text-center space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-600 font-bold">
             Portfolio
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -409,10 +409,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="journey" className="bg-slate-900 text-white py-16 scroll-mt-10">
+      <section id="journey" className="bg-ink-950 text-white py-16 scroll-mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center space-y-2 max-w-2xl mx-auto">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-400 font-bold">
               Transparent &amp; Structured Flow
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
@@ -461,10 +461,10 @@ export default function HomePage() {
                 className="bg-slate-800/60 border border-slate-800 p-6 rounded-2xl space-y-3 relative hover:border-slate-700 transition"
               >
                 <div className="flex items-center justify-between">
-                  <div className="font-mono text-xl font-black text-amber-500">
+                  <div className="font-mono text-xl font-black text-cyan-500">
                     {item.step}
                   </div>
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded">
                     Step {item.step}
                   </span>
                 </div>
@@ -485,10 +485,10 @@ export default function HomePage() {
 
       {/* 5. Trust & Verification Teaser */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 border border-amber-200/80 rounded-3xl p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8 shadow-xs">
+        <div className="bg-gradient-to-br from-cyan-500/10 via-white to-cyan-500/5 border border-cyan-200/70 rounded-3xl p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8 shadow-xs">
           <div className="space-y-3 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-800">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-700" />
               Public Verification Portal
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -502,10 +502,10 @@ export default function HomePage() {
           <div className="flex-shrink-0 w-full sm:w-auto">
             <Link
               to="/verify"
-              className="w-full sm:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition inline-flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-bold shadow-md transition inline-flex items-center justify-center gap-2"
             >
               Verify a Certificate
-              <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+              <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
             </Link>
           </div>
         </div>
@@ -518,7 +518,7 @@ export default function HomePage() {
       {/* 6. Contact (structure placeholder - contact details pending owner decision) */}
       <section id="contact" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 scroll-mt-20">
         <div className="text-center space-y-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-cyan-600 font-bold">
             Contact
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">

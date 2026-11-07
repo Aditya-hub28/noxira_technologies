@@ -144,7 +144,7 @@ export default function PolicyPage({ slug }) {
   if (!policy) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center text-sm text-slate-500">
-        Unknown policy page. <Link to="/" className="text-amber-600 font-semibold">Back to home</Link>
+        Unknown policy page. <Link to="/" className="text-cyan-600 font-semibold">Back to home</Link>
       </div>
     );
   }
@@ -156,19 +156,19 @@ export default function PolicyPage({ slug }) {
       </Link>
 
       <div className="flex items-center gap-3 mb-2">
-        <div className="h-9 w-9 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center justify-center">
-          <Shield className="w-4.5 h-4.5 text-amber-600" />
+        <div className="h-9 w-9 bg-cyan-500/10 border border-cyan-500/30 rounded-lg flex items-center justify-center">
+          <Shield className="w-4.5 h-4.5 text-cyan-600" />
         </div>
         <h1 className="text-2xl font-black text-slate-900">{policy.title}</h1>
       </div>
       <p className="text-xs text-slate-500 mb-2">{policy.intro}</p>
       <p className="text-[11px] text-slate-400 mb-2">Last updated: 6 November 2026</p>
-      <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md inline-block px-2 py-1 mb-8">Draft - pending final owner confirmation and legal review before launch. This page is not legal advice.</p>
+      <p className="text-[11px] font-semibold text-cyan-700 bg-amber-50 border border-amber-200 rounded-md inline-block px-2 py-1 mb-8">Draft - pending final owner confirmation and legal review before launch. This page is not legal advice.</p>
 
       <div className="space-y-6">
         {policy.sections.map((s) => (
-          <section key={s.heading}>
-            <h2 className="text-sm font-bold text-slate-900 mb-1.5">{s.heading}</h2>
+          <section key={s.heading} className="glass-card p-6 sm:p-7">
+            <h2 className="text-sm font-bold text-ink-950 mb-1.5">{s.heading}</h2>
             <p className="text-sm text-slate-600 leading-relaxed">{s.body}</p>
           </section>
         ))}
@@ -188,7 +188,7 @@ export default function PolicyPage({ slug }) {
 
       <div className="mt-8 pt-6 border-t border-slate-200 flex flex-wrap gap-4 text-xs">
         {POLICY_LINKS.filter((l) => l.slug !== slug).map((l) => (
-          <Link key={l.slug} to={l.path} className="text-amber-600 hover:text-amber-700 font-semibold">
+          <Link key={l.slug} to={l.path} className="text-cyan-600 hover:text-cyan-700 font-semibold">
             {l.label}
           </Link>
         ))}

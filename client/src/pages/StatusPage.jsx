@@ -13,8 +13,8 @@ const STATUS_LABELS = {
   },
   UNDER_REVIEW: {
     label: 'Under review',
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-    dotClass: 'bg-amber-500'
+    badgeClass: 'bg-amber-50 text-cyan-700 border-amber-200',
+    dotClass: 'bg-cyan-500'
   },
   APPROVED: {
     label: 'Approved',
@@ -106,8 +106,8 @@ export default function StatusPage() {
     <div className="max-w-3xl mx-auto py-10 px-4 sm:px-6 font-sans">
       {/* Header Banner */}
       <div className="text-center mb-8 space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 border border-amber-500/30">
-          <Clock className="w-3.5 h-3.5 text-amber-600" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-700 border border-cyan-500/30">
+          <Clock className="w-3.5 h-3.5 text-cyan-600" />
           <span>Application Tracking</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
@@ -119,7 +119,7 @@ export default function StatusPage() {
       </div>
 
       {/* Lookup Form */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 sm:p-8 mb-8">
+      <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-xs p-6 sm:p-8 mb-8">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -133,7 +133,7 @@ export default function StatusPage() {
                 placeholder="aditya@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
               />
             </div>
             <div>
@@ -147,7 +147,7 @@ export default function StatusPage() {
                 placeholder="e.g. NOX-K7M2QP"
                 value={applicationId}
                 onChange={(e) => setApplicationId(e.target.value.toUpperCase())}
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm font-mono uppercase focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm font-mono uppercase focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
               />
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function StatusPage() {
           <button
             type="submit"
             disabled={loading || !email.trim() || !applicationId.trim()}
-            className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full sm:w-auto px-6 py-2.5 bg-ink-950 hover:bg-ink-800 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
               <span>Checking Status...</span>
@@ -205,7 +205,7 @@ export default function StatusPage() {
           <button
             type="button"
             onClick={() => lookupStatus(email, applicationId)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-ink-950 text-white rounded-lg text-xs font-semibold hover:bg-ink-800 transition"
           >
             <RotateCcw className="w-3.5 h-3.5" /> Retry Lookup
           </button>
@@ -214,7 +214,7 @@ export default function StatusPage() {
 
       {/* State: Successful Result */}
       {application && !loading && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden mb-8">
+        <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-xs overflow-hidden mb-8">
           <div className="p-6 sm:p-8 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
               <div>
@@ -328,7 +328,7 @@ export default function StatusPage() {
 
             {/* Fee Locked Disclosure (only rendered when feeLocked is a valid number, including 0) */}
             {typeof application.feeLocked === 'number' && (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-xs text-amber-900 space-y-1">
+              <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 text-xs text-slate-600 space-y-1">
                 <span className="font-bold block text-slate-900">
                   Task Submission &amp; Review Fee (locked at your application): ₹{application.feeLocked}
                 </span>
@@ -352,7 +352,7 @@ export default function StatusPage() {
             href={googleForm1Url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-slate-500 hover:text-amber-600 inline-flex items-center gap-1 transition"
+            className="text-xs text-slate-500 hover:text-cyan-600 inline-flex items-center gap-1 transition"
           >
             Need to submit a new application? Open Application Form <ExternalLink className="w-3.5 h-3.5" />
           </a>

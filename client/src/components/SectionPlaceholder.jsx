@@ -5,7 +5,7 @@ export default function SectionPlaceholder({ id, title, slots = 1, action }) {
   return (
     <section id={id} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 scroll-mt-24" aria-labelledby={`${id}-title`}>
       <div className="text-center space-y-2">
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">Section placeholder</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-700">Section placeholder</span>
         <h2 id={`${id}-title`} className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{title}</h2>
       </div>
       <div className={`grid gap-5 ${slots > 1 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
