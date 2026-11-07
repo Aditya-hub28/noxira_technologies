@@ -105,7 +105,7 @@ export default function StudentRegisterPage() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1.5">Minimum 8 characters. Stored encrypted (bcrypt) - never in plain text.</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">Minimum 8 characters. </p>
           </div>
 
           <button
