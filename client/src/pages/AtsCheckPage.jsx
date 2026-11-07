@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FileSearch, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { analyze, ROLE_KEYWORDS } from '../lib/atsAnalyzer';
 
 /**
  * Honest ATS resume check.
@@ -9,50 +10,6 @@ import { FileSearch, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-r
  * do NOT show a single "ATS score": real applicant tracking systems are
  * proprietary and differ per company, so any single number would be made up.
  */
-
-const ACTION_VERBS = ['built', 'developed', 'designed', 'implemented', 'led', 'created', 'improved', 'automated', 'launched', 'optimized', 'reduced', 'increased', 'managed', 'delivered', 'engineered', 'analyzed', 'tested', 'deployed', 'migrated', 'mentored'];
-const SECTION_PATTERNS = [
-  { key: 'contact', label: 'Contact details', test: t => /[\w.+-]+@[\w-]+\.[\w.]+/.test(t) && /(\+?\d[\d\s-]{8,}\d)/.test(t) },
-  { key: 'education', label: 'Education section', test: t => /\beducation\b|\bdegree\b|\bb\.?\s?tech\b|\bbachelor|\bmaster|\buniversity\b|\bcollege\b/i.test(t) },
-  { key: 'experience', label: 'Experience / internships section', test: t => /\bexperience\b|\bintern(ship)?\b|\bworked\b|\bemployment\b/i.test(t) },
-  { key: 'skills', label: 'Skills section', test: t => /\bskills?\b|\btechnologies\b|\btech stack\b/i.test(t) },
-  { key: 'projects', label: 'Projects section', test: t => /\bprojects?\b|\bportfolio\b|\bgithub\b/i.test(t) },
-];
-
-const ROLE_KEYWORDS = {
-  'web developer': ['html', 'css', 'javascript', 'react', 'node', 'api', 'responsive', 'git', 'frontend', 'backend'],
-  'data analyst': ['sql', 'excel', 'python', 'pandas', 'dashboard', 'visualization', 'statistics', 'power bi', 'tableau', 'analysis'],
-  'python developer': ['python', 'django', 'flask', 'api', 'pandas', 'sql', 'git', 'testing', 'automation', 'rest'],
-  'machine learning': ['python', 'machine learning', 'model', 'training', 'dataset', 'tensorflow', 'pytorch', 'scikit', 'evaluation', 'features'],
-};
-
-function analyze(text, role) {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  const lower = text.toLowerCase();
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const bullets = lines.filter(l => /^[-•*▪]/.test(l) || /^\d+[.)]/.test(l));
-  const longBullets = bullets.filter(b => b.split(/\s+/).length > 30);
-  const weakWords = ['responsible for', 'worked on', 'helped with', 'various', 'stuff', 'things', 'etc.'];
-  const foundWeak = weakWords.filter(w => lower.includes(w));
-  const numbers = (text.match(/\d+%|\d+\+|\d+x|\b\d{2,}\b/g) || []).length;
-  const foundVerbs = ACTION_VERBS.filter(v => new RegExp(`\\b${v}`, 'i').test(text));
-  const roleKeys = ROLE_KEYWORDS[role] || [];
-  const matchedKeys = roleKeys.filter(k => lower.includes(k));
-  const missingKeys = roleKeys.filter(k => !lower.includes(k));
-
-  return {
-    words: words.length,
-    sections: SECTION_PATTERNS.map(s => ({ label: s.label, ok: s.test(text) })),
-    bulletCount: bullets.length,
-    longBullets: longBullets.length,
-    weakWords: foundWeak,
-    numbers,
-    foundVerbs,
-    matchedKeys,
-    missingKeys,
-    hasTablesHint: /\|/.test(text) || /\t{2,}/.test(text),
-  };
-}
 
 function Verdict({ ok, warn, children }) {
   const Icon = ok ? CheckCircle2 : warn ? AlertTriangle : XCircle;
@@ -85,7 +42,7 @@ export default function AtsCheckPage() {
       <div className="flex items-start gap-2.5 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 mb-6">
         <Info className="w-4 h-4 text-cyan-600 shrink-0 mt-0.5" />
         <p className="leading-relaxed">
-          Honest by design: your text never leaves this page (all checks run in your browser), and we do not show a made-up "ATS score". Real screening software differs per company; these checks cover the commonly documented basics.
+          Honest by design: your text is analysed in your browser only - it is not sent to any server, stored, or logged anywhere. And we do not show a made-up "ATS score": real screening software differs per company, so these checks cover the commonly documented basics instead.
         </p>
       </div>
 
@@ -124,10 +81,10 @@ export default function AtsCheckPage() {
                 {result.bulletCount} bullet points detected. Recruiters scan bullets first - aim for 3-6 per role or project.
               </Verdict>
               <Verdict ok={result.numbers >= 3} warn={result.numbers > 0}>
-                {result.numbers} measurable results found (numbers, percentages). Quantified outcomes ("reduced load time 40%") are the strongest resume content.
+                {result.numbers} numeric mentions detected. Numbers only help when tied to an outcome ("reduced load time 40%") - this check counts mentions, so read your bullets and make each number prove a result.
               </Verdict>
               <Verdict ok={result.foundVerbs.length >= 5} warn={result.foundVerbs.length > 0}>
-                {result.foundVerbs.length} action verbs detected{result.foundVerbs.length > 0 ? ` (${result.foundVerbs.slice(0, 5).join(', ')}${result.foundVerbs.length > 5 ? ', ...' : ''})` : ''}. Start bullets with verbs like built, led, improved.
+                {result.foundVerbs.length} distinct action verbs present{result.foundVerbs.length > 0 ? ` (${result.foundVerbs.slice(0, 5).join(', ')}${result.foundVerbs.length > 5 ? ', ...' : ''})` : ''}. This checks presence anywhere in the text - for the full effect, start each bullet with one.
               </Verdict>
               <Verdict ok={result.weakWords.length === 0}>
                 {result.weakWords.length === 0 ? 'No vague phrases detected.' : `Vague phrases found: "${result.weakWords.join('", "')}". Replace with what you specifically did and the outcome.`}
@@ -135,8 +92,8 @@ export default function AtsCheckPage() {
               <Verdict ok={result.longBullets === 0} warn={result.bulletCount > 0}>
                 {result.longBullets === 0 ? 'All bullets are a scannable length.' : `${result.longBullets} bullet(s) run over 30 words - split or tighten them.`}
               </Verdict>
-              <Verdict ok={result.words >= 200 && result.words <= 900} warn={result.words > 900}>
-                {result.words} words total. One page (roughly 300-600 words) is the common expectation for students and freshers.
+              <Verdict ok>
+                {result.words} words total. For reference, one page (roughly 300-600 words) is the common expectation for students and freshers - this is guidance, not a pass/fail rule.
               </Verdict>
             </ul>
           </div>
