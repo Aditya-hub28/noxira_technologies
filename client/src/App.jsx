@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { api } from './services/api';
 import {
@@ -25,22 +25,32 @@ import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
 import StatusPage from './pages/StatusPage';
 import VerifyPage from './pages/VerifyPage';
-import AdminLoginPage from './pages/AdminLoginPage';
-import DashboardOverview from './pages/DashboardOverview';
-import AdminProgramsPage from './pages/AdminProgramsPage';
-import AdminApplicationsPage from './pages/AdminApplicationsPage';
-import AdminOfferTemplatesPage from './pages/AdminOfferTemplatesPage';
-import ParticipantsPage from './pages/ParticipantsPage';
-import CsvImportPage from './pages/CsvImportPage';
-import Form1ImportPage from './pages/Form1ImportPage';
-import Form2ImportPage from './pages/Form2ImportPage';
-import TemplatePreviewPage from './pages/TemplatePreviewPage';
-import IssuanceBatchPage from './pages/IssuanceBatchPage';
-import CertificatesPage from './pages/CertificatesPage';
-import DistributionPage from './pages/DistributionPage';
-import AuditLogsPage from './pages/AuditLogsPage';
-import AdminSettingsPage from './pages/AdminSettingsPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
+
+// Admin console pages are code-split: the public site bundle does not ship admin code.
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+const DashboardOverview = lazy(() => import('./pages/DashboardOverview'));
+const AdminProgramsPage = lazy(() => import('./pages/AdminProgramsPage'));
+const AdminApplicationsPage = lazy(() => import('./pages/AdminApplicationsPage'));
+const AdminOfferTemplatesPage = lazy(() => import('./pages/AdminOfferTemplatesPage'));
+const ParticipantsPage = lazy(() => import('./pages/ParticipantsPage'));
+const CsvImportPage = lazy(() => import('./pages/CsvImportPage'));
+const Form1ImportPage = lazy(() => import('./pages/Form1ImportPage'));
+const Form2ImportPage = lazy(() => import('./pages/Form2ImportPage'));
+const TemplatePreviewPage = lazy(() => import('./pages/TemplatePreviewPage'));
+const IssuanceBatchPage = lazy(() => import('./pages/IssuanceBatchPage'));
+const CertificatesPage = lazy(() => import('./pages/CertificatesPage'));
+const DistributionPage = lazy(() => import('./pages/DistributionPage'));
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
+const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage'));
+
+function AdminFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center text-xs text-slate-400">
+      Loading administration module...
+    </div>
+  );
+}
 
 function AdminConsole({ admin, onLogout }) {
   const navigate = useNavigate();
@@ -133,6 +143,7 @@ function AdminConsole({ admin, onLogout }) {
 
       {/* Main Admin Tab Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        <Suspense fallback={<AdminFallback />}>
         {adminTab === 'dashboard' && (
           <DashboardOverview onNavigate={(view) => setAdminTab(view)} />
         )}
@@ -175,6 +186,7 @@ function AdminConsole({ admin, onLogout }) {
         {adminTab === 'settings' && (
           <AdminSettingsPage />
         )}
+        </Suspense>
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
@@ -248,7 +260,9 @@ function AppContent() {
                   <ArrowLeft className="w-3.5 h-3.5" /> Back to NOXIRA Public Site
                 </Link>
               </div>
-              <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
+              <Suspense fallback={<AdminFallback />}>
+                <AdminLoginPage onLoginSuccess={handleLoginSuccess} />
+              </Suspense>
             </div>
           )
         }
