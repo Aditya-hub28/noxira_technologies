@@ -137,4 +137,9 @@ const BANKS = {
   ]
 };
 
+// Additional banks live in per-track modules to keep this file readable.
+const extra = require('./skillBanks');
+COURSES.push(...extra.COURSES);
+Object.assign(BANKS, extra.BANKS);
+
 module.exports = { COURSES, BANKS };

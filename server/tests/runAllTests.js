@@ -4653,10 +4653,12 @@ async function runTestSuite() {
   await test('Skill courses: seed integrity, answer-blind start, scoring, pass gate, late submit, attempt isolation', async () => {
     const jwt = require('jsonwebtoken');
     const summary = await seedSkillCourses();
-    assert.strictEqual(summary.length, 2, 'Two banks seeded');
+    const { COURSES: ALL_COURSES } = require('../src/config/skillCourseCatalogue');
+    assert.strictEqual(summary.length, ALL_COURSES.length, 'Every catalogue course seeded');
+    assert.ok(ALL_COURSES.length >= 12, 'At least 12 banks in the catalogue');
 
     // Bank integrity
-    for (const code of ['WEB-DEV', 'PY-PROG']) {
+    for (const { code } of ALL_COURSES) {
       const qs = await QuizQuestion.find({ courseCode: code });
       assert.strictEqual(qs.length, 50, `${code} has 50 questions`);
       for (const q of qs) {
@@ -4668,7 +4670,7 @@ async function runTestSuite() {
     // Public catalogue exposes metadata only
     const list = mockReqRes({});
     await skillCourseController.listCourses(list.req, list.res, list.next);
-    assert.strictEqual(list.getData().courses.length, 2, 'Catalogue lists both courses');
+    assert.strictEqual(list.getData().courses.length, ALL_COURSES.length, 'Catalogue lists every course');
     assert.ok(!JSON.stringify(list.getData()).includes('correctIndex'), 'Catalogue never leaks answers');
 
     // A student starts an attempt
