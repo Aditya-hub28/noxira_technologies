@@ -7,6 +7,7 @@ const { statusRateLimiter, loginRateLimiter } = require('../middleware/rateLimit
 router.get('/', skillCourseController.listCourses);
 router.get('/attempts/mine', requireStudentAuth, skillCourseController.getMyAttempts);
 router.get('/certificates/mine', requireStudentAuth, skillCourseController.getMyCertificates);
+router.get('/certificates/:id/download', requireStudentAuth, skillCourseController.downloadSkillCertificate);
 router.get('/attempts/:attemptId/answer-key', requireStudentAuth, skillCourseController.answerKey);
 router.get('/certificates/verify/:token', skillCourseController.verifySkillCertificate);
 router.get('/:code', skillCourseController.getCourse);

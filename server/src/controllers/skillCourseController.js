@@ -176,18 +176,22 @@ exports.submitAttempt = async (req, res, next) => {
     attempt.lateSubmit = late;
     await attempt.save();
 
+    // Launch gate: automatic certificate issuance on a pass is TEST BEHAVIOUR.
+    // In production it stays off until the owner sets SKILL_CERT_AUTO_ISSUE=true
+    // (pricing/release policy is an undecided owner item).
+    const autoIssue = process.env.NODE_ENV !== 'production' || process.env.SKILL_CERT_AUTO_ISSUE === 'true';
     let certificate = null;
-    if (attempt.passed) {
+    if (attempt.passed && autoIssue) {
       certificate = await skillCertificateService.issueForAttempt(attempt, req.student, course);
     }
 
-    res.json({ success: true, result: resultPayload(attempt, passPercent, certificate) });
+    res.json({ success: true, result: resultPayload(attempt, passPercent, certificate, attempt.passed && !autoIssue) });
   } catch (error) {
     next(error);
   }
 };
 
-function resultPayload(attempt, passPercent, certificate) {
+function resultPayload(attempt, passPercent, certificate, certificatePending) {
   return {
     attemptId: String(attempt._id),
     courseCode: attempt.courseCode,
@@ -198,6 +202,7 @@ function resultPayload(attempt, passPercent, certificate) {
     lateSubmit: attempt.lateSubmit,
     passPercent: passPercent ?? undefined,
     submittedAt: attempt.submittedAt,
+    certificatePending: certificatePending || undefined,
     certificate: certificate ? {
       certificateNumber: certificate.certificateNumber,
       verificationToken: certificate.verificationToken,
@@ -210,8 +215,7 @@ function resultPayload(attempt, passPercent, certificate) {
 // unless ALLOW_TEST_HOOKS=true is set explicitly; never committed enabled.
 exports.answerKey = async (req, res, next) => {
   try {
-    const env = require('../config/env');
-    if (env.NODE_ENV === 'production' || process.env.ALLOW_TEST_HOOKS !== 'true') {
+    if (process.env.NODE_ENV === 'production' || process.env.ALLOW_TEST_HOOKS !== 'true') {
       return res.status(404).json({ success: false, message: 'Not found.' });
     }
     const QuizQuestion = require('../models/QuizQuestion');
@@ -241,6 +245,24 @@ exports.getMyCertificates = async (req, res, next) => {
       .select('certificateNumber verificationToken courseCode courseTitle score totalQuestions scorePercent issuedAt')
       .lean();
     res.json({ success: true, certificates: certs.map(c => ({ ...c, id: String(c._id) })) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Download the certificate PDF (owner only)
+exports.downloadSkillCertificate = async (req, res, next) => {
+  try {
+    const SkillCertificate = require('../models/SkillCertificate');
+    const { renderSkillCertificatePdf } = require('../services/skillCertificatePdfService');
+    const cert = await SkillCertificate.findOne({ _id: req.params.id, studentId: req.student._id });
+    if (!cert) {
+      return res.status(404).json({ success: false, message: 'Certificate not found.' });
+    }
+    const pdf = await renderSkillCertificatePdf(cert);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${cert.certificateNumber}.pdf"`);
+    res.send(pdf);
   } catch (error) {
     next(error);
   }

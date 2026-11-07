@@ -8,6 +8,7 @@ function normalizeResult(r = {}) {
     score: r.score,
     totalQuestions: r.totalQuestions,
     percent: r.scorePercent,
+    certificatePending: r.certificatePending === true,
     certificateNumber: r.certificate && r.certificate.certificateNumber,
     verificationToken: r.certificate && r.certificate.verificationToken,
     status: r.passed ? 'PASSED' : (r.lateSubmit ? 'TIME_EXPIRED' : 'FAILED')
@@ -124,6 +125,12 @@ export default function SkillQuizPage() {
           <p className="text-5xl font-black text-ink-950 tracking-tight">{result.score}<span className="text-2xl text-slate-400">/{result.totalQuestions}</span></p>
           <p className="text-xs font-bold text-slate-500 mt-2 tracking-wide uppercase">{result.percent}% &middot; {pass ? 'passed' : `needed ${attempt.passPercent}%`}</p>
           {result.status === 'TIME_EXPIRED' && <p className="text-[11px] text-amber-600 font-medium mt-3">Your final submit arrived after the deadline, so only your saved answers were scored.</p>}
+          {pass && result.certificatePending && (
+            <div className="mt-5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
+              <p className="text-[10px] font-bold tracking-widest text-amber-600 uppercase mb-1">Result recorded</p>
+              <p className="text-[11px] text-amber-700 leading-relaxed">Your pass is saved on your account. Certificate release for this assessment is being finalised and it will appear on your dashboard once available.</p>
+            </div>
+          )}
           {pass && result.certificateNumber && (
             <div className="mt-5 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5">
               <p className="text-[10px] font-bold tracking-widest text-emerald-600 uppercase mb-1">Skill certificate issued</p>

@@ -4858,6 +4858,62 @@ async function runTestSuite() {
     // Failed attempt earns no certificate
     assert.strictEqual(await SkillCertificate.countDocuments({ attemptId: attempt2 }), 0, 'No certificate for a failed attempt');
 
+    // PDF download: owner gets a real PDF; a foreign student gets 404
+    const dl = mockReqRes({}); dl.req = await authd5(); dl.req.params = { id: String(cert._id) };
+    await skillCourseController.downloadSkillCertificate(dl.req, dl.res, dl.next);
+    assert.strictEqual(dl.getStatus(), 200, 'Owner PDF download 200');
+    assert.strictEqual(dl.res.getHeader('content-type'), 'application/pdf');
+    const pdfBuf = dl.getData();
+    assert.ok(Buffer.isBuffer(pdfBuf) && pdfBuf.length > 2000 && pdfBuf.slice(0, 5).toString() === '%PDF-', 'Valid PDF bytes returned');
+    const dlForeign = mockReqRes({}); dlForeign.req = await authd2(); dlForeign.req.params = { id: String(cert._id) };
+    await skillCourseController.downloadSkillCertificate(dlForeign.req, dlForeign.res, dlForeign.next);
+    assert.strictEqual(dlForeign.getStatus(), 404, 'Foreign student cannot download another student\'s certificate');
+
+    // Test hook is disabled unless explicitly allowed, and always in production
+    const hk = mockReqRes({}); hk.req = await authd5(); hk.req.params = { attemptId: '000000000000000000000000' };
+    delete process.env.ALLOW_TEST_HOOKS;
+    await skillCourseController.answerKey(hk.req, hk.res, hk.next);
+    assert.strictEqual(hk.getStatus(), 404, 'Answer-key hook 404s by default');
+    process.env.ALLOW_TEST_HOOKS = 'true';
+    const hk2 = mockReqRes({}); hk2.req = await authd5(); hk2.req.params = { attemptId: '000000000000000000000000' };
+    await skillCourseController.answerKey(hk2.req, hk2.res, hk2.next);
+    assert.strictEqual(hk2.getStatus(), 404, 'Hook 404s for unknown attempt even when enabled');
+    const savedEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const hk3 = mockReqRes({}); hk3.req = await authd5(); hk3.req.params = { attemptId: attempt5id };
+    await skillCourseController.answerKey(hk3.req, hk3.res, hk3.next);
+    assert.strictEqual(hk3.getStatus(), 404, 'Answer-key hook always 404s in production');
+    process.env.NODE_ENV = savedEnv;
+    delete process.env.ALLOW_TEST_HOOKS;
+
+    // Launch gate: with production mode forced and auto-issue unset, a pass earns no
+    // certificate and reports certificatePending instead (release policy undecided).
+    const savedEnv2 = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    delete process.env.SKILL_CERT_AUTO_ISSUE;
+    const reg6 = mockReqRes({ body: { name: 'Gate', email: 'gate@example.com', password: 'password123' } });
+    await studentAuthController.register(reg6.req, reg6.res, reg6.next);
+    const token6 = reg6.getData().token;
+    const authd6 = async () => {
+      const req = { headers: { authorization: `Bearer ${token6}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start6 = mockReqRes({}); start6.req = await authd6(); start6.req.params = { code: 'WEB-DEV' };
+    await skillCourseController.startAttempt(start6.req, start6.res, start6.next);
+    const attempt6id = start6.getData().attempt.id;
+    const perfect6 = {};
+    for (const q of start6.getData().questions) {
+      const db = await QuizQuestion.findById(q.id);
+      perfect6[q.id] = db.correctIndex;
+    }
+    const submit6 = mockReqRes({}); submit6.req = await authd6(); submit6.req.params = { attemptId: attempt6id }; submit6.req.body = { answers: perfect6 };
+    await skillCourseController.submitAttempt(submit6.req, submit6.res, submit6.next);
+    assert.strictEqual(submit6.getData().result.passed, true, 'Gate-off pass still passes');
+    assert.strictEqual(submit6.getData().result.certificatePending, true, 'Gate-off pass marks certificate pending release');
+    assert.strictEqual(await SkillCertificate.countDocuments({ attemptId: attempt6id }), 0, 'Gate-off pass issues no certificate');
+    process.env.NODE_ENV = savedEnv2;
+
     // History: student 1 sees only their own attempt
     const hist = mockReqRes({}); hist.req = await authd();
     await skillCourseController.getMyAttempts(hist.req, hist.res, hist.next);

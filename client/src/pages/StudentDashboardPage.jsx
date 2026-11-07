@@ -226,9 +226,14 @@ export default function StudentDashboardPage() {
                     </div>
                     <span className="shrink-0 font-mono text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">{c.certificateNumber}</span>
                   </div>
-                  <Link to={`/verify/${c.verificationToken}`} className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-cyan-600 hover:text-cyan-700">
-                    Public verification link <ArrowRight className="w-3 h-3" />
-                  </Link>
+                  <div className="flex items-center gap-4 mt-2">
+                    <Link to={`/verify/${c.verificationToken}`} className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-600 hover:text-cyan-700">
+                      Public verification link <ArrowRight className="w-3 h-3" />
+                    </Link>
+                    <a href={`/api/v1/skill-courses/certificates/${c.id}/download`} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-ink-950">
+                      Download PDF <Download className="w-3 h-3" />
+                    </a>
+                  </div>
                 </li>
               ))}
             </ul>
