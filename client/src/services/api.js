@@ -43,6 +43,9 @@ export const api = {
   studentLogin: (credentials) => request('/students/login', { method: 'POST', body: JSON.stringify(credentials) }),
   studentLogout: () => request('/students/logout', { method: 'POST' }),
   studentMe: () => request('/students/me'),
+  studentApplications: () => request('/students/applications'),
+  studentOffers: () => request('/students/offers'),
+  lookupOfferLetter: (email, programme) => request(`/offers/lookup?email=${encodeURIComponent(email)}&programme=${encodeURIComponent(programme)}`),
 
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),

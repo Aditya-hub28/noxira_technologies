@@ -18,6 +18,7 @@ const Setting = require('../src/models/Setting');
 const Student = require('../src/models/Student');
 const studentAuthController = require('../src/controllers/studentAuthController');
 const { requireStudentAuth } = require('../src/middleware/studentAuth');
+const studentDataController = require('../src/controllers/studentDataController');
 const { getPublicSettings, getAdminGoogleForm1, updateGoogleForm1, validateGoogleFormUrl } = require('../src/controllers/settingsController');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
@@ -4492,6 +4493,112 @@ async function runTestSuite() {
     const guardRes = { status(c) { guardStatus = c; return this; }, json() { return this; } };
     await requireStudentAuth(guardReq, guardRes, () => {});
     assert.strictEqual(guardStatus, 401, 'Admin-shaped token rejected by student middleware');
+  });
+
+  await test('Student data: account isolation, logout cookie clear, expired token, offer lookup anti-enumeration', async () => {
+    const jwt = require('jsonwebtoken');
+
+    // Two students
+    const mk = async (email) => {
+      const r = mockReqRes({ body: { name: 'S', email, password: 'password123' } });
+      await studentAuthController.register(r.req, r.res, r.next);
+      return r.getData().token;
+    };
+    const tokenA = await mk('alpha.student@example.com');
+    const tokenB = await mk('beta.student@example.com');
+
+    // Application + offer letter tied ONLY to alpha's email
+    const participant = await Participant.create({
+      fullName: 'Alpha Student', normalizedName: 'alpha student',
+      email: 'alpha.student@example.com', normalizedEmail: 'alpha.student@example.com',
+      phone: '9999999999', programCode: 'FS-DEV', programTitle: 'Full Stack Development',
+      batchId: 'BATCH-TEST', source: 'WEBSITE'
+    });
+    const application = await Application.create({
+      applicationId: 'NOX-TESTALPHA1', participantId: participant._id,
+      programCode: 'FS-DEV', programTitle: 'Full Stack Development',
+      status: 'APPROVED', appliedAt: new Date(), decidedAt: new Date()
+    });
+    const offer = await OfferLetter.create({
+      offerLetterId: 'OFR-TESTALPHA1-AB12', applicationId: application.applicationId,
+      applicationRef: application._id, participantId: participant._id,
+      templateId: new mongoose.Types.ObjectId(), templateVersion: 1,
+      recipientSnapshot: { fullName: 'Alpha Student', email: 'alpha.student@example.com' },
+      programSnapshot: { code: 'FS-DEV', title: 'Full Stack Development' },
+      pdfPath: '/tmp/nonexistent-test.pdf', pdfSha256: 'deadbeef', pdfSizeBytes: 123,
+      generationStatus: 'GENERATED'
+    });
+    application.offerLetterId = offer._id;
+    await application.save();
+
+    // Isolation: alpha sees the application, beta sees none
+    const authReq = (token) => ({ headers: { authorization: `Bearer ${token}` }, cookies: {}, ip: '127.0.0.1' });
+    const attach = async (token) => {
+      const req = authReq(token);
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const appsA = mockReqRes({}); appsA.req = await attach(tokenA);
+    await studentDataController.getMyApplications(appsA.req, appsA.res, appsA.next);
+    assert.strictEqual(appsA.getData().applications.length, 1, 'Student A sees own application');
+    assert.strictEqual(appsA.getData().applications[0].applicationId, 'NOX-TESTALPHA1');
+
+    const appsB = mockReqRes({}); appsB.req = await attach(tokenB);
+    await studentDataController.getMyApplications(appsB.req, appsB.res, appsB.next);
+    assert.strictEqual(appsB.getData().applications.length, 0, 'Student B must NOT see student A application');
+
+    const ofsB = mockReqRes({}); ofsB.req = await attach(tokenB);
+    await studentDataController.getMyOfferLetters(ofsB.req, ofsB.res, ofsB.next);
+    assert.strictEqual(ofsB.getData().offers.length, 0, 'Student B must NOT see student A offer letter');
+
+    // Alpha gets a working offer link with a token that passes the download verifier
+    const ofsA = mockReqRes({}); ofsA.req = await attach(tokenA);
+    await studentDataController.getMyOfferLetters(ofsA.req, ofsA.res, ofsA.next);
+    assert.strictEqual(ofsA.getData().offers.length, 1, 'Student A sees own offer letter');
+    const url = ofsA.getData().offers[0].downloadUrl;
+    assert.ok(url.startsWith('/api/v1/offers/download/'), 'Download URL shape');
+    const decoded = jwt.verify(url.split('/').pop(), env.JWT_SECRET);
+    assert.strictEqual(decoded.purpose, 'OFFER_DOWNLOAD', 'Token purpose guard');
+    const offerAfter = await OfferLetter.findById(offer._id);
+    assert.strictEqual(decoded.jti, offerAfter.downloadToken, 'Token JTI matches stored JTI');
+
+    // Unauthenticated account data is 401
+    const noAuth = mockReqRes({}); noAuth.req = { headers: {}, cookies: {} };
+    let noAuthStatus = 200;
+    const noAuthRes = { status(c) { noAuthStatus = c; return this; }, json() { return this; } };
+    await requireStudentAuth(noAuth.req, noAuthRes, () => {});
+    assert.strictEqual(noAuthStatus, 401, 'No token => 401');
+
+    // Expired token rejected
+    const expired = jwt.sign({ id: new mongoose.Types.ObjectId(), email: 'x@example.com', kind: 'student' }, env.JWT_SECRET, { expiresIn: '-10s' });
+    const expReq = { headers: { authorization: `Bearer ${expired}` }, cookies: {} };
+    let expStatus = 200;
+    const expRes = { status(c) { expStatus = c; return this; }, json() { return this; } };
+    await requireStudentAuth(expReq, expRes, () => {});
+    assert.strictEqual(expStatus, 401, 'Expired token => 401');
+
+    // Logout clears the cookie
+    const lo = mockReqRes({});
+    await studentAuthController.logout(lo.req, lo.res);
+    assert.ok((lo.getHeaders()['set-cookie'] || '').includes('Expires=Thu, 01 Jan 1970'), 'Logout clears student cookie');
+
+    // Public lookup: correct email+programme returns a link
+    const ok = mockReqRes({ query: { email: 'ALPHA.student@example.com', programme: 'fs-dev' } });
+    await studentDataController.lookupOfferLetter(ok.req, ok.res, ok.next);
+    assert.strictEqual(ok.getStatus(), 200, `Lookup succeeds: ${JSON.stringify(ok.getData()).slice(0, 150)}`);
+    assert.ok(ok.getData().offer.downloadUrl.includes('/api/v1/offers/download/'));
+
+    // Lookup failures all share the identical generic 404 (no enumeration)
+    const f1 = mockReqRes({ query: { email: 'alpha.student@example.com', programme: 'ML' } });
+    await studentDataController.lookupOfferLetter(f1.req, f1.res, f1.next);
+    const f2 = mockReqRes({ query: { email: 'ghost@example.com', programme: 'FS-DEV' } });
+    await studentDataController.lookupOfferLetter(f2.req, f2.res, f2.next);
+    const f3 = mockReqRes({ query: { email: 'beta.student@example.com', programme: 'FS-DEV' } });
+    await studentDataController.lookupOfferLetter(f3.req, f3.res, f3.next);
+    assert.strictEqual(f1.getStatus(), 404); assert.strictEqual(f2.getStatus(), 404); assert.strictEqual(f3.getStatus(), 404);
+    assert.strictEqual(f1.getData().message, f2.getData().message);
+    assert.strictEqual(f2.getData().message, f3.getData().message);
+    assert.strictEqual(f1.getData().message, 'No offer letter found for the details provided.', 'Identical generic message for every failure');
   });
 
   // Cleanup
