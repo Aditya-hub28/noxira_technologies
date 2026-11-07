@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import SectionPlaceholder from '../components/SectionPlaceholder';
 import {
   ShieldCheck,
   ArrowRight,
@@ -111,6 +112,14 @@ export default function HomePage() {
             <ShieldCheck className="w-4 h-4 text-amber-600" />
             Verify Credential
           </Link>
+
+          <Link
+            to="/status"
+            className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-sm font-semibold shadow-2xs transition flex items-center justify-center gap-2"
+          >
+            <ArrowRight className="w-4 h-4 text-amber-600" />
+            Download Offer Letter
+          </Link>
         </div>
 
         {/* Real Dynamic Program Count Banner */}
@@ -121,6 +130,8 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      <SectionPlaceholder id="community" title="Community &amp; Programme Overview" slots={3} />
 
       {/* 2. Services Section: Web & App Development */}
       <section id="services" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
@@ -216,6 +227,25 @@ export default function HomePage() {
       </section>
 
       {/* 3. Featured Internship Programmes Section */}
+      {/* 2b. About NOXIRA (structure placeholder - content pending) */}
+      <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 scroll-mt-20">
+        <div className="text-center space-y-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+            About NOXIRA
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Who We Are
+          </h2>
+        </div>
+        <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 sm:p-12 text-center bg-white/60">
+          <p className="text-sm text-slate-400 font-medium">
+            Company intro content jald add hoga - section structure ready hai.
+          </p>
+        </div>
+      </section>
+
+      <SectionPlaceholder id="why-noxira" title="Why NOXIRA?" slots={3} />
+
       <section id="programs" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
         <div className="text-center space-y-2">
           <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
@@ -280,6 +310,10 @@ export default function HomePage() {
                 key={prg.code}
                 className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xs hover:border-amber-300 hover:shadow-md transition flex flex-col justify-between space-y-6"
               >
+                <div className="relative -mx-6 -mt-6 sm:-mx-7 sm:-mt-7 h-32 rounded-t-2xl bg-gradient-to-br from-slate-100 via-amber-50 to-slate-100 border-b border-slate-200 flex items-center justify-center">
+                  <span className="absolute top-3 left-3 text-[10px] font-bold uppercase text-amber-700 bg-white/85 border border-amber-200 px-2 py-0.5 rounded-md">{prg.category || 'Engineering'}</span>
+                  <span className="font-mono text-2xl font-black text-slate-300 tracking-widest">{prg.code}</span>
+                </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
@@ -304,7 +338,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="pt-4 border-t border-slate-100 flex flex-col items-stretch gap-3">
                   <Link
                     to={`/programs/${encodeURIComponent(prg.code)}`}
                     className="text-xs font-semibold text-amber-700 hover:text-amber-800 transition inline-flex items-center gap-1"
@@ -317,7 +351,7 @@ export default function HomePage() {
                       href={googleForm1Url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1.5"
+                      className="w-full px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition inline-flex justify-center items-center gap-1.5"
                       title="Apply via Google Form 1"
                     >
                       Apply Now
@@ -328,7 +362,7 @@ export default function HomePage() {
                       type="button"
                       disabled
                       title={noteMessage}
-                      className="px-4 py-2 bg-slate-900/60 text-white/70 rounded-lg text-xs font-semibold cursor-not-allowed inline-flex items-center gap-1.5"
+                      className="w-full px-4 py-2.5 bg-slate-900/60 text-white/70 rounded-xl text-xs font-semibold cursor-not-allowed inline-flex justify-center items-center gap-1.5"
                     >
                       Apply Now
                     </button>
@@ -352,6 +386,29 @@ export default function HomePage() {
       </section>
 
       {/* 4. 6-Step Journey Section (Agreed Workflow) */}
+      {/* 4b. Portfolio (structure placeholder - real projects pending) */}
+      <section id="portfolio" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 scroll-mt-20">
+        <div className="text-center space-y-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+            Portfolio
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Our Work
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map(n => (
+            <div
+              key={n}
+              className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center bg-white/60 flex flex-col items-center justify-center min-h-[10rem]"
+            >
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Coming soon</span>
+              <p className="text-[11px] text-slate-400 mt-2">Real project details yahan add honge.</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section id="journey" className="bg-slate-900 text-white py-16 scroll-mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="text-center space-y-2 max-w-2xl mx-auto">
@@ -423,6 +480,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      <SectionPlaceholder id="technologies" title="Skills &amp; Technologies" slots={3} />
+      <SectionPlaceholder id="learner-outcomes" title="Learner Outcomes" slots={3} />
+
       {/* 5. Trust & Verification Teaser */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 border border-amber-200/80 rounded-3xl p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8 shadow-xs">
@@ -448,6 +508,27 @@ export default function HomePage() {
               <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
             </Link>
           </div>
+        </div>
+      </section>
+
+      <SectionPlaceholder id="career-tools" title="Career Tools" slots={3} action="Explore tool" />
+      <SectionPlaceholder id="feedback" title="Learner Feedback" slots={3} />
+      <SectionPlaceholder id="newsletter" title="Newsletter" action="Subscribe" />
+
+      {/* 6. Contact (structure placeholder - contact details pending owner decision) */}
+      <section id="contact" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 scroll-mt-20">
+        <div className="text-center space-y-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+            Contact
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Get in Touch
+          </h2>
+        </div>
+        <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 sm:p-12 text-center bg-white/60">
+          <p className="text-sm text-slate-400 font-medium">
+            Contact details jald add hongi - section structure ready hai.
+          </p>
         </div>
       </section>
     </div>

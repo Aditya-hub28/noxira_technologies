@@ -193,6 +193,15 @@ export default function ProgramsPage() {
                       key={prg.code}
                       className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:border-amber-300 hover:shadow-md transition flex flex-col justify-between space-y-5"
                     >
+                      {/* Card artwork area (structure placeholder - no fake imagery; program code monogram) */}
+                      <div className="relative -mx-6 -mt-6 h-32 rounded-t-2xl bg-gradient-to-br from-slate-100 via-amber-50 to-slate-100 border-b border-slate-200 flex items-center justify-center overflow-hidden">
+                        <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-white/85 border border-amber-200 px-2 py-0.5 rounded-md">
+                          {prg.category || 'Engineering'}
+                        </span>
+                        <span className="font-mono text-2xl font-black text-slate-300 tracking-widest select-none">
+                          {prg.code}
+                        </span>
+                      </div>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
@@ -234,31 +243,33 @@ export default function ProgramsPage() {
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                        <Link
-                          to={`/programs/${encodeURIComponent(prg.code)}`}
-                          className="text-xs font-semibold text-amber-700 hover:text-amber-800 transition inline-flex items-center gap-1"
-                        >
-                          View Curriculum <ArrowRight className="w-3 h-3" />
-                        </Link>
+                      <div className="pt-4 border-t border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Link
+                            to={`/programs/${encodeURIComponent(prg.code)}`}
+                            className="text-xs font-semibold text-amber-700 hover:text-amber-800 transition inline-flex items-center gap-1"
+                          >
+                            View Curriculum <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </div>
 
                         {isFormConfigured ? (
                           <a
                             href={googleForm1Url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1"
+                            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-2xs transition flex items-center justify-center gap-1.5"
                             title="Apply via Google Form"
                           >
                             Apply Now
-                            <ExternalLink className="w-3 h-3 text-amber-400" />
+                            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
                           </a>
                         ) : (
                           <button
                             type="button"
                             disabled
                             title={noteMessage}
-                            className="px-3.5 py-1.5 bg-slate-900/60 text-white/70 rounded-lg text-xs font-semibold cursor-not-allowed"
+                            className="w-full py-2.5 bg-slate-900/60 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed"
                           >
                             Apply Now
                           </button>
