@@ -23,6 +23,7 @@ const adminApplicationRoutes = require('./routes/adminApplicationRoutes');
 const adminOfferTemplateRoutes = require('./routes/adminOfferTemplateRoutes');
 const offerDownloadRoutes = require('./routes/offerDownloadRoutes');
 const studentAuthRoutes = require('./routes/studentAuthRoutes');
+const skillCourseRoutes = require('./routes/skillCourseRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 
@@ -67,6 +68,7 @@ app.use('/api/v1/admin/applications', adminApplicationRoutes);
 app.use('/api/v1/admin/offer-templates', adminOfferTemplateRoutes);
 app.use('/api/v1/offers', offerDownloadRoutes);
 app.use('/api/v1/students', studentAuthRoutes);
+app.use('/api/v1/skill-courses', skillCourseRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/admin/settings', adminSettingsRoutes);
 
@@ -152,6 +154,20 @@ async function autoSeedIfEmpty() {
 
     // Seed full 31-program catalogue additively and idempotently
     await seedProgramCatalogue(Program);
+
+    // Skill course catalogue: metadata upserted everywhere; question banks
+    // refreshed only outside production (bank reset invalidates in-flight
+    // attempt references, acceptable pre-launch only).
+    const { seedSkillCourses } = require('./scripts/seedSkillCourses');
+    if (env.NODE_ENV !== 'production') {
+      await seedSkillCourses();
+    } else {
+      const SkillCourse = require('./models/SkillCourse');
+      const { COURSES } = require('./config/skillCourseCatalogue');
+      for (const course of COURSES) {
+        await SkillCourse.updateOne({ code: course.code }, { $set: course }, { upsert: true });
+      }
+    }
 
     await Template.create({
       title: 'Official NOXIRA Certificate Template v1',

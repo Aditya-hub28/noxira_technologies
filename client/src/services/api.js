@@ -50,6 +50,16 @@ export const api = {
   studentConfirmVerification: (code) => request('/students/verify/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
   studentClaimApplication: (applicationId) => request('/students/claim', { method: 'POST', body: JSON.stringify({ applicationId }) }),
 
+  // Skill courses
+  getSkillCourses: () => request('/skill-courses'),
+  getSkillCourse: (code) => request(`/skill-courses/${encodeURIComponent(code)}`),
+  startSkillAttempt: (code) => request(`/skill-courses/${encodeURIComponent(code)}/start`, { method: 'POST' }),
+  saveSkillAnswers: (attemptId, answers) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}`, { method: 'PATCH', body: JSON.stringify({ answers }) }),
+  submitSkillAttempt: (attemptId, answers) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }),
+  mySkillAttempts: () => request('/skill-courses/attempts/mine'),
+  mySkillCertificates: () => request('/skill-courses/certificates/mine'),
+  verifySkillCertificate: (token) => request(`/skill-courses/certificates/verify/${encodeURIComponent(token)}`),
+
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),
   adminCreateProgram: (payload) => request('/admin/programs', { method: 'POST', body: JSON.stringify(payload) }),

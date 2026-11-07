@@ -27,6 +27,26 @@ Immutable Lifecycle (Revoke or Issue Corrected Replacement)
 
 ---
 
+## 🌐 Public Website & Student Features
+
+Beyond the credential engine, the repo includes the public NOXIRA site (`client/`):
+
+- **Programme catalogue & status lookup** - 31 internship tracks; applicants check status with email + programme + application ID (identical generic failures; rate-limited).
+- **Student accounts** - email+password with OTP email verification (codes stored as hashes, 10-minute expiry), secure session cookie, claim an existing application with its ID.
+- **Skill courses** - 12 timed assessments (50 original MCQs each). Server-timed deadlines: answers save as you go and freeze at the deadline; a late submit is scored from answers saved in time only. Results and certificates appear on the student dashboard.
+- **Skill certificates** - passing a test can issue a verifiable certificate (PDF download + QR-linked public verification). Auto-issuance is a launch-gated owner decision: in production it is OFF unless `SKILL_CERT_AUTO_ISSUE=true`.
+- **Resume readiness check** (`/ats-check`) - transparent, in-browser resume checks. No fabricated "ATS score"; nothing is uploaded.
+- **Policies** - Terms, Privacy, Cookie, Payment & Refund and Review Rules pages, all marked as drafts pending owner confirmation and legal review.
+
+### Skill-course safety flags (server/.env)
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ALLOW_TEST_HOOKS` | unset (off) | Enables the answer-key endpoint for e2e tests. Also hard-disabled when `NODE_ENV=production`. |
+| `SKILL_CERT_AUTO_ISSUE` | unset (off in production) | Auto-issue skill certificates on a pass. Owner release/pricing decision pending. |
+
+---
+
 ## 🚀 Quick Start (Local Development)
 
 ### 1. Prerequisites

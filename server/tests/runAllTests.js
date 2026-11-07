@@ -19,6 +19,11 @@ const Student = require('../src/models/Student');
 const studentAuthController = require('../src/controllers/studentAuthController');
 const { requireStudentAuth } = require('../src/middleware/studentAuth');
 const studentDataController = require('../src/controllers/studentDataController');
+const skillCourseController = require('../src/controllers/skillCourseController');
+const SkillCourse = require('../src/models/SkillCourse');
+const QuizQuestion = require('../src/models/QuizQuestion');
+const QuizAttempt = require('../src/models/QuizAttempt');
+const { seedSkillCourses } = require('../src/scripts/seedSkillCourses');
 const { getPublicSettings, getAdminGoogleForm1, updateGoogleForm1, validateGoogleFormUrl } = require('../src/controllers/settingsController');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
@@ -1529,8 +1534,10 @@ async function runTestSuite() {
     assert.strictEqual(savedApp.feeLocked, 499, 'feeLocked must exactly copy program feeInr');
     assert.strictEqual(savedApp.batchId, 'BATCH-M3-ACCEPTANCE');
 
-    // Verify human-friendly NOX- format (NOX- followed by 6 unambiguous characters: 2-9, A-Z without 0, O, 1, I, L)
-    const validIdPattern = /^NOX-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
+    // Verify human-friendly NOX- format: NOX- plus unambiguous characters
+    // (2-9, A-Z without 0, O, 1, I, L). New IDs are 12 chars (~60 bits);
+    // legacy 6-char IDs remain valid.
+    const validIdPattern = /^NOX-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}([23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6})?$/;
     assert.ok(
       validIdPattern.test(savedApp.applicationId),
       `Generated ID "${savedApp.applicationId}" must match NOX- unambiguous pattern`
@@ -4641,6 +4648,279 @@ async function runTestSuite() {
       if (refMessage === null) refMessage = f.getData().message;
       assert.strictEqual(f.getData().message, refMessage, 'Identical generic message for every failure');
     }
+  });
+
+  await test('Skill courses: seed integrity, answer-blind start, scoring, pass gate, late submit, attempt isolation', async () => {
+    const jwt = require('jsonwebtoken');
+    const summary = await seedSkillCourses();
+    const { COURSES: ALL_COURSES } = require('../src/config/skillCourseCatalogue');
+    assert.strictEqual(summary.length, ALL_COURSES.length, 'Every catalogue course seeded');
+    assert.ok(ALL_COURSES.length >= 12, 'At least 12 banks in the catalogue');
+
+    // Bank integrity
+    for (const { code } of ALL_COURSES) {
+      const qs = await QuizQuestion.find({ courseCode: code });
+      assert.strictEqual(qs.length, 50, `${code} has 50 questions`);
+      for (const q of qs) {
+        assert.strictEqual(q.options.length, 4, 'Every question has exactly 4 options');
+        assert.ok(q.correctIndex >= 0 && q.correctIndex < 4, 'correctIndex in range');
+      }
+    }
+
+    // Public catalogue exposes metadata only
+    const list = mockReqRes({});
+    await skillCourseController.listCourses(list.req, list.res, list.next);
+    assert.strictEqual(list.getData().courses.length, ALL_COURSES.length, 'Catalogue lists every course');
+    assert.ok(!JSON.stringify(list.getData()).includes('correctIndex'), 'Catalogue never leaks answers');
+
+    // A student starts an attempt
+    const reg = mockReqRes({ body: { name: 'Quizzer', email: 'quizzer@example.com', password: 'password123' } });
+    await studentAuthController.register(reg.req, reg.res, reg.next);
+    const token = reg.getData().token;
+    const authd = async () => {
+      const req = { headers: { authorization: `Bearer ${token}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+
+    const start = mockReqRes({}); start.req = await authd(); start.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(start.req, start.res, start.next);
+    assert.strictEqual(start.getStatus(), 200, 'Attempt started');
+    assert.strictEqual(start.getData().questions.length, 50, '50 questions served');
+    assert.ok(!JSON.stringify(start.getData().questions).includes('correctIndex'), 'Served questions carry NO answers');
+    const attemptId = start.getData().attempt.id;
+    const servedIds = start.getData().questions.map(q => q.id);
+
+    // Restarting resumes the SAME attempt (same questions)
+    const restart = mockReqRes({}); restart.req = await authd(); restart.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(restart.req, restart.res, restart.next);
+    assert.strictEqual(restart.getData().attempt.id, attemptId, 'Resume returns same attempt');
+
+    // Score a known-correct run: answer every served question with its true answer (from DB)
+    const trueAnswers = {};
+    for (const qid of servedIds) {
+      const q = await QuizQuestion.findById(qid);
+      trueAnswers[qid] = q.correctIndex;
+    }
+    const submit = mockReqRes({ body: { answers: trueAnswers } });
+    submit.req = await authd(); submit.req.params = { attemptId }; submit.req.body = { answers: trueAnswers };
+    await skillCourseController.submitAttempt(submit.req, submit.res, submit.next);
+    assert.strictEqual(submit.getData().result.score, 50, 'All-correct scores 50');
+    assert.strictEqual(submit.getData().result.scorePercent, 100);
+    assert.strictEqual(submit.getData().result.passed, true, '100% passes the 60% gate');
+
+    // Double submit is idempotent
+    const again = mockReqRes({}); again.req = await authd(); again.req.params = { attemptId };
+    await skillCourseController.submitAttempt(again.req, again.res, again.next);
+    assert.strictEqual(again.getData().alreadySubmitted, true, 'Re-submit returns stored result, no duplicate');
+
+    // A failing run: all answers wrong
+    const reg2 = mockReqRes({ body: { name: 'Quizzer2', email: 'quizzer2@example.com', password: 'password123' } });
+    await studentAuthController.register(reg2.req, reg2.res, reg2.next);
+    const token2 = reg2.getData().token;
+    const authd2 = async () => {
+      const req = { headers: { authorization: `Bearer ${token2}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start2 = mockReqRes({}); start2.req = await authd2(); start2.req.params = { code: 'WEB-DEV' };
+    await skillCourseController.startAttempt(start2.req, start2.res, start2.next);
+    const attempt2 = start2.getData().attempt.id;
+    const wrongAnswers = {};
+    for (const q of start2.getData().questions) {
+      const db = await QuizQuestion.findById(q.id);
+      wrongAnswers[q.id] = (db.correctIndex + 1) % 4;
+    }
+    const submit2 = mockReqRes({}); submit2.req = await authd2(); submit2.req.params = { attemptId: attempt2 }; submit2.req.body = { answers: wrongAnswers };
+    await skillCourseController.submitAttempt(submit2.req, submit2.res, submit2.next);
+    assert.strictEqual(submit2.getData().result.score, 0, 'All-wrong scores 0');
+    assert.strictEqual(submit2.getData().result.passed, false, '0% fails');
+
+    // Attempt isolation: student 2 cannot read or submit student 1's attempt
+    const foreign = mockReqRes({}); foreign.req = await authd2(); foreign.req.params = { attemptId };
+    foreign.req.body = { answers: {} };
+    await skillCourseController.submitAttempt(foreign.req, foreign.res, foreign.next);
+    assert.strictEqual(foreign.getStatus(), 404, 'Foreign attempt submit => 404');
+
+    // Deadline semantics: answers received after the deadline never count.
+    // Autosave freezes at the deadline; a late submit is scored only from
+    // answers the server saved in time, and those can still pass.
+    const reg3 = mockReqRes({ body: { name: 'Late', email: 'late@example.com', password: 'password123' } });
+    await studentAuthController.register(reg3.req, reg3.res, reg3.next);
+    const token3 = reg3.getData().token;
+    const authd3 = async () => {
+      const req = { headers: { authorization: `Bearer ${token3}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start3 = mockReqRes({}); start3.req = await authd3(); start3.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(start3.req, start3.res, start3.next);
+    const attempt3id = start3.getData().attempt.id;
+    const perfectAnswers = {};
+    for (const q of start3.getData().questions) {
+      const db = await QuizQuestion.findById(q.id);
+      perfectAnswers[q.id] = db.correctIndex;
+    }
+
+    // 1. Autosave perfect answers while the attempt is in time
+    const save3 = mockReqRes({}); save3.req = await authd3(); save3.req.params = { attemptId: attempt3id }; save3.req.body = { answers: perfectAnswers };
+    await skillCourseController.saveAnswers(save3.req, save3.res, save3.next);
+    assert.strictEqual(save3.getData().success, true, 'In-time autosave accepted');
+
+    // 2. Deadline passes
+    await QuizAttempt.findByIdAndUpdate(attempt3id, { deadlineAt: new Date(Date.now() - 60 * 1000) });
+
+    // 3. Autosave after the deadline is frozen (not applied)
+    const wrongAnswers3 = {};
+    for (const qid of Object.keys(perfectAnswers)) wrongAnswers3[qid] = (perfectAnswers[qid] + 1) % 4;
+    const saveLate = mockReqRes({}); saveLate.req = await authd3(); saveLate.req.params = { attemptId: attempt3id }; saveLate.req.body = { answers: wrongAnswers3 };
+    await skillCourseController.saveAnswers(saveLate.req, saveLate.res, saveLate.next);
+    assert.strictEqual(saveLate.getData().frozen, true, 'Autosave after deadline is frozen');
+    let stored = await QuizAttempt.findById(attempt3id);
+    assert.strictEqual(stored.answers.get(Object.keys(perfectAnswers)[0]), perfectAnswers[Object.keys(perfectAnswers)[0]], 'Frozen autosave did not overwrite stored answers');
+
+    // 4. Late submit: payload answers (all wrong) arrive after the deadline and are ignored;
+    //    scoring uses the in-time stored answers, which pass.
+    const submit3 = mockReqRes({}); submit3.req = await authd3(); submit3.req.params = { attemptId: attempt3id }; submit3.req.body = { answers: wrongAnswers3 };
+    await skillCourseController.submitAttempt(submit3.req, submit3.res, submit3.next);
+    assert.strictEqual(submit3.getData().result.lateSubmit, true, 'Late flag recorded');
+    assert.strictEqual(submit3.getData().result.score, 50, 'Late submit scored from stored in-time answers, not post-deadline payload');
+    assert.strictEqual(submit3.getData().result.passed, true, 'Stored in-time answers can still pass on a late submit');
+
+    // 5. A late submit with nothing saved in time fails (0 from stored answers)
+    const reg4 = mockReqRes({ body: { name: 'Late2', email: 'late2@example.com', password: 'password123' } });
+    await studentAuthController.register(reg4.req, reg4.res, reg4.next);
+    const token4 = reg4.getData().token;
+    const authd4 = async () => {
+      const req = { headers: { authorization: `Bearer ${token4}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start4 = mockReqRes({}); start4.req = await authd4(); start4.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(start4.req, start4.res, start4.next);
+    const attempt4id = start4.getData().attempt.id;
+    await QuizAttempt.findByIdAndUpdate(attempt4id, { deadlineAt: new Date(Date.now() - 1000) });
+    const submit4 = mockReqRes({}); submit4.req = await authd4(); submit4.req.params = { attemptId: attempt4id }; submit4.req.body = { answers: perfectAnswers };
+    await skillCourseController.submitAttempt(submit4.req, submit4.res, submit4.next);
+    assert.strictEqual(submit4.getData().result.score, 0, 'Nothing saved in time scores 0 despite perfect payload');
+    assert.strictEqual(submit4.getData().result.passed, false, 'No in-time answers cannot pass');
+
+    // 6. Boundary: submit exactly at the deadline is on time and payload counts
+    const reg5 = mockReqRes({ body: { name: 'Edge', email: 'edge@example.com', password: 'password123' } });
+    await studentAuthController.register(reg5.req, reg5.res, reg5.next);
+    const token5 = reg5.getData().token;
+    const authd5 = async () => {
+      const req = { headers: { authorization: `Bearer ${token5}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start5 = mockReqRes({}); start5.req = await authd5(); start5.req.params = { code: 'PY-PROG' };
+    await skillCourseController.startAttempt(start5.req, start5.res, start5.next);
+    const attempt5id = start5.getData().attempt.id;
+    await QuizAttempt.findByIdAndUpdate(attempt5id, { deadlineAt: new Date(Date.now() + 5000) });
+    const submit5 = mockReqRes({}); submit5.req = await authd5(); submit5.req.params = { attemptId: attempt5id }; submit5.req.body = { answers: perfectAnswers };
+    await skillCourseController.submitAttempt(submit5.req, submit5.res, submit5.next);
+    assert.strictEqual(submit5.getData().result.lateSubmit, false, 'Submit within time is not late');
+    assert.strictEqual(submit5.getData().result.passed, true, 'In-time submit with correct payload passes');
+
+    // Certificate on pass: issued exactly once, verifiable via public token
+    const SkillCertificate = require('../src/models/SkillCertificate');
+    const cert = await SkillCertificate.findOne({ attemptId: attempt5id });
+    assert.ok(cert, 'Passing attempt issues a skill certificate');
+    assert.ok(/^NOX-SK-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(cert.certificateNumber), 'Skill certificate number format');
+    assert.strictEqual(cert.scorePercent, 100);
+    assert.strictEqual(submit5.getData().result.certificate.certificateNumber, cert.certificateNumber, 'Result payload carries the certificate');
+
+    // Idempotent: re-submitting the same attempt does not duplicate
+    const submit5b = mockReqRes({}); submit5b.req = await authd5(); submit5b.req.params = { attemptId: attempt5id }; submit5b.req.body = {};
+    await skillCourseController.submitAttempt(submit5b.req, submit5b.res, submit5b.next);
+    assert.strictEqual(submit5b.getData().alreadySubmitted, true, 'Re-submit is idempotent');
+    assert.strictEqual(await SkillCertificate.countDocuments({ attemptId: attempt5id }), 1, 'One certificate per attempt');
+
+    // Student 3 also passed PY-PROG via stored answers: cert issued for that attempt too
+    const cert3 = await SkillCertificate.findOne({ attemptId: attempt3id });
+    assert.ok(cert3, 'Late-but-passing stored answers also issue a certificate');
+    assert.notStrictEqual(cert3.certificateNumber, cert.certificateNumber, 'Distinct certificates per student');
+
+    // Mine endpoint returns the student's certificates
+    const mineReq = mockReqRes({}); mineReq.req = await authd5();
+    await skillCourseController.getMyCertificates(mineReq.req, mineReq.res, mineReq.next);
+    assert.strictEqual(mineReq.getData().certificates.length, 1, 'Certificates scoped to the account');
+    assert.strictEqual(mineReq.getData().certificates[0].certificateNumber, cert.certificateNumber);
+
+    // Public verification by token; unknown token 404s
+    const vReq = mockReqRes({}); vReq.req = { params: { token: cert.verificationToken }, body: {}, headers: {}, cookies: {}, ip: '127.0.0.1' };
+    await skillCourseController.verifySkillCertificate(vReq.req, vReq.res, vReq.next);
+    assert.strictEqual(vReq.getStatus(), 200, 'Verification token resolves');
+    assert.strictEqual(vReq.getData().certificate.studentName, 'Edge');
+    const vBad = mockReqRes({}); vBad.req = { params: { token: 'deadbeef'.repeat(6) }, body: {}, headers: {}, cookies: {}, ip: '127.0.0.1' };
+    await skillCourseController.verifySkillCertificate(vBad.req, vBad.res, vBad.next);
+    assert.strictEqual(vBad.getStatus(), 404, 'Unknown token 404s');
+
+    // Failed attempt earns no certificate
+    assert.strictEqual(await SkillCertificate.countDocuments({ attemptId: attempt2 }), 0, 'No certificate for a failed attempt');
+
+    // PDF download: owner gets a real PDF; a foreign student gets 404
+    const dl = mockReqRes({}); dl.req = await authd5(); dl.req.params = { id: String(cert._id) };
+    await skillCourseController.downloadSkillCertificate(dl.req, dl.res, dl.next);
+    assert.strictEqual(dl.getStatus(), 200, 'Owner PDF download 200');
+    assert.strictEqual(dl.res.getHeader('content-type'), 'application/pdf');
+    const pdfBuf = dl.getData();
+    assert.ok(Buffer.isBuffer(pdfBuf) && pdfBuf.length > 2000 && pdfBuf.slice(0, 5).toString() === '%PDF-', 'Valid PDF bytes returned');
+    const dlForeign = mockReqRes({}); dlForeign.req = await authd2(); dlForeign.req.params = { id: String(cert._id) };
+    await skillCourseController.downloadSkillCertificate(dlForeign.req, dlForeign.res, dlForeign.next);
+    assert.strictEqual(dlForeign.getStatus(), 404, 'Foreign student cannot download another student\'s certificate');
+
+    // Test hook is disabled unless explicitly allowed, and always in production
+    const hk = mockReqRes({}); hk.req = await authd5(); hk.req.params = { attemptId: '000000000000000000000000' };
+    delete process.env.ALLOW_TEST_HOOKS;
+    await skillCourseController.answerKey(hk.req, hk.res, hk.next);
+    assert.strictEqual(hk.getStatus(), 404, 'Answer-key hook 404s by default');
+    process.env.ALLOW_TEST_HOOKS = 'true';
+    const hk2 = mockReqRes({}); hk2.req = await authd5(); hk2.req.params = { attemptId: '000000000000000000000000' };
+    await skillCourseController.answerKey(hk2.req, hk2.res, hk2.next);
+    assert.strictEqual(hk2.getStatus(), 404, 'Hook 404s for unknown attempt even when enabled');
+    const savedEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const hk3 = mockReqRes({}); hk3.req = await authd5(); hk3.req.params = { attemptId: attempt5id };
+    await skillCourseController.answerKey(hk3.req, hk3.res, hk3.next);
+    assert.strictEqual(hk3.getStatus(), 404, 'Answer-key hook always 404s in production');
+    process.env.NODE_ENV = savedEnv;
+    delete process.env.ALLOW_TEST_HOOKS;
+
+    // Launch gate: with production mode forced and auto-issue unset, a pass earns no
+    // certificate and reports certificatePending instead (release policy undecided).
+    const savedEnv2 = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    delete process.env.SKILL_CERT_AUTO_ISSUE;
+    const reg6 = mockReqRes({ body: { name: 'Gate', email: 'gate@example.com', password: 'password123' } });
+    await studentAuthController.register(reg6.req, reg6.res, reg6.next);
+    const token6 = reg6.getData().token;
+    const authd6 = async () => {
+      const req = { headers: { authorization: `Bearer ${token6}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const start6 = mockReqRes({}); start6.req = await authd6(); start6.req.params = { code: 'WEB-DEV' };
+    await skillCourseController.startAttempt(start6.req, start6.res, start6.next);
+    const attempt6id = start6.getData().attempt.id;
+    const perfect6 = {};
+    for (const q of start6.getData().questions) {
+      const db = await QuizQuestion.findById(q.id);
+      perfect6[q.id] = db.correctIndex;
+    }
+    const submit6 = mockReqRes({}); submit6.req = await authd6(); submit6.req.params = { attemptId: attempt6id }; submit6.req.body = { answers: perfect6 };
+    await skillCourseController.submitAttempt(submit6.req, submit6.res, submit6.next);
+    assert.strictEqual(submit6.getData().result.passed, true, 'Gate-off pass still passes');
+    assert.strictEqual(submit6.getData().result.certificatePending, true, 'Gate-off pass marks certificate pending release');
+    assert.strictEqual(await SkillCertificate.countDocuments({ attemptId: attempt6id }), 0, 'Gate-off pass issues no certificate');
+    process.env.NODE_ENV = savedEnv2;
+
+    // History: student 1 sees only their own attempt
+    const hist = mockReqRes({}); hist.req = await authd();
+    await skillCourseController.getMyAttempts(hist.req, hist.res, hist.next);
+    assert.strictEqual(hist.getData().attempts.length, 1, 'History scoped to the account');
+    assert.strictEqual(hist.getData().attempts[0].courseCode, 'PY-PROG');
   });
 
   // Cleanup

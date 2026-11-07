@@ -182,8 +182,8 @@ async function evaluateRows(rows, colMap, programs) {
     if (prog.error) errors.push(prog.error);
     if (!projectLink || !HTTP_URL_RE.test(projectLink)) errors.push('Project link must be an http(s) URL');
     if (!transactionId) errors.push('Transaction ID (UTR) is required');
-    if (claimedApplicationId && !/^NOX-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/.test(claimedApplicationId)) {
-      errors.push('Application ID must be in NOX-XXXXXX format');
+    if (claimedApplicationId && !/^NOX-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}([23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6})?$/.test(claimedApplicationId)) {
+      errors.push('Application ID must be a valid NOX- ID');
     }
     let formSubmittedAt = null;
     if (tsRaw) {
