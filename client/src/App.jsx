@@ -274,6 +274,7 @@ function AppContent() {
         <Route path="/skill-courses/:code/test" element={<SkillQuizPage />} />
         <Route path="/terms" element={<PolicyPage slug="terms" />} />
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
+        <Route path="/cookies" element={<PolicyPage slug="cookies" />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
         <Route path="/review-rules" element={<PolicyPage slug="review" />} />
       </Route>

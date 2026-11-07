@@ -399,6 +399,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               <ul className="space-y-2">
                 <li><Link to="/terms" className="hover:text-cyan-400 transition">Terms &amp; Conditions</Link></li>
                 <li><Link to="/privacy" className="hover:text-cyan-400 transition">Privacy Policy</Link></li>
+                <li><Link to="/cookies" className="hover:text-cyan-400 transition">Cookie Policy</Link></li>
                 <li><Link to="/payment-refund" className="hover:text-cyan-400 transition">Payment &amp; Refund</Link></li>
                 <li><Link to="/review-rules" className="hover:text-cyan-400 transition">Review Rules</Link></li>
               </ul>
