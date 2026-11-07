@@ -61,7 +61,7 @@ export default function StudentDashboardPage() {
         <EmptySection
           icon={GraduationCap}
           title="My Applications"
-          description="Aapki internship applications ki live status yahan dikhegi. Abhi ke liye application ID se status check kar sakte hain."
+          description="Your internship application status will appear here. For now you can check any application with its application ID."
           action={
             <Link to="/status" className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-cyan-700 hover:text-cyan-800">
               Check application status <ArrowRight className="w-3.5 h-3.5" />
@@ -71,7 +71,7 @@ export default function StudentDashboardPage() {
         <EmptySection
           icon={FileText}
           title="Offer Letters"
-          description="Jab aap select hote hain, aapka offer letter yahan se directly download hoga - bina email dhundhe."
+          description="When you are selected, your offer letter will be downloadable directly from here - no digging through email."
           action={
             <Link to="/status" className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-cyan-700 hover:text-cyan-800">
               Download offer letter <ArrowRight className="w-3.5 h-3.5" />
@@ -81,12 +81,12 @@ export default function StudentDashboardPage() {
         <EmptySection
           icon={ClipboardList}
           title="Skill Tests"
-          description="Skill courses aur unke results yahan aayenge - scores, pass status aur attempt history, sab aapke account se juda."
+          description="Skill tests and their results will live here - scores, pass status and attempt history, all tied to your account."
         />
         <EmptySection
           icon={Award}
           title="Certificates"
-          description="Aapke earned certificates yahan list honge, verification link ke saath. Koi bhi unhe publicly verify kar payega."
+          description="Certificates you earn will be listed here with their verification links, so anyone can verify them publicly."
           action={
             <Link to="/verify" className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-cyan-700 hover:text-cyan-800">
               Verify a certificate <ArrowRight className="w-3.5 h-3.5" />

@@ -24,7 +24,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
         <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-ink-950/5 rounded-full pl-4 pr-2.5 sm:pl-5 sm:pr-3 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
           <Link to="/" onClick={closeMobileMenu} className="flex items-center gap-2.5 group">
-            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-10 w-auto group-hover:scale-[1.03] transition" />
+            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-12 w-auto group-hover:scale-[1.03] transition" />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -118,16 +118,16 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
             >
               Contact
             </Link>
-            <Link
-              to={student ? '/dashboard' : '/login'}
-              className={`ml-1 px-4 py-1.5 rounded-full transition ${student ? 'bg-cyan-600 text-white hover:bg-cyan-700' : 'border border-slate-300 hover:border-slate-400 hover:text-slate-900'}`}
-            >
-              {student ? 'Dashboard' : 'Login'}
-            </Link>
           </nav>
 
           {/* Action CTAs - admin access is intentionally not linked from the public site; admins use the /admin route directly */}
           <div className="hidden sm:flex items-center gap-2.5">
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition ${student ? 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-sm' : 'border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900'}`}
+            >
+              {student ? 'Dashboard' : 'Login'}
+            </Link>
             {isFormConfigured ? (
               <a
                 href={googleForm1Url}
