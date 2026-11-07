@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useStudentAuth } from '../context/StudentAuthContext';
 import { Award, CheckCircle2, Menu, X, ArrowRight, ExternalLink, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 
 export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
+  const { student } = useStudentAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [internOpen, setInternOpen] = useState(false);
   const [mobileInternOpen, setMobileInternOpen] = useState(false);
@@ -19,10 +21,10 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
       {/* Top Main Navigation Bar */}
       <header className="sticky top-3 z-40 px-3 sm:px-5">
         {/* Floating pill navbar (visual reference: tsec-assignment-hub.me translucent pill) */}
-        <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-ink-950/5 rounded-full pl-4 pr-2.5 sm:pl-5 sm:pr-3 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-ink-950/5 rounded-full pl-3.5 pr-2 sm:pl-5 sm:pr-3 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
           <Link to="/" onClick={closeMobileMenu} className="flex items-center gap-2.5 group">
-            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-10 w-auto group-hover:scale-[1.03] transition" />
+            <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-10 sm:h-12 w-auto group-hover:scale-[1.03] transition" />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -141,10 +143,22 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 Apply Now
               </button>
             )}
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition ${student ? 'bg-cyan-600 text-white hover:bg-cyan-700 shadow-sm' : 'border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900'}`}
+            >
+              {student ? 'Dashboard' : 'Login'}
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center gap-1.5">
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition ${student ? 'bg-cyan-600 text-white' : 'border border-slate-300 text-slate-700'}`}
+            >
+              {student ? 'Dashboard' : 'Login'}
+            </Link>
             {isFormConfigured ? (
               <a
                 href={googleForm1Url}
@@ -191,6 +205,13 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
               className="block py-2 text-sm font-semibold text-slate-700 hover:text-cyan-700"
             >
               Services
+            </Link>
+            <Link
+              to={student ? '/dashboard' : '/login'}
+              onClick={closeMobileMenu}
+              className="block py-2 text-sm font-semibold text-cyan-700 hover:text-cyan-800"
+            >
+              {student ? 'My Dashboard' : 'Login / Create account'}
             </Link>
             {/* Internships expandable submenu (mobile) */}
             <div>

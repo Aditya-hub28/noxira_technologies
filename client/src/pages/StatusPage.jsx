@@ -33,6 +33,40 @@ export default function StatusPage() {
   const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } = useSiteSettings();
   const noteMessage = (settingsLoading || settingsError) ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
 
+  // Offer letter lookup (email + programme)
+  const [offerEmail, setOfferEmail] = useState('');
+  const [offerProgramme, setOfferProgramme] = useState('');
+  const [offerAppId, setOfferAppId] = useState('');
+  const [programmes, setProgrammes] = useState([]);
+  const [offerLoading, setOfferLoading] = useState(false);
+  const [offerResult, setOfferResult] = useState(null);
+  const [offerError, setOfferError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    api.getPrograms()
+      .then(data => { if (mounted) setProgrammes(data.programs || []); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const handleOfferLookup = async (event) => {
+    event.preventDefault();
+    setOfferError('');
+    setOfferResult(null);
+    setOfferLoading(true);
+    try {
+      const data = await api.lookupOfferLetter(offerEmail, offerProgramme, offerAppId);
+      setOfferResult(data.offer);
+    } catch (err) {
+      setOfferError(err.status === 429
+        ? 'Too many attempts. Please wait a few minutes and try again.'
+        : (err.message || 'No offer letter found for the details provided.'));
+    } finally {
+      setOfferLoading(false);
+    }
+  };
+
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [applicationId, setApplicationId] = useState(searchParams.get('id') || '');
 
@@ -347,6 +381,90 @@ export default function StatusPage() {
 
       {/* Helpful Quick Links */}
       <div className="text-center pt-2">
+        {/* Offer Letter Lookup: email + programme, privacy-protected */}
+        <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-xs p-6 sm:p-8 mb-8">
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <FileText className="w-4.5 h-4.5 text-cyan-700" />
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">Download Offer Letter</h2>
+          </div>
+          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+            Enter the email you applied with, your programme, and the application ID you received when you applied. A download link appears only when all three match an issued offer letter - so knowing someone's email alone is never enough.
+          </p>
+          <form onSubmit={handleOfferLookup} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="offer-email" className="block text-xs font-semibold text-slate-600 mb-1.5">Registered email</label>
+                <input
+                  id="offer-email"
+                  type="email"
+                  required
+                  value={offerEmail}
+                  onChange={e => setOfferEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label htmlFor="offer-appid" className="block text-xs font-semibold text-slate-600 mb-1.5">Application ID</label>
+                <input
+                  id="offer-appid"
+                  type="text"
+                  required
+                  value={offerAppId}
+                  onChange={e => setOfferAppId(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
+                  placeholder="e.g. NOX-K7M2QP"
+                />
+              </div>
+              <div>
+                <label htmlFor="offer-programme" className="block text-xs font-semibold text-slate-600 mb-1.5">Programme</label>
+                <select
+                  id="offer-programme"
+                  required
+                  value={offerProgramme}
+                  onChange={e => setOfferProgramme(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 outline-none transition"
+                >
+                  <option value="">Select programme</option>
+                  {programmes.map(prg => (
+                    <option key={prg.code} value={prg.code}>{prg.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {offerError && (
+              <div className="flex items-start gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{offerError}</span>
+              </div>
+            )}
+
+            {offerResult && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-xs bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                <div className="flex items-start gap-2 text-emerald-800 flex-1">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>Offer letter found for <strong>{offerResult.programTitle}</strong> ({offerResult.offerLetterId}). The link is valid for a limited time.</span>
+                </div>
+                <a
+                  href={offerResult.downloadUrl}
+                  className="inline-flex items-center justify-center gap-1.5 bg-ink-950 text-white text-xs font-bold rounded-full px-4 py-2 hover:bg-ink-900 transition shrink-0"
+                >
+                  Download PDF <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={offerLoading}
+              className="w-full sm:w-auto px-6 py-2.5 bg-ink-950 text-white text-xs font-bold rounded-full hover:bg-ink-900 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {offerLoading ? 'Checking...' : 'Find my offer letter'}
+            </button>
+          </form>
+        </div>
+
         {isFormConfigured ? (
           <a
             href={googleForm1Url}

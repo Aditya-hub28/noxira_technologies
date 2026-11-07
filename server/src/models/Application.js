@@ -74,6 +74,12 @@ const ApplicationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'OfferLetter'
     },
+    claimedByStudentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      default: null,
+      index: true
+    },
     offerState: {
       type: String,
       enum: ['NONE', 'BLOCKED_TEMPLATE', 'GENERATING', 'GENERATED', 'FAILED'],

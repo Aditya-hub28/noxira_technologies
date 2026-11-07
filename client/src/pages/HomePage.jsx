@@ -101,7 +101,12 @@ export default function HomePage() {
 
   // Hero entrance animation is pure CSS (see .hero-* classes in index.css).
 
-  const featuredPrograms = programs.slice(0, FEATURED_PROGRAM_COUNT);
+  // Intentional cross-discipline representatives (not alphabetical first-N)
+  const FEATURED_CODES = ['FS-DEV', 'PY-PROG', 'ML', 'UIUX', 'DIGI-MKT', 'IOT-ROBO'];
+  const byCode = new Map(programs.map(p => [p.code, p]));
+  const featuredPrograms = FEATURED_CODES.map(c => byCode.get(c)).filter(Boolean)
+    .concat(programs.filter(p => !FEATURED_CODES.includes(p.code)))
+    .slice(0, FEATURED_PROGRAM_COUNT);
 
   return (
     <div className="space-y-16 sm:space-y-24 py-8 sm:py-12">
@@ -335,7 +340,7 @@ export default function HomePage() {
         <Reveal>
           <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-3xl p-8 sm:p-12 shadow-xs space-y-8">
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-3xl mx-auto text-center">
-              NOXIRA Technologies is a software development studio and engineering training provider. We design and build custom web and mobile software for businesses, and we run structured 1-month internship programmes that train aspiring engineers on real-world development workflows. NOXIRA operates as a Udyam-registered sole proprietorship under the Government of India MSME registry.
+              NOXIRA Technologies is a software development studio and engineering training provider. We design and build custom web and mobile software for businesses, and we run structured 1-month internship programmes that train aspiring engineers on real-world development workflows.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-6 text-center space-y-2">
@@ -346,7 +351,7 @@ export default function HomePage() {
               <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-6 text-center space-y-2">
                 <GraduationCap className="w-6 h-6 text-cyan-600 mx-auto" />
                 <h3 className="text-sm font-bold text-slate-900">Engineering Internships</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">31 structured 4-week tracks with guided tasks, review feedback and transparent rules.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">31 internship tracks across development, programming, AI, design, business and engineering - 4 weeks each, with track-wise curriculum published progressively.</p>
               </div>
               <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-6 text-center space-y-2">
                 <ShieldCheck className="w-6 h-6 text-cyan-600 mx-auto" />

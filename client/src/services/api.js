@@ -38,6 +38,18 @@ export const api = {
   getProgramDetail: (code) => request(`/programs/${encodeURIComponent(code)}`),
   getApplicationStatus: (email, id) => request(`/intake/status?email=${encodeURIComponent(email)}&id=${encodeURIComponent(id)}`),
 
+  // Student accounts
+  studentRegister: (payload) => request('/students/register', { method: 'POST', body: JSON.stringify(payload) }),
+  studentLogin: (credentials) => request('/students/login', { method: 'POST', body: JSON.stringify(credentials) }),
+  studentLogout: () => request('/students/logout', { method: 'POST' }),
+  studentMe: () => request('/students/me'),
+  studentApplications: () => request('/students/applications'),
+  studentOffers: () => request('/students/offers'),
+  lookupOfferLetter: (email, programme, applicationId) => request(`/offers/lookup?email=${encodeURIComponent(email)}&programme=${encodeURIComponent(programme)}&applicationId=${encodeURIComponent(applicationId)}`),
+  studentRequestVerification: () => request('/students/verify/request', { method: 'POST' }),
+  studentConfirmVerification: (code) => request('/students/verify/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+  studentClaimApplication: (applicationId) => request('/students/claim', { method: 'POST', body: JSON.stringify({ applicationId }) }),
+
   // Admin Programs Management
   adminGetPrograms: () => request('/admin/programs'),
   adminCreateProgram: (payload) => request('/admin/programs', { method: 'POST', body: JSON.stringify(payload) }),

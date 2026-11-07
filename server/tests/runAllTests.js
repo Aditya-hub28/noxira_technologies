@@ -15,6 +15,10 @@ const OfferLetter = require('../src/models/OfferLetter');
 const OfferLetterTemplate = require('../src/models/OfferLetterTemplate');
 const OfferDeliveryJob = require('../src/models/OfferDeliveryJob');
 const Setting = require('../src/models/Setting');
+const Student = require('../src/models/Student');
+const studentAuthController = require('../src/controllers/studentAuthController');
+const { requireStudentAuth } = require('../src/middleware/studentAuth');
+const studentDataController = require('../src/controllers/studentDataController');
 const { getPublicSettings, getAdminGoogleForm1, updateGoogleForm1, validateGoogleFormUrl } = require('../src/controllers/settingsController');
 
 const { generateCertificatePdf } = require('../src/services/pdfService');
@@ -92,6 +96,14 @@ function mockReqRes(options = {}) {
     },
     getHeader(k) {
       return resHeaders[k.toLowerCase()];
+    },
+    cookie(name, value, opts) {
+      resHeaders['set-cookie'] = `${name}=${value}`;
+      return this;
+    },
+    clearCookie(name) {
+      resHeaders['set-cookie'] = `${name}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      return this;
     },
     json(data) {
       responseData = data;
@@ -4420,6 +4432,215 @@ async function runTestSuite() {
     assert.ok(!legacySuccessor.releaseGate || !legacySuccessor.releaseGate.submissionId,
       'Legacy successor must NOT fabricate release-gate evidence');
     assert.strictEqual(String(legacySuccessor.participantId), String(pLegacy._id), 'Legacy successor bound to same participant');
+  });
+
+  await test('Student auth: register, login, /me and duplicate rejection', async () => {
+    // Register
+    const reg = mockReqRes({ body: { name: 'Test Student', email: 'Student@Example.com', password: 'password123' } });
+    await studentAuthController.register(reg.req, reg.res, reg.next);
+    assert.strictEqual(reg.getStatus(), 201, `Register returns 201: ${JSON.stringify(reg.getData()).slice(0, 200)}`);
+    assert.strictEqual(reg.getData().student.email, 'student@example.com', 'Email normalized to lowercase');
+    assert.ok(reg.getData().token, 'Register returns a session token');
+    const studentId = reg.getData().student.id;
+
+    const stored = await Student.findById(studentId);
+    assert.ok(stored.passwordHash && !stored.passwordHash.includes('password123'), 'Password stored hashed, never plain');
+
+    // Duplicate registration rejected
+    const dup = mockReqRes({ body: { name: 'Again', email: 'STUDENT@example.com', password: 'password123' } });
+    await studentAuthController.register(dup.req, dup.res, dup.next);
+    assert.strictEqual(dup.getStatus(), 409, 'Duplicate email rejected with 409');
+
+    // Short password rejected
+    const short = mockReqRes({ body: { name: 'Short', email: 'short@example.com', password: 'abc' } });
+    await studentAuthController.register(short.req, short.res, short.next);
+    assert.strictEqual(short.getStatus(), 400, 'Password under 8 chars rejected');
+
+    // Login with correct credentials
+    const login = mockReqRes({ body: { email: 'student@example.com', password: 'password123' } });
+    await studentAuthController.login(login.req, login.res, login.next);
+    assert.strictEqual(login.getStatus(), 200, 'Login succeeds');
+    assert.strictEqual(login.getData().student.id, studentId, 'Login returns the same student');
+    const token = login.getData().token;
+
+    // Login with wrong password rejected
+    const badLogin = mockReqRes({ body: { email: 'student@example.com', password: 'wrongpass1' } });
+    await studentAuthController.login(badLogin.req, badLogin.res, badLogin.next);
+    assert.strictEqual(badLogin.getStatus(), 401, 'Wrong password rejected with 401');
+
+    // Unknown email rejected with the same generic response shape (no enumeration hint)
+    const noUser = mockReqRes({ body: { email: 'nobody@example.com', password: 'password123' } });
+    await studentAuthController.login(noUser.req, noUser.res, noUser.next);
+    assert.strictEqual(noUser.getStatus(), 401, 'Unknown email rejected with 401');
+    assert.strictEqual(noUser.getData().message, badLogin.getData().message, 'Same message for unknown email and wrong password');
+
+    // /me via middleware with Bearer token
+    const meReq = { headers: { authorization: `Bearer ${token}` }, cookies: {} };
+    const meResCtx = mockReqRes({});
+    await requireStudentAuth(meReq, meResCtx.res, () => {});
+    assert.ok(meReq.student, 'Middleware attaches student for valid token');
+    const me = mockReqRes({});
+    me.req.student = meReq.student;
+    await studentAuthController.getMe(me.req, me.res);
+    assert.strictEqual(me.getData().student.email, 'student@example.com', 'getMe returns the logged-in student');
+    assert.ok(!me.getData().student.passwordHash, 'getMe never leaks passwordHash');
+
+    // Middleware rejects admin-shaped token (kind guard)
+    const jwt = require('jsonwebtoken');
+    const adminToken = jwt.sign({ id: studentId, email: 'student@example.com', role: 'SUPER_ADMIN' }, env.JWT_SECRET, { expiresIn: '1h' });
+    const guardReq = { headers: { authorization: `Bearer ${adminToken}` }, cookies: {} };
+    let guardStatus = 200;
+    const guardRes = { status(c) { guardStatus = c; return this; }, json() { return this; } };
+    await requireStudentAuth(guardReq, guardRes, () => {});
+    assert.strictEqual(guardStatus, 401, 'Admin-shaped token rejected by student middleware');
+  });
+
+  await test('Student data: ownership gating, OTP verification, claim flow, offer lookup possession factors', async () => {
+    const jwt = require('jsonwebtoken');
+    const { setTransporter } = require('../src/services/emailService');
+
+    // Capture outgoing mail so the test can read the OTP (simulated transport only)
+    let capturedCode = null;
+    setTransporter({
+      sendMail: async (opts) => {
+        const m = /code is (\d{6})/.exec(opts.text || '');
+        if (m) capturedCode = m[1];
+        return { messageId: 'mock-test' };
+      }
+    });
+
+    const mk = async (email) => {
+      const r = mockReqRes({ body: { name: 'S', email, password: 'password123' } });
+      await studentAuthController.register(r.req, r.res, r.next);
+      return r.getData().token;
+    };
+    const tokenA = await mk('alpha.student@example.com');
+    const tokenB = await mk('beta.student@example.com');
+
+    // Records tied ONLY to alpha's email (a legacy Google-Form-style application)
+    const participant = await Participant.create({
+      fullName: 'Alpha Student', normalizedName: 'alpha student',
+      email: 'alpha.student@example.com', normalizedEmail: 'alpha.student@example.com',
+      phone: '9999999999', programCode: 'FS-DEV', programTitle: 'Full Stack Development',
+      batchId: 'BATCH-TEST', source: 'WEBSITE'
+    });
+    const application = await Application.create({
+      applicationId: 'NOX-TESTALPHA1', participantId: participant._id,
+      programCode: 'FS-DEV', programTitle: 'Full Stack Development',
+      status: 'APPROVED', appliedAt: new Date(), decidedAt: new Date()
+    });
+    const offer = await OfferLetter.create({
+      offerLetterId: 'OFR-TESTALPHA1-AB12', applicationId: application.applicationId,
+      applicationRef: application._id, participantId: participant._id,
+      templateId: new mongoose.Types.ObjectId(), templateVersion: 1,
+      recipientSnapshot: { fullName: 'Alpha Student', email: 'alpha.student@example.com' },
+      programSnapshot: { code: 'FS-DEV', title: 'Full Stack Development' },
+      pdfPath: '/tmp/nonexistent-test.pdf', pdfSha256: 'deadbeef', pdfSizeBytes: 123,
+      generationStatus: 'GENERATED'
+    });
+    application.offerLetterId = offer._id;
+    await application.save();
+
+    const attach = async (token, req) => {
+      req = req || {};
+      req.headers = { ...(req.headers || {}), authorization: `Bearer ${token}` };
+      req.cookies = req.cookies || {};
+      req.ip = req.ip || '127.0.0.1';
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+
+    // ATTACKER SCENARIO: unverified account holding alpha's email (or beta) sees NOTHING
+    const appsB = mockReqRes({}); appsB.req = await attach(tokenB, appsB.req);
+    await studentDataController.getMyApplications(appsB.req, appsB.res, appsB.next);
+    assert.strictEqual(appsB.getData().applications.length, 0, 'Other student sees nothing');
+
+    const appsAun = mockReqRes({}); appsAun.req = await attach(tokenA, appsAun.req);
+    await studentDataController.getMyApplications(appsAun.req, appsAun.res, appsAun.next);
+    assert.strictEqual(appsAun.getData().applications.length, 0, 'UNVERIFIED owner-matching email still sees nothing - ownership must be proven');
+
+    const ofsAun = mockReqRes({}); ofsAun.req = await attach(tokenA, ofsAun.req);
+    await studentDataController.getMyOfferLetters(ofsAun.req, ofsAun.res, ofsAun.next);
+    assert.strictEqual(ofsAun.getData().offers.length, 0, 'No offer token released before verification');
+
+    // OTP flow: request -> code delivered via (simulated) email -> confirm
+    const rv = mockReqRes({}); rv.req = await attach(tokenA, rv.req);
+    await studentAuthController.requestVerification(rv.req, rv.res, rv.next);
+    assert.strictEqual(rv.getStatus(), 200, 'Verification code requested');
+    assert.ok(capturedCode && /^\d{6}$/.test(capturedCode), 'Code reached the (simulated) inbox, not the API response');
+
+    const wrong = mockReqRes({ body: { code: capturedCode === '000000' ? '000001' : '000000' } });
+    wrong.req = await attach(tokenA, wrong.req);
+    await studentAuthController.confirmVerification(wrong.req, wrong.res, wrong.next);
+    assert.strictEqual(wrong.getStatus(), 400, 'Wrong code rejected');
+
+    const cv = mockReqRes({ body: { code: capturedCode } });
+    cv.req = await attach(tokenA, cv.req);
+    await studentAuthController.confirmVerification(cv.req, cv.res, cv.next);
+    assert.strictEqual(cv.getStatus(), 200, `Correct code verifies: ${JSON.stringify(cv.getData()).slice(0, 120)}`);
+    assert.strictEqual(cv.getData().student.emailVerified, true, 'Student marked verified');
+
+    // Verified owner now sees their records
+    const appsA = mockReqRes({}); appsA.req = await attach(tokenA, appsA.req);
+    await studentDataController.getMyApplications(appsA.req, appsA.res, appsA.next);
+    assert.strictEqual(appsA.getData().applications.length, 1, 'Verified owner sees own application');
+
+    const ofsA = mockReqRes({}); ofsA.req = await attach(tokenA, ofsA.req);
+    await studentDataController.getMyOfferLetters(ofsA.req, ofsA.res, ofsA.next);
+    assert.strictEqual(ofsA.getData().offers.length, 1, 'Verified owner sees own offer letter');
+    const url = ofsA.getData().offers[0].downloadUrl;
+    const decoded = jwt.verify(url.split('/').pop(), env.JWT_SECRET);
+    assert.strictEqual(decoded.purpose, 'OFFER_DOWNLOAD', 'Token purpose guard');
+    const offerAfter = await OfferLetter.findById(offer._id);
+    assert.strictEqual(decoded.jti, offerAfter.downloadToken, 'Token JTI matches stored JTI');
+
+    // Claim flow: beta with the right app ID but wrong email gets generic 404
+    const claimB = mockReqRes({ body: { applicationId: 'NOX-TESTALPHA1' } });
+    claimB.req = await attach(tokenB, claimB.req);
+    await studentAuthController.claimApplication(claimB.req, claimB.res, claimB.next);
+    assert.strictEqual(claimB.getStatus(), 404, 'Claim rejected when account email does not match');
+
+    // Unauthenticated account data is 401
+    let noAuthStatus = 200;
+    await requireStudentAuth({ headers: {}, cookies: {} }, { status(c) { noAuthStatus = c; return this; }, json() { return this; } }, () => {});
+    assert.strictEqual(noAuthStatus, 401, 'No token => 401');
+
+    // Expired token rejected
+    const expired = jwt.sign({ id: new mongoose.Types.ObjectId(), email: 'x@example.com', kind: 'student' }, env.JWT_SECRET, { expiresIn: '-10s' });
+    let expStatus = 200;
+    await requireStudentAuth({ headers: { authorization: `Bearer ${expired}` }, cookies: {} }, { status(c) { expStatus = c; return this; }, json() { return this; } }, () => {});
+    assert.strictEqual(expStatus, 401, 'Expired token => 401');
+
+    // Logout clears the cookie
+    const lo = mockReqRes({});
+    await studentAuthController.logout(lo.req, lo.res);
+    assert.ok((lo.getHeaders()['set-cookie'] || '').includes('Expires=Thu, 01 Jan 1970'), 'Logout clears student cookie');
+
+    // Public lookup now requires the possession factor (application ID)
+    const noId = mockReqRes({ query: { email: 'alpha.student@example.com', programme: 'FS-DEV' } });
+    await studentDataController.lookupOfferLetter(noId.req, noId.res, noId.next);
+    assert.strictEqual(noId.getStatus(), 400, 'email+programme alone is NOT enough - application ID required');
+
+    const ok = mockReqRes({ query: { email: 'ALPHA.student@example.com', programme: 'fs-dev', applicationId: 'nox-testalpha1' } });
+    await studentDataController.lookupOfferLetter(ok.req, ok.res, ok.next);
+    assert.strictEqual(ok.getStatus(), 200, `All three factors correct: ${JSON.stringify(ok.getData()).slice(0, 150)}`);
+    assert.ok(ok.getData().offer.downloadUrl.includes('/api/v1/offers/download/'));
+
+    // Every wrong combination => identical generic 404
+    const combos = [
+      { email: 'alpha.student@example.com', programme: 'ML', applicationId: 'NOX-TESTALPHA1' },
+      { email: 'ghost@example.com', programme: 'FS-DEV', applicationId: 'NOX-TESTALPHA1' },
+      { email: 'alpha.student@example.com', programme: 'FS-DEV', applicationId: 'NOX-WRONG99' },
+      { email: 'beta.student@example.com', programme: 'FS-DEV', applicationId: 'NOX-TESTALPHA1' }
+    ];
+    let refMessage = null;
+    for (const q of combos) {
+      const f = mockReqRes({ query: q });
+      await studentDataController.lookupOfferLetter(f.req, f.res, f.next);
+      assert.strictEqual(f.getStatus(), 404, `404 for ${JSON.stringify(q)}`);
+      if (refMessage === null) refMessage = f.getData().message;
+      assert.strictEqual(f.getData().message, refMessage, 'Identical generic message for every failure');
+    }
   });
 
   // Cleanup
