@@ -5031,6 +5031,34 @@ async function runTestSuite() {
     const stored8 = await QuizAttempt.findById(a8);
     assert.strictEqual(stored8.answers.size, 0, 'Post-deadline reveal records nothing');
 
+    // 6b. Concurrency: two simultaneous reveals cannot both write - exactly one
+    // wins the atomic lock, both responses report the SAME locked choice
+    const regC = mockReqRes({ body: { name: 'Racer', email: 'racer@example.com', password: 'password123' } });
+    await studentAuthController.register(regC.req, regC.res, regC.next);
+    const tokenC = regC.getData().token;
+    const authdC = async () => {
+      const req = { headers: { authorization: `Bearer ${tokenC}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const stC = mockReqRes({}); stC.req = await authdC(); stC.req.params = { code: 'DS-AI' };
+    await skillCourseController.startAttempt(stC.req, stC.res, stC.next);
+    const aC = stC.getData().attempt.id;
+    const qC = stC.getData().questions[0].id;
+    const mk = async (idx) => { const r = mockReqRes({}); r.req = await authdC(); r.req.params = { attemptId: aC }; r.req.body = { questionId: qC, chosenIndex: idx }; return r; };
+    const rA = await mk(0), rB = await mk(2);
+    await Promise.all([
+      skillCourseController.revealAnswer(rA.req, rA.res, rA.next),
+      skillCourseController.revealAnswer(rB.req, rB.res, rB.next)
+    ]);
+    const storedC = await QuizAttempt.findById(aC);
+    const lockedChoice = storedC.answers.get(qC);
+    const winners = [rA, rB].filter(r => !r.getData().alreadyRevealed);
+    assert.strictEqual(winners.length, 1, 'Exactly one concurrent reveal wins the lock');
+    assert.strictEqual(rA.getData().chosenIndex, lockedChoice, 'Response A reports the locked choice');
+    assert.strictEqual(rB.getData().chosenIndex, lockedChoice, 'Response B reports the locked choice');
+    assert.strictEqual(rA.getData().correct, rB.getData().correct, 'Both responses agree on the outcome');
+
     // 7. Validation: foreign question id and out-of-range option rejected
     const rv9 = mockReqRes({}); rv9.req = await authd(); rv9.req.params = { attemptId: '000000000000000000000000' };
     rv9.req.body = { questionId: q2, chosenIndex: 1 };

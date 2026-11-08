@@ -131,7 +131,7 @@ exports.revealAnswer = async (req, res, next) => {
     const qid = String(req.body?.questionId || '');
     const chosenIndex = req.body?.chosenIndex;
     const validIds = new Set(attempt.questionIds.map(id => String(id)));
-    if (!validIds.has(qid) || !Number.isInteger(chosenIndex) || chosenIndex < 0 || chosenIndex > 3) {
+    if (!/^[a-f0-9]{24}$/i.test(qid) || !validIds.has(qid) || !Number.isInteger(chosenIndex) || chosenIndex < 0 || chosenIndex > 3) {
       return res.status(400).json({ success: false, message: 'Invalid question or option.' });
     }
     const question = await QuizQuestion.findById(qid).select('correctIndex').lean();
@@ -139,17 +139,26 @@ exports.revealAnswer = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Question not found.' });
     }
 
-    if (attempt.revealed && attempt.revealed.has(qid)) {
-      const stored = attempt.answers.get(qid);
-      return res.json({ success: true, alreadyRevealed: true, chosenIndex: stored, correctIndex: question.correctIndex, correct: stored === question.correctIndex });
+    // Atomic first-choice lock: the update only lands while the question is
+    // still unrevealed, so two concurrent reveals cannot both write - the
+    // loser falls through and returns the stored outcome instead.
+    const locked = await QuizAttempt.findOneAndUpdate(
+      { _id: attempt._id, studentId: req.student._id, submittedAt: null, deadlineAt: { $gt: new Date() }, [`revealed.${qid}`]: { $exists: false } },
+      { $set: { [`answers.${qid}`]: chosenIndex, [`revealed.${qid}`]: true } },
+      { new: true }
+    );
+    if (locked) {
+      return res.json({ success: true, chosenIndex, correctIndex: question.correctIndex, correct: chosenIndex === question.correctIndex });
     }
 
-    attempt.answers.set(qid, chosenIndex);
-    if (!attempt.revealed) attempt.revealed = new Map();
-    attempt.revealed.set(qid, true);
-    await attempt.save();
-
-    res.json({ success: true, chosenIndex, correctIndex: question.correctIndex, correct: chosenIndex === question.correctIndex });
+    // Update did not land: either already revealed (return stored outcome) or
+    // the attempt raced past its deadline between the checks above.
+    const fresh = await QuizAttempt.findOne({ _id: attempt._id, studentId: req.student._id, submittedAt: null });
+    if (fresh && fresh.revealed && fresh.revealed.has(qid)) {
+      const storedChoice = fresh.answers.get(qid);
+      return res.json({ success: true, alreadyRevealed: true, chosenIndex: storedChoice, correctIndex: question.correctIndex, correct: storedChoice === question.correctIndex });
+    }
+    return res.status(409).json({ success: false, message: 'Time is up - answers are frozen.' });
   } catch (error) {
     next(error);
   }
