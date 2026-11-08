@@ -48,7 +48,7 @@ const POLICIES = {
       },
       {
         heading: 'Skill assessments',
-        body: 'Skill tests are timed and server-clocked. Answers save automatically as you go and count up to the deadline; a submission that arrives late is scored only from answers saved in time. One attempt may be in progress at a time per course, and you can resume it. Results are recorded on your account. Certificates for passed assessments are released under the certificate policy in force at the time; until a pricing or release decision is published, passing does not by itself guarantee certificate delivery.',
+        body: 'Skill tests are timed and server-clocked. Each question is answered one at a time: when you select an option you immediately see whether it was right, and that first choice is locked - it cannot be changed afterwards, so feedback can never improve a recorded score. Answers count up to the deadline; a submission that arrives late is scored only from answers saved in time. One attempt may be in progress at a time per course, and you can resume it. Results are recorded on your account. Certificates for passed assessments are released under the certificate policy in force at the time; until a pricing or release decision is published, passing does not by itself guarantee certificate delivery.',
       },
       {
         heading: 'Your project',

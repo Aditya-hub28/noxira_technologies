@@ -55,6 +55,7 @@ export const api = {
   getSkillCourse: (code) => request(`/skill-courses/${encodeURIComponent(code)}`),
   startSkillAttempt: (code) => request(`/skill-courses/${encodeURIComponent(code)}/start`, { method: 'POST' }),
   saveSkillAnswers: (attemptId, answers) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}`, { method: 'PATCH', body: JSON.stringify({ answers }) }),
+  revealSkillAnswer: (attemptId, questionId, chosenIndex) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}/reveal`, { method: 'POST', body: JSON.stringify({ questionId, chosenIndex }) }),
   submitSkillAttempt: (attemptId, answers) => request(`/skill-courses/attempts/${encodeURIComponent(attemptId)}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }),
   mySkillAttempts: () => request('/skill-courses/attempts/mine'),
   mySkillCertificates: () => request('/skill-courses/certificates/mine'),

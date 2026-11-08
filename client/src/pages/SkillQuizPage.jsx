@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, Clock, Loader2, Save, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Loader2, Lock, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 
 function normalizeResult(r = {}) {
@@ -28,34 +28,40 @@ export default function SkillQuizPage() {
   const location = useLocation();
 
   const [attempt, setAttempt] = useState(location.state?.attempt || null);
-  const [answers, setAnswers] = useState(() => {
-    const init = {};
-    (location.state?.attempt?.questions || []).forEach(q => { if (q.chosen != null) init[q.id] = q.chosen; });
-    return init;
-  });
+  // revealed: questionId -> { chosen, correctIndex, correct } - locked answers with their feedback
+  const [revealed, setRevealed] = useState(() => ({ ...(location.state?.attempt?.revealed || {}) }));
+  const [current, setCurrent] = useState(0);
   const [loadError, setLoadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const [result, setResult] = useState(null);
-  const [saveState, setSaveState] = useState('saved');
   const [nowMs, setNowMs] = useState(Date.now());
-  const answersRef = useRef(answers);
-  answersRef.current = answers;
+  const revealedRef = useRef(revealed);
+  revealedRef.current = revealed;
 
-  // If the page was loaded directly, (re)start the attempt.
+  // Always re-sync with the server on mount: navigation state can be stale
+  // (history.state survives reloads), while the server holds the truth -
+  // same attempt, locked answers and their revealed outcomes.
+  const bootRef = useRef(false);
   useEffect(() => {
-    if (attempt) return;
+    if (bootRef.current) return;
+    bootRef.current = true;
     api.startSkillAttempt(code)
       .then(data => {
-        const init = {};
-        (data.questions || []).forEach(q => { const c = data.attempt.answers && data.attempt.answers[q.id]; if (c != null) init[q.id] = c; });
-        setAnswers(init);
-        setAttempt({
+        const rev = data.attempt.revealed || {};
+        // Merge, letting any answer revealed locally after mount win
+        setRevealed(prev => ({ ...rev, ...prev }));
+        const qs = (data.questions || []).map(q => ({ id: q.id, prompt: q.question, options: q.options }));
+        const firstOpen = qs.findIndex(q => !rev[q.id]);
+        setAttempt(prev => ({
           ...data.attempt,
-          questions: (data.questions || []).map(q => ({ id: q.id, prompt: q.question, options: q.options, chosen: init[q.id] != null ? init[q.id] : null }))
-        });
+          courseTitle: prev?.courseTitle || data.attempt.courseTitle,
+          questions: qs
+        }));
+        setCurrent(curr => curr === 0 ? (firstOpen === -1 ? 0 : firstOpen) : curr);
       })
       .catch(err => setLoadError(err.message || 'Could not load the test.'));
-  }, [code, attempt]);
+  }, [code]);
 
   // Countdown
   useEffect(() => {
@@ -67,6 +73,14 @@ export default function SkillQuizPage() {
   const deadlineMs = attempt ? new Date(attempt.deadlineAt).getTime() : null;
   const remainingMs = deadlineMs ? deadlineMs - nowMs : null;
   const expired = remainingMs !== null && remainingMs <= 0;
+
+  const answers = useMemo(() => {
+    const a = {};
+    for (const [qid, r] of Object.entries(revealed)) a[qid] = r.chosen;
+    return a;
+  }, [revealed]);
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
 
   const doSubmit = useCallback(async (finalAnswers) => {
     if (submitting || result || !attempt) return;
@@ -87,16 +101,20 @@ export default function SkillQuizPage() {
     if (expired && !result && attempt) doSubmit(answersRef.current);
   }, [expired, result, attempt, doSubmit]);
 
-  const answeredCount = useMemo(() => Object.values(answers).filter(v => v != null).length, [answers]);
+  const answeredCount = Object.keys(revealed).length;
 
-  const selectOption = (questionId, index) => {
-    if (result || expired) return;
-    const next = { ...answers, [questionId]: index };
-    setAnswers(next);
-    setSaveState('saving');
-    api.saveSkillAnswers(attempt.id, next)
-      .then(() => setSaveState('saved'))
-      .catch(() => setSaveState('error'));
+  const selectOption = async (questionId, index) => {
+    if (result || expired || revealing) return;
+    if (revealedRef.current[questionId]) return; // already locked
+    setRevealing(true);
+    try {
+      const data = await api.revealSkillAnswer(attempt.id, questionId, index);
+      setRevealed(prev => ({ ...prev, [questionId]: { chosen: data.chosenIndex, correctIndex: data.correctIndex, correct: data.correct } }));
+    } catch (err) {
+      alert(err.message || 'Could not save your answer. Please try again.');
+    } finally {
+      setRevealing(false);
+    }
   };
 
   if (loadError) {
@@ -147,16 +165,21 @@ export default function SkillQuizPage() {
     );
   }
 
+  const q = attempt.questions[current];
+  const fb = q ? revealed[q.id] : null;
+  const total = attempt.questions.length;
+  const isLast = current === total - 1;
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">{attempt.courseTitle}</p>
-          <p className="text-xs text-slate-500 mt-0.5">{answeredCount} of {attempt.questions.length} answered</p>
+          <p className="text-xs text-slate-500 mt-0.5">Question {current + 1} of {total} &middot; {answeredCount} answered</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-            <Save className="w-3.5 h-3.5" />{saveState === 'saving' ? 'Saving...' : saveState === 'error' ? 'Retrying...' : 'Saved'}
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-400">
+            <Lock className="w-3.5 h-3.5" />First choice locks
           </span>
           <span className={`inline-flex items-center gap-1.5 font-mono text-sm font-bold rounded-full px-4 py-1.5 border ${remainingMs != null && remainingMs < 120000 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-slate-50 text-ink-950 border-slate-200'}`}>
             <Clock className="w-4 h-4" />{formatClock(remainingMs || 0)}
@@ -164,36 +187,101 @@ export default function SkillQuizPage() {
         </div>
       </div>
 
-      <div className="space-y-5">
-        {attempt.questions.map((q, qi) => (
-          <div key={q.id} className="bg-white border border-slate-200 rounded-3xl p-6">
-            <p className="text-sm font-bold text-ink-950 leading-relaxed mb-4"><span className="text-slate-400 font-semibold mr-2">Q{qi + 1}.</span>{q.prompt}</p>
-            <div className="grid sm:grid-cols-2 gap-2.5">
-              {q.options.map((opt, oi) => {
-                const active = answers[q.id] === oi;
-                return (
-                  <button
-                    key={oi}
-                    onClick={() => selectOption(q.id, oi)}
-                    className={`text-left text-xs leading-relaxed rounded-2xl border px-4 py-3 transition ${active ? 'bg-cyan-600 text-white border-cyan-600 shadow-md shadow-cyan-600/20' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/40'}`}
-                  >
-                    <span className={`font-bold mr-2 ${active ? 'text-white/80' : 'text-slate-400'}`}>{String.fromCharCode(65 + oi)}.</span>{opt}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      {/* Progress */}
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-6">
+        <div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: `${(answeredCount / total) * 100}%` }} />
       </div>
 
-      <div className="sticky bottom-4 mt-8">
+      {q && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8">
+          <p className="text-base font-bold text-ink-950 leading-relaxed mb-6"><span className="text-slate-400 font-semibold mr-2">Q{current + 1}.</span>{q.prompt}</p>
+          <div className="grid gap-2.5">
+            {q.options.map((opt, oi) => {
+              let cls = 'bg-slate-50 text-slate-600 border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/40';
+              let badge = null;
+              if (fb) {
+                if (oi === fb.correctIndex) {
+                  cls = 'bg-emerald-50 text-emerald-800 border-emerald-300';
+                  badge = <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />;
+                } else if (oi === fb.chosen) {
+                  cls = 'bg-rose-50 text-rose-800 border-rose-300';
+                  badge = <XCircle className="w-4 h-4 text-rose-500 shrink-0" />;
+                } else {
+                  cls = 'bg-slate-50 text-slate-400 border-slate-100';
+                }
+              }
+              return (
+                <button
+                  key={oi}
+                  onClick={() => selectOption(q.id, oi)}
+                  disabled={!!fb || revealing || expired}
+                  className={`text-left text-xs leading-relaxed rounded-2xl border px-4 py-3 transition flex items-center justify-between gap-3 disabled:cursor-default ${cls}`}
+                >
+                  <span><span className={`font-bold mr-2 ${fb ? 'opacity-70' : 'text-slate-400'}`}>{String.fromCharCode(65 + oi)}.</span>{opt}</span>
+                  {badge}
+                </button>
+              );
+            })}
+          </div>
+
+          {fb && (
+            <p className={`mt-4 text-xs font-semibold ${fb.correct ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {fb.correct ? 'Correct - answer locked in.' : 'Not quite - the correct option is highlighted. Answer locked in.'}
+            </p>
+          )}
+          {!fb && (
+            <p className="mt-4 text-[11px] text-slate-400">Tap an option to lock it in and see the result. You cannot change it afterwards.</p>
+          )}
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between gap-3 mt-6">
         <button
-          onClick={() => { if (window.confirm(`Submit with ${answeredCount} of ${attempt.questions.length} questions answered?`)) doSubmit(answers); }}
-          disabled={submitting}
-          className="w-full bg-ink-950 text-white font-bold text-sm rounded-full py-4 hover:bg-ink-900 transition shadow-lg shadow-ink-950/20 disabled:opacity-50"
+          onClick={() => setCurrent(c => Math.max(0, c - 1))}
+          disabled={current === 0}
+          className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2.5 rounded-full border border-slate-200 bg-white transition"
         >
-          {submitting ? 'Scoring...' : 'Submit Test'}
+          <ChevronLeft className="w-4 h-4" /> Previous
         </button>
+        {!isLast ? (
+          <button
+            onClick={() => setCurrent(c => Math.min(total - 1, c + 1))}
+            disabled={!fb}
+            className="inline-flex items-center gap-1 text-xs font-bold text-white bg-ink-950 hover:bg-ink-800 disabled:opacity-40 disabled:cursor-not-allowed px-6 py-2.5 rounded-full transition"
+          >
+            Next <ChevronRight className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => { if (window.confirm(`Submit with ${answeredCount} of ${total} questions answered? Unanswered questions score zero.`)) doSubmit(answers); }}
+            disabled={submitting}
+            className="inline-flex items-center gap-1 text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 px-6 py-2.5 rounded-full transition"
+          >
+            {submitting ? 'Scoring...' : 'Submit Test'}
+          </button>
+        )}
+      </div>
+
+      {/* Question jump strip (review locked answers) */}
+      <div className="flex flex-wrap gap-1.5 mt-8 justify-center">
+        {attempt.questions.map((qq, qi) => {
+          const r = revealed[qq.id];
+          return (
+            <button
+              key={qq.id}
+              onClick={() => setCurrent(qi)}
+              aria-label={`Question ${qi + 1}`}
+              className={`w-7 h-7 rounded-lg text-[10px] font-bold transition border ${
+                qi === current ? 'border-ink-950 text-ink-950 bg-white'
+                : r ? (r.correct ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200')
+                : 'bg-slate-50 text-slate-400 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              {qi + 1}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

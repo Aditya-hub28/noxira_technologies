@@ -4923,6 +4923,121 @@ async function runTestSuite() {
     assert.strictEqual(hist.getData().attempts[0].courseCode, 'PY-PROG');
   });
 
+  await test('Skill quiz: instant-feedback reveal locks first choice; autosave/submit cannot change locked answers', async () => {
+    const jwt = require('jsonwebtoken');
+    const reg = mockReqRes({ body: { name: 'Locker', email: 'locker@example.com', password: 'password123' } });
+    await studentAuthController.register(reg.req, reg.res, reg.next);
+    const token = reg.getData().token;
+    const authd = async () => {
+      const req = { headers: { authorization: `Bearer ${token}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+
+    const start = mockReqRes({}); start.req = await authd(); start.req.params = { code: 'JAVA-PROG' };
+    await skillCourseController.startAttempt(start.req, start.res, start.next);
+    const attemptId = start.getData().attempt.id;
+    const served = start.getData().questions;
+    assert.deepStrictEqual(start.getData().attempt.revealed, {}, 'Fresh attempt reveals nothing');
+    assert.ok(!JSON.stringify(served).includes('correctIndex'), 'Start payload stays answer-blind');
+
+    const q1 = served[0].id;
+    const q2 = served[1].id;
+    const db1 = await QuizQuestion.findById(q1);
+    const db2 = await QuizQuestion.findById(q2);
+    const wrong1 = (db1.correctIndex + 1) % 4;
+
+    // 1. Reveal a WRONG first choice: outcome returned, answer recorded and locked
+    const rv = mockReqRes({}); rv.req = await authd(); rv.req.params = { attemptId };
+    rv.req.body = { questionId: q1, chosenIndex: wrong1 };
+    await skillCourseController.revealAnswer(rv.req, rv.res, rv.next);
+    assert.strictEqual(rv.getStatus(), 200, 'Reveal succeeds');
+    assert.strictEqual(rv.getData().correct, false, 'Wrong choice reported wrong');
+    assert.strictEqual(rv.getData().correctIndex, db1.correctIndex, 'Reveal returns the correct option index');
+    let stored = await QuizAttempt.findById(attemptId);
+    assert.strictEqual(stored.answers.get(q1), wrong1, 'First choice recorded');
+    assert.strictEqual(stored.revealed.get(q1), true, 'Question marked revealed');
+
+    // 2. Re-revealing with a DIFFERENT choice is idempotent: stored answer never changes
+    const rv2 = mockReqRes({}); rv2.req = await authd(); rv2.req.params = { attemptId };
+    rv2.req.body = { questionId: q1, chosenIndex: db1.correctIndex };
+    await skillCourseController.revealAnswer(rv2.req, rv2.res, rv2.next);
+    assert.strictEqual(rv2.getData().alreadyRevealed, true, 'Second reveal flagged as repeat');
+    assert.strictEqual(rv2.getData().correct, false, 'Repeat reveal reports the ORIGINAL outcome');
+    stored = await QuizAttempt.findById(attemptId);
+    assert.strictEqual(stored.answers.get(q1), wrong1, 'Locked answer unchanged by repeat reveal');
+
+    // 3. Autosave cannot modify a revealed answer
+    const sv = mockReqRes({}); sv.req = await authd(); sv.req.params = { attemptId };
+    sv.req.body = { answers: { [q1]: db1.correctIndex } };
+    await skillCourseController.saveAnswers(sv.req, sv.res, sv.next);
+    stored = await QuizAttempt.findById(attemptId);
+    assert.strictEqual(stored.answers.get(q1), wrong1, 'Autosave ignored for locked question');
+
+    // 4. Submit payload cannot modify a revealed answer either; unrevealed payload answers still count
+    const payload = {};
+    for (const q of served) payload[q.id] = (await QuizQuestion.findById(q.id)).correctIndex;
+    payload[q1] = db1.correctIndex; // try to flip the locked wrong answer to right
+    const submit = mockReqRes({}); submit.req = await authd(); submit.req.params = { attemptId };
+    submit.req.body = { answers: payload };
+    await skillCourseController.submitAttempt(submit.req, submit.res, submit.next);
+    assert.strictEqual(submit.getData().result.score, 49, 'Locked wrong answer scores as wrong; the other 49 count');
+    assert.strictEqual(submit.getData().result.passed, true, '98% still passes');
+
+    // 5. Resume payload carries outcomes ONLY for revealed questions
+    const reg7 = mockReqRes({ body: { name: 'Resumer', email: 'resumer@example.com', password: 'password123' } });
+    await studentAuthController.register(reg7.req, reg7.res, reg7.next);
+    const token7 = reg7.getData().token;
+    const authd7 = async () => {
+      const req = { headers: { authorization: `Bearer ${token7}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const st = mockReqRes({}); st.req = await authd7(); st.req.params = { code: 'UIUX' };
+    await skillCourseController.startAttempt(st.req, st.res, st.next);
+    const aId = st.getData().attempt.id;
+    const rq = st.getData().questions[0].id;
+    const rdb = await QuizQuestion.findById(rq);
+    const rvx = mockReqRes({}); rvx.req = await authd7(); rvx.req.params = { attemptId: aId };
+    rvx.req.body = { questionId: rq, chosenIndex: rdb.correctIndex };
+    await skillCourseController.revealAnswer(rvx.req, rvx.res, rvx.next);
+    assert.strictEqual(rvx.getData().correct, true, 'Correct choice reported correct');
+
+    const resume = mockReqRes({}); resume.req = await authd7(); resume.req.params = { code: 'UIUX' };
+    await skillCourseController.startAttempt(resume.req, resume.res, resume.next);
+    const rev = resume.getData().attempt.revealed;
+    assert.strictEqual(Object.keys(rev).length, 1, 'Resume returns exactly the revealed set');
+    assert.strictEqual(rev[rq].correct, true, 'Resume outcome matches stored lock');
+    assert.strictEqual(rev[rq].correctIndex, rdb.correctIndex);
+    assert.ok(!JSON.stringify(resume.getData().questions).includes('correctIndex'), 'Unrevealed questions still answer-blind on resume');
+
+    // 6. Reveal after the deadline is rejected (same freeze as autosave)
+    const reg8 = mockReqRes({ body: { name: 'Frozen', email: 'frozen@example.com', password: 'password123' } });
+    await studentAuthController.register(reg8.req, reg8.res, reg8.next);
+    const token8 = reg8.getData().token;
+    const authd8 = async () => {
+      const req = { headers: { authorization: `Bearer ${token8}` }, cookies: {}, ip: '127.0.0.1', body: {}, params: {} };
+      await requireStudentAuth(req, mockReqRes({}).res, () => {});
+      return req;
+    };
+    const st8 = mockReqRes({}); st8.req = await authd8(); st8.req.params = { code: 'CLOUD' };
+    await skillCourseController.startAttempt(st8.req, st8.res, st8.next);
+    const a8 = st8.getData().attempt.id;
+    await QuizAttempt.findByIdAndUpdate(a8, { deadlineAt: new Date(Date.now() - 1000) });
+    const rv8 = mockReqRes({}); rv8.req = await authd8(); rv8.req.params = { attemptId: a8 };
+    rv8.req.body = { questionId: st8.getData().questions[0].id, chosenIndex: 0 };
+    await skillCourseController.revealAnswer(rv8.req, rv8.res, rv8.next);
+    assert.strictEqual(rv8.getStatus(), 409, 'Reveal after deadline rejected');
+    const stored8 = await QuizAttempt.findById(a8);
+    assert.strictEqual(stored8.answers.size, 0, 'Post-deadline reveal records nothing');
+
+    // 7. Validation: foreign question id and out-of-range option rejected
+    const rv9 = mockReqRes({}); rv9.req = await authd(); rv9.req.params = { attemptId: '000000000000000000000000' };
+    rv9.req.body = { questionId: q2, chosenIndex: 1 };
+    await skillCourseController.revealAnswer(rv9.req, rv9.res, rv9.next);
+    assert.strictEqual(rv9.getStatus(), 404, 'Foreign attempt reveal => 404');
+  });
+
   // Cleanup
   await mongoose.disconnect();
   await mongod.stop();

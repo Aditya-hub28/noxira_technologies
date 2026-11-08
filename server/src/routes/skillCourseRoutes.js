@@ -13,6 +13,7 @@ router.get('/certificates/verify/:token', skillCourseController.verifySkillCerti
 router.get('/:code', skillCourseController.getCourse);
 router.post('/:code/start', loginRateLimiter, requireStudentAuth, skillCourseController.startAttempt);
 router.patch('/attempts/:attemptId', requireStudentAuth, skillCourseController.saveAnswers);
+router.post('/attempts/:attemptId/reveal', statusRateLimiter, requireStudentAuth, skillCourseController.revealAnswer);
 router.post('/attempts/:attemptId/submit', statusRateLimiter, requireStudentAuth, skillCourseController.submitAttempt);
 
 module.exports = router;

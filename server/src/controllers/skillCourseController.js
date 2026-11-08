@@ -70,9 +70,20 @@ exports.startAttempt = async (req, res, next) => {
     }
 
     const questions = await QuizQuestion.find({ _id: { $in: attempt.questionIds } })
-      .select('question options')
+      .select('question options correctIndex')
       .lean();
     const byId = new Map(questions.map(q => [String(q._id), q]));
+
+    // Outcomes only for questions already revealed in this attempt - the
+    // paper stays answer-blind for everything not yet answered.
+    const revealed = {};
+    for (const qid of (attempt.revealed ? attempt.revealed.keys() : [])) {
+      const q = byId.get(String(qid));
+      const chosen = attempt.answers.get(String(qid));
+      if (q && chosen != null) {
+        revealed[String(qid)] = { chosen, correctIndex: q.correctIndex, correct: chosen === q.correctIndex };
+      }
+    }
 
     res.json({
       success: true,
@@ -83,7 +94,8 @@ exports.startAttempt = async (req, res, next) => {
         deadlineAt: attempt.deadlineAt,
         durationMinutes: course.durationMinutes,
         passPercent: course.passPercent,
-        answers: Object.fromEntries(attempt.answers || [])
+        answers: Object.fromEntries(attempt.answers || []),
+        revealed
       },
       questions: attempt.questionIds.map(id => ({
         id: String(id),
@@ -91,6 +103,53 @@ exports.startAttempt = async (req, res, next) => {
         options: byId.get(String(id))?.options
       }))
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+/**
+ * Reveal one answer: records the student's first choice, locks it, and
+ * returns right/wrong for instant feedback. Idempotent - revealing the same
+ * question again returns the stored outcome and never changes the answer.
+ */
+exports.revealAnswer = async (req, res, next) => {
+  try {
+    const attempt = await QuizAttempt.findOne({
+      _id: req.params.attemptId,
+      studentId: req.student._id,
+      submittedAt: null
+    });
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found or already submitted.' });
+    }
+    if (Date.now() > attempt.deadlineAt.getTime()) {
+      // Same freeze rule as autosave: nothing changes after the deadline.
+      return res.status(409).json({ success: false, message: 'Time is up - answers are frozen.' });
+    }
+    const qid = String(req.body?.questionId || '');
+    const chosenIndex = req.body?.chosenIndex;
+    const validIds = new Set(attempt.questionIds.map(id => String(id)));
+    if (!validIds.has(qid) || !Number.isInteger(chosenIndex) || chosenIndex < 0 || chosenIndex > 3) {
+      return res.status(400).json({ success: false, message: 'Invalid question or option.' });
+    }
+    const question = await QuizQuestion.findById(qid).select('correctIndex').lean();
+    if (!question) {
+      return res.status(404).json({ success: false, message: 'Question not found.' });
+    }
+
+    if (attempt.revealed && attempt.revealed.has(qid)) {
+      const stored = attempt.answers.get(qid);
+      return res.json({ success: true, alreadyRevealed: true, chosenIndex: stored, correctIndex: question.correctIndex, correct: stored === question.correctIndex });
+    }
+
+    attempt.answers.set(qid, chosenIndex);
+    if (!attempt.revealed) attempt.revealed = new Map();
+    attempt.revealed.set(qid, true);
+    await attempt.save();
+
+    res.json({ success: true, chosenIndex, correctIndex: question.correctIndex, correct: chosenIndex === question.correctIndex });
   } catch (error) {
     next(error);
   }
@@ -115,6 +174,7 @@ exports.saveAnswers = async (req, res, next) => {
     if (answers && typeof answers === 'object') {
       const validIds = new Set(attempt.questionIds.map(id => String(id)));
       for (const [qid, idx] of Object.entries(answers)) {
+        if (attempt.revealed && attempt.revealed.has(qid)) continue; // locked after feedback
         if (validIds.has(qid) && Number.isInteger(idx) && idx >= 0 && idx <= 3) {
           attempt.answers.set(qid, idx);
         }
@@ -149,6 +209,7 @@ exports.submitAttempt = async (req, res, next) => {
     if (!late && answers && typeof answers === 'object') {
       const validIds = new Set(attempt.questionIds.map(id => String(id)));
       for (const [qid, idx] of Object.entries(answers)) {
+        if (attempt.revealed && attempt.revealed.has(qid)) continue; // locked after feedback
         if (validIds.has(qid) && Number.isInteger(idx) && idx >= 0 && idx <= 3) {
           attempt.answers.set(qid, idx);
         }

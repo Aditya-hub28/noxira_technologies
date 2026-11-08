@@ -5,6 +5,10 @@ const QuizAttemptSchema = new mongoose.Schema({
   courseCode: { type: String, required: true, uppercase: true, trim: true, index: true },
   questionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'QuizQuestion' }],
   answers: { type: Map, of: Number, default: {} },
+  // Questions whose feedback was shown to the student. A revealed answer is
+  // locked: neither autosave nor submit may change it afterwards, so instant
+  // feedback can never be used to improve the recorded score.
+  revealed: { type: Map, of: Boolean, default: {} },
   startedAt: { type: Date, required: true, default: Date.now },
   deadlineAt: { type: Date, required: true },
   submittedAt: { type: Date, default: null },
