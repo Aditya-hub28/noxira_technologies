@@ -270,10 +270,15 @@ function resultPayload(attempt, passPercent, certificate, certificatePending) {
     scorePercent: attempt.scorePercent,
     passed: attempt.passed,
     lateSubmit: attempt.lateSubmit,
+    attemptedCount: attempt.answers ? attempt.answers.size : 0,
+    timeUsedSeconds: attempt.submittedAt && attempt.startedAt
+      ? Math.max(0, Math.round((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 1000))
+      : null,
     passPercent: passPercent ?? undefined,
     submittedAt: attempt.submittedAt,
     certificatePending: certificatePending || undefined,
     certificate: certificate ? {
+      id: String(certificate._id),
       certificateNumber: certificate.certificateNumber,
       verificationToken: certificate.verificationToken,
       issuedAt: certificate.issuedAt
