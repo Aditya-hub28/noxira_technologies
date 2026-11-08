@@ -48,6 +48,24 @@ const statusRateLimiter = rateLimit({
   }
 });
 
+// Skill-quiz rate limiter: max 120 requests per 15 minutes per STUDENT.
+// A legitimate 50-question attempt needs ~52 calls (start/resume + 50 reveals
+// + submit), so 120 leaves room for a second course, page reloads and retries
+// while still capping scripted abuse. Keyed by the authenticated student id
+// (this limiter runs after requireStudentAuth), so one heavy user cannot
+// lock out classmates sharing the same IP (school labs, NAT).
+const quizRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.student && req.student._id ? String(req.student._id) : req.ip),
+  message: {
+    success: false,
+    message: 'Too many test requests in a short time. Your progress is saved - please wait a few minutes and continue.'
+  }
+});
+
 // Offer download rate limiter: max 60 requests per 15 minutes per IP
 const offerDownloadRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -65,5 +83,6 @@ module.exports = {
   verifyRateLimiter,
   loginRateLimiter,
   statusRateLimiter,
+  quizRateLimiter,
   offerDownloadRateLimiter
 };

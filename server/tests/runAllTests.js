@@ -52,7 +52,7 @@ const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/pro
 const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('../src/routes/adminProgramRoutes');
 const { CATALOGUE_PROGRAMS, PROGRAM_CATEGORIES, seedProgramCatalogue } = require('../src/config/programsCatalogue');
 const { requireRole } = require('../src/middleware/auth');
-const { statusRateLimiter } = require('../src/middleware/rateLimiter');
+const { statusRateLimiter, quizRateLimiter } = require('../src/middleware/rateLimiter');
 
 // Helper to mock express req, res, next for controller integration testing
 function mockReqRes(options = {}) {
@@ -4921,6 +4921,38 @@ async function runTestSuite() {
     await skillCourseController.getMyAttempts(hist.req, hist.res, hist.next);
     assert.strictEqual(hist.getData().attempts.length, 1, 'History scoped to the account');
     assert.strictEqual(hist.getData().attempts[0].courseCode, 'PY-PROG');
+  });
+
+  await test('Skill quiz rate limiter: a full 50-question attempt fits; abuse beyond 120 req/15min per student is throttled', async () => {
+    assert.ok(quizRateLimiter, 'quizRateLimiter must be exported');
+    assert.strictEqual(typeof quizRateLimiter, 'function', 'quizRateLimiter must be a middleware function');
+
+    const studentId = String(new mongoose.Types.ObjectId());
+    let passed = 0;
+    let throttled = null;
+    for (let i = 0; i < 121; i++) {
+      const m = mockReqRes({});
+      m.req.student = { _id: studentId };
+      let nextCalled = false;
+      await new Promise((resolve) => {
+        quizRateLimiter(m.req, m.res, () => { nextCalled = true; resolve(); });
+        setImmediate(resolve);
+      });
+      if (nextCalled) passed++;
+      else if (m.getStatus() === 429) { throttled = m.getData(); break; }
+    }
+    assert.strictEqual(passed, 120, 'Exactly 120 quiz requests per 15 min per student must pass (a 50-question attempt needs ~52)');
+    assert.ok(throttled && /Too many test requests/.test(throttled.message), 'Request 121 must be throttled with a saved-progress message');
+
+    // Per-student keying: a different student on the SAME IP is unaffected
+    const other = mockReqRes({});
+    other.req.student = { _id: String(new mongoose.Types.ObjectId()) };
+    let otherNext = false;
+    await new Promise((resolve) => {
+      quizRateLimiter(other.req, other.res, () => { otherNext = true; resolve(); });
+      setImmediate(resolve);
+    });
+    assert.ok(otherNext, 'Another student behind the same IP must not inherit the throttle');
   });
 
   await test('Skill quiz: instant-feedback reveal locks first choice; autosave/submit cannot change locked answers', async () => {
