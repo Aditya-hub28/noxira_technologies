@@ -1,0 +1,285 @@
+/* NOXIRA Hero Section Styles (Fluid & Fully Responsive) */
+
+.hv {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 120px 6vw 70px;
+  background: radial-gradient(ellipse 60% 70% at 24% 62%, rgba(56, 200, 255, 0.1), transparent 70%), #0b0c0f;
+}
+
+.hv-c {
+  position: relative;
+  z-index: 3;
+  max-width: 1180px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hv2 {
+  align-items: center;
+}
+
+.hv2 .rd {
+  position: relative;
+  max-width: min(880px, 100%);
+  width: 100%;
+}
+
+.hv2 .rdbg {
+  position: absolute;
+  inset: -40px -60px -40px -8vw;
+  z-index: -1;
+  background: radial-gradient(ellipse at 35% 50%, rgba(8, 10, 14, 0.94) 0%, rgba(8, 10, 14, 0.8) 45%, rgba(8, 10, 14, 0) 75%);
+  pointer-events: none;
+}
+
+/* Vignette gradient overlay above conveyor */
+.hv2:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    radial-gradient(ellipse 62% 85% at 26% 56%, #0b0c0f 18%, rgba(11, 12, 15, 0.5) 58%, transparent 88%),
+    linear-gradient(180deg, #0b0c0f 0, transparent 16%, transparent 82%, #0b0c0f),
+    linear-gradient(90deg, #0b0c0f 0, transparent 12%, transparent 88%, #0b0c0f);
+  pointer-events: none;
+}
+
+/* Background animated word conveyor */
+.mqs {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5vh;
+  z-index: 1;
+  opacity: 0.92;
+  pointer-events: none;
+  transform: rotate(-3deg) scale(var(--fit, 1.05));
+  will-change: transform;
+}
+
+.mqw {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mq {
+  display: inline-flex;
+  width: max-content;
+}
+
+.mq span {
+  font-size: clamp(48px, 8.5vw, 150px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  padding-right: 0.25em;
+  background: linear-gradient(180deg, rgba(120, 200, 255, 0.14), rgba(40, 120, 230, 0.02) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-stroke: 1px rgba(110, 190, 255, 0.35);
+  color: transparent;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.mq span.o {
+  background: none !important;
+  -webkit-text-stroke: 1.2px rgba(120, 200, 255, 0.6) !important;
+  color: transparent !important;
+}
+
+.mq em {
+  font-style: normal;
+  color: rgba(120, 200, 255, 0.65);
+  -webkit-text-fill-color: rgba(120, 200, 255, 0.65);
+  font-size: 0.65em;
+  padding-left: 0.25em;
+}
+
+/* Hero Headline */
+.hv2 h1.big.hq {
+  font-size: clamp(32px, 4.2vw, 56px);
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  margin-bottom: 22px;
+  font-weight: 700;
+}
+
+.hv2 .hl {
+  display: block;
+  overflow: hidden;
+  font-style: normal;
+  padding-bottom: 0.28em;
+  margin-bottom: -0.14em;
+}
+
+.hv2 .hl span {
+  display: inline-block;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #ffffff 30%, #8f98a6 118%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  padding-bottom: 0.08em;
+}
+
+.hv2 .hl span.ac {
+  background: linear-gradient(180deg, #7fdcff 0%, #38c8ff 55%, #1595d4 115%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 24px rgba(56, 200, 255, 0.28));
+}
+
+.hv2 .pd {
+  display: inline-block;
+  font-weight: 700;
+}
+
+/* Hero Lede paragraph */
+.hv2 .lede {
+  max-width: 56ch;
+  font-size: clamp(15px, 1.15vw, 17.5px);
+  line-height: 1.6;
+  color: #a9b1bd;
+  margin: 0;
+}
+
+/* Glass Buttons */
+.hv-cta {
+  display: flex;
+  gap: 14px;
+  margin-top: 30px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.gb {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  cursor: pointer;
+  color: #fff;
+  font: 600 15px 'Space Grotesk', sans-serif;
+  padding: 14px 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(1px) saturate(1.8);
+  backdrop-filter: url(#lg) blur(1px) saturate(1.8);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -1.5px 1px rgba(255, 255, 255, 0.3),
+    inset 0 0 14px rgba(255, 255, 255, 0.12),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.gb:hover {
+  transform: translateY(-1px);
+}
+
+.gb:active {
+  transform: scale(0.97);
+}
+
+.gb.pri {
+  background: rgba(56, 200, 255, 0.12);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -1.5px 1px rgba(255, 255, 255, 0.3),
+    inset 0 0 18px rgba(56, 200, 255, 0.25),
+    0 0 30px rgba(56, 200, 255, 0.25);
+}
+
+/* Responsive: Tablet Breakpoint */
+@media (max-width: 1023px) {
+  .hv {
+    padding: 110px 5vw 60px;
+  }
+  .hv2 h1.big.hq {
+    font-size: clamp(28px, 4.6vw, 44px);
+    line-height: 1.25;
+  }
+  .hv2 .hl {
+    overflow: visible;
+    padding-bottom: 0.28em;
+    margin-bottom: -0.14em;
+  }
+  .hv2 .hl span {
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    padding-bottom: 0.08em;
+  }
+  .hv2 .lede {
+    font-size: 14.5px;
+    max-width: 50ch;
+  }
+}
+
+/* Responsive: Mobile Breakpoint */
+@media (max-width: 767px) {
+  .hv {
+    align-items: center;
+    padding: 92px 20px 48px;
+    min-height: auto;
+  }
+  .hv2 .rd {
+    max-width: 100%;
+  }
+  .hv2 .rdbg {
+    inset: -24px -18px -24px -18px;
+    background: radial-gradient(ellipse at 40% 50%, rgba(8, 10, 14, 0.95) 0%, rgba(8, 10, 14, 0.85) 60%, rgba(8, 10, 14, 0) 100%);
+  }
+  .hv2 h1.big.hq {
+    font-size: clamp(24px, 7vw, 34px);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .hv2 .lede {
+    font-size: 13.5px;
+    line-height: 1.55;
+    max-width: none;
+  }
+  .hv-cta {
+    margin-top: 22px;
+  }
+  .gb {
+    font-size: 14px;
+    padding: 12px 22px;
+  }
+}
+
+/* Responsive: Compact Phone Screen (< 480px) */
+@media (max-width: 480px) {
+  .hv {
+    padding: 86px 16px 40px;
+  }
+  .hv2 h1.big.hq {
+    font-size: clamp(22px, 7.8vw, 30px);
+    line-height: 1.2;
+  }
+  .hv-cta {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+  .hv-cta .gb {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}

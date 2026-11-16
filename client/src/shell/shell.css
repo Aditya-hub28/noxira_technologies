@@ -1,0 +1,31 @@
+.logo-stage{position:fixed;inset:0;pointer-events:none;z-index:3000}
+.logo-stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.nx-num{position:fixed;z-index:3001;right:max(4vw,env(safe-area-inset-right));bottom:max(3vh,env(safe-area-inset-bottom));font:600 clamp(48px,15vw,76px)/1 'Space Grotesk',Arial,sans-serif;color:#f4f1ea;opacity:.92;letter-spacing:-.03em;pointer-events:none}
+@media(min-width:768px){.nx-num{font-size:clamp(80px,7.78vw,124px);right:4vw;bottom:4vh}}
+
+#nav{position:fixed;top:12px;left:12px;right:12px;z-index:2900;height:56px;border-radius:999px;background:rgba(255,255,255,.04);-webkit-backdrop-filter:blur(1px) saturate(1.8);backdrop-filter:url(#lg) blur(1px) saturate(1.8);border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.55),inset 0 -1.5px 1px rgba(255,255,255,.3),inset 0 0 14px rgba(255,255,255,.12),inset 4px 0 8px -4px rgba(255,255,255,.35),inset -4px 0 8px -4px rgba(255,255,255,.25),0 12px 30px rgba(20,19,16,.16);display:flex;align-items:center;justify-content:flex-end;padding:0 22px;color:#f4f1ea;gap:28px;font-weight:600;font-size:15px}
+#nav .nlinks{display:contents}#nav .l{display:none}#nav .burger{width:24px;height:14px;border-top:2px solid #f4f1ea;border-bottom:2px solid #f4f1ea;position:relative}#nav .burger:after{content:"";position:absolute;left:0;right:0;top:4px;border-top:2px solid #f4f1ea}
+#nav:before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,0) 32%,rgba(255,255,255,0) 68%,rgba(255,255,255,.55));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}#nav:after{content:'';position:absolute;left:8%;right:8%;top:2px;height:42%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,0));filter:blur(4px);pointer-events:none}
+#nav .l.dd{align-items:center;gap:5px}#nav .l.dd .chev{color:inherit;opacity:.6}
+@media(min-width:1024px){#nav{top:16px;height:64px;padding:0 30px;left:50%;right:auto;width:min(calc(100% - 48px),1140px);transform:translateX(-50%)}#nav .nlinks{display:flex;flex:1;align-items:center;justify-content:space-evenly;margin-left:190px}#nav .l{display:inline}#nav .l.dd{display:inline-flex}#nav .burger{display:none}}
+html.nx-lock,html.nx-lock body{overflow:hidden!important}
+@media(min-width:1024px){#nav .nxa{margin-left:16px;cursor:pointer;border:1px solid rgba(56,200,255,.7);color:#38c8ff;padding:6px 16px;border-radius:999px;font-weight:700;font-size:14px}#nav .nxd{margin-left:22px;border-color:rgba(255,255,255,.25);color:#f4f1ea;font-weight:600}}
+@media(min-width:1024px){
+#nav .nxd{display:inline-flex;align-items:center;gap:7px}
+#nav .nxacct{display:inline-flex;align-items:center;gap:8px;margin-left:16px;cursor:pointer;border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:4px 14px 4px 4px;color:#f4f1ea;font-weight:600;font-size:14px;background:rgba(255,255,255,.05)}
+#nav .nxacct .nxav{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#38c8ff,#2a7fff);color:#06121a;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+#nav .nxacct .chev{opacity:.65}
+}
+.nxtoast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:6000;background:rgba(20,24,30,.92);border:1px solid rgba(56,200,255,.5);color:#e8f6ff;padding:11px 18px;border-radius:999px;font:600 13px/1.2 system-ui,sans-serif;transition:.35s;max-width:90vw;text-align:center}.nxtoast.on{opacity:1;transform:translate(-50%,0)}
+.nxtoast{white-space:nowrap}@media(max-width:1023px){.nxtoast{bottom:auto;top:88px;font-size:12px;padding:10px 16px}}
+
+/* Desktop liquid-glass dropdown panels (Internships / More) - same glass recipe as the navbar pill */
+#nav .l.dd{cursor:pointer;user-select:none;-webkit-user-select:none}
+#nav .l.dd .chev{transition:transform .3s ease,color .3s ease}
+#nav .l.dd.open .chev{transform:rotate(180deg);opacity:1;color:#38c8ff}
+.nxdd{position:fixed;z-index:2895;display:none;flex-direction:column;gap:2px;min-width:230px;padding:8px;border-radius:20px;background:rgba(255,255,255,.04);-webkit-backdrop-filter:blur(1px) saturate(1.8);backdrop-filter:url(#lg) blur(1px) saturate(1.8);border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.55),inset 0 -1.5px 1px rgba(255,255,255,.3),inset 0 0 14px rgba(255,255,255,.12),inset 4px 0 8px -4px rgba(255,255,255,.35),inset -4px 0 8px -4px rgba(255,255,255,.25),0 18px 44px rgba(0,0,0,.4);color:#f4f1ea;font-family:'Space Grotesk',system-ui,sans-serif;transform-origin:top center}
+.nxdd:before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,0) 32%,rgba(255,255,255,0) 68%,rgba(255,255,255,.55));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.nxddi{all:unset;box-sizing:border-box;display:block;position:relative;z-index:1;padding:10px 14px;border-radius:12px;font-size:13.5px;font-weight:600;color:#e8ecf3;cursor:pointer;white-space:nowrap;line-height:1.3}
+.nxddi:hover,.nxddi:focus-visible{background:rgba(56,200,255,.1);color:#fff}
+.nxddi:not(:first-child):before{content:'';position:absolute;left:14px;right:14px;top:-1.5px;height:1px;background:rgba(255,255,255,.12);pointer-events:none}
+@media(max-width:1023px){.nxdd{display:none!important}}

@@ -1,0 +1,2 @@
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}html,body{scrollbar-width:none}
+#nav{pointer-events:auto}

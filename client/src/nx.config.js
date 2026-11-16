@@ -1,0 +1,9 @@
+export default {
+  links:['Home','Internships','Tools','Services','More'],
+  /* Desktop navbar dropdown items - the exact submenu options the mobile drawer
+     already lists for Internships and More (Menu.jsx reads these same lists). */
+  subs:{
+    Internships:['Apply Now','Internship certificate verification','Download Offer Letter'],
+    More:['Student Reviews','Contact Support','Terms & Conditions','Privacy Policy','Cookies Policy']
+  }
+}

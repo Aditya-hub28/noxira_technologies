@@ -1,0 +1,154 @@
+/* NOXIRA light theme. Dark stays the default look; these rules only apply under html[data-theme="light"]. */
+
+/* smooth colour swap on toggle (colour props only - transforms stay with GSAP) */
+body,#nav,.nxmenu,.card,.gb,.chp,.mclose,.nxtheme,.hv2,.mfoot .dash,.mfoot .ghostb,.mlk,.nxdd,.nxddi{transition:background-color .35s ease,border-color .35s ease,color .35s ease,box-shadow .35s ease}
+
+html[data-theme="light"]{--bg:#eef1f6;--card:#ffffff;--line:rgba(13,20,32,.10);--cy:#0a8fd6}
+html[data-theme="light"],html[data-theme="light"] body{background:var(--bg);color:#101724}
+
+/* ---------- base sections ---------- */
+html[data-theme="light"] .glow{background:radial-gradient(circle,rgba(56,200,255,.16),transparent 65%)}
+html[data-theme="light"] .lede{color:#455060}
+html[data-theme="light"] .card span{color:#4a5568}
+html[data-theme="light"] .foot{color:#68737f}
+
+/* ---------- hero (hv2) ---------- */
+html[data-theme="light"] .hv2{background:radial-gradient(ellipse 60% 70% at 24% 62%,rgba(10,143,214,.10),transparent 70%),#e9edf3}
+html[data-theme="light"] .hv2:after{background:radial-gradient(ellipse 70% 90% at 28% 55%,#e9edf3 25%,rgba(233,237,243,.6) 60%,transparent 90%),linear-gradient(180deg,#e9edf3 0,transparent 18%,transparent 80%,#e9edf3),linear-gradient(90deg,#e9edf3 0,transparent 12%,transparent 88%,#e9edf3)}
+html[data-theme="light"] .hv2 .rdbg{background:radial-gradient(ellipse at 35% 50%,rgba(238,241,246,.94) 0%,rgba(238,241,246,.8) 45%,rgba(238,241,246,0) 75%)}
+@media(max-width:800px){html[data-theme="light"] .hv2 .rdbg{background:rgba(238,241,246,.78);-webkit-mask:radial-gradient(ellipse 75% 70% at 50% 50%,#000 45%,transparent 100%);mask:radial-gradient(ellipse 75% 70% at 50% 50%,#000 45%,transparent 100%)}}
+html[data-theme="light"] .hv2 .lt{background:radial-gradient(circle 420px at var(--mx) var(--my),rgba(10,143,214,.12),transparent 70%)}
+html[data-theme="light"] .hv2 .lt2{background:linear-gradient(90deg,rgba(13,20,32,.16),rgba(13,20,32,.04))}
+html[data-theme="light"] .hv2 .mq span{background:linear-gradient(180deg,rgba(18,52,96,.3),rgba(18,52,96,.05) 95%);-webkit-background-clip:text;background-clip:text;-webkit-text-stroke:1px rgba(15,80,150,.42)}
+html[data-theme="light"] .hv2 .mq span.o{background:none;-webkit-text-stroke:1.4px rgba(10,110,190,.6)!important}
+html[data-theme="light"] .hv2 .mqw:nth-child(odd) .mq span:not(.o){color:rgba(18,52,96,.05)!important}
+html[data-theme="light"] .hv2 .mq em{color:rgba(10,110,190,.5);-webkit-text-fill-color:rgba(10,110,190,.5)}
+html[data-theme="light"] .hv2 h1.big .hl span{background:linear-gradient(180deg,#0c1522 30%,#4a5568 118%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+html[data-theme="light"] .hv2 h1.big .hl span.ac{background:linear-gradient(180deg,#38b6f2 0%,#0a8fd6 55%,#0871ae 115%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 24px rgba(10,143,214,.3))}
+html[data-theme="light"] .hv2 h1.big sup{-webkit-text-fill-color:#68737f;color:#68737f}
+html[data-theme="light"] .hv2 .ac sup{-webkit-text-fill-color:rgba(10,143,214,.7);color:rgba(10,143,214,.7)}
+html[data-theme="light"] .hv2 .lede{color:#455060}
+html[data-theme="light"] .scue{color:#5a6572}
+
+/* glass buttons + chips on light */
+html[data-theme="light"] .gb{color:#101724;background:rgba(255,255,255,.55);border:1px solid rgba(13,20,32,.14);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 14px rgba(255,255,255,.25),0 10px 24px rgba(20,35,60,.16)}
+html[data-theme="light"] .gb.pri{background:rgba(10,143,214,.12);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 18px rgba(10,143,214,.18),0 0 30px rgba(10,143,214,.2)}
+html[data-theme="light"] .chp{color:#16202e;background:rgba(255,255,255,.55);border:1px solid rgba(13,20,32,.13);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.35),0 8px 20px rgba(20,35,60,.14)}
+html[data-theme="light"] .chp small{color:#0a8fd6}
+
+/* ---------- navbar ---------- */
+html[data-theme="light"] #nav{background:rgba(255,255,255,.55);border:1px solid rgba(13,20,32,.12);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 14px rgba(255,255,255,.25),inset 4px 0 8px -4px rgba(255,255,255,.55),inset -4px 0 8px -4px rgba(255,255,255,.45),0 12px 30px rgba(20,35,60,.14);color:#101724}
+html[data-theme="light"] #nav .burger{border-top-color:#101724;border-bottom-color:#101724}
+html[data-theme="light"] #nav .burger:after{border-top-color:#101724}
+html[data-theme="light"] #nav .nxd{color:#101724;border-color:rgba(13,20,32,.22)}
+html[data-theme="light"] #nav .nxa{color:#0a8fd6;border-color:rgba(10,143,214,.6)}
+html[data-theme="light"] #nav .nxacct{color:#101724;border-color:rgba(13,20,32,.22);background:rgba(13,20,32,.04)}
+/* NOXIRA wordmark: white on dark, navy on light so the original logo stays legible in both */
+html[data-theme="light"] #wN path,html[data-theme="light"] #wR path{fill:#0f1f3f}
+
+/* ---------- mobile drawer ---------- */
+html[data-theme="light"] .nxmenu{background:#f4f6fa;border-left:1px solid rgba(13,20,32,.1);box-shadow:-20px 0 50px rgba(20,35,60,.18);color:#101724}
+html[data-theme="light"] .mi{border-bottom:1px solid rgba(13,20,32,.08)}
+html[data-theme="light"] .mrow{color:#101724}
+html[data-theme="light"] .chev{color:#5a6572}
+html[data-theme="light"] .mi.x .mrow{color:#0a8fd6}
+html[data-theme="light"] .mi.x .chev{color:#0a8fd6}
+html[data-theme="light"] .mchips span{background:#ffffff;border:1px solid rgba(13,20,32,.1);color:#3c4655}
+html[data-theme="light"] .mchips.one span{color:#5a6572}
+html[data-theme="light"] .welcome{background:#ffffff;border:1px solid rgba(10,143,214,.25)}
+html[data-theme="light"] .welcome b{color:#0a8fd6}
+html[data-theme="light"] .prof{background:#ffffff;color:#455060}
+html[data-theme="light"] .pn{color:#101724}
+html[data-theme="light"] .av{background:rgba(10,143,214,.15);color:#0a8fd6}
+html[data-theme="light"] .mclose{background:#ffffff;border:1px solid rgba(13,20,32,.12);color:#101724}
+html[data-theme="light"] .ghostb{border-color:rgba(10,143,214,.6);color:#0a8fd6}
+html[data-theme="light"] .mfoot .dash,html[data-theme="light"] .mfoot .ghostb{color:#101724;background:rgba(255,255,255,.6);border:1px solid rgba(13,20,32,.14);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 14px rgba(255,255,255,.25),inset 4px 0 8px -4px rgba(255,255,255,.5),inset -4px 0 8px -4px rgba(255,255,255,.4),0 10px 24px rgba(20,35,60,.16)}
+html[data-theme="light"] .mfoot.in .welcome,html[data-theme="light"] .mfoot.in .prof{background:rgba(255,255,255,.6);border:1px solid rgba(13,20,32,.14);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.35),inset 0 0 14px rgba(255,255,255,.2),0 10px 24px rgba(20,35,60,.14)}
+html[data-theme="light"] .mfoot.in .av{background:rgba(10,143,214,.18);border:1px solid rgba(10,143,214,.3);color:#0a8fd6}
+html[data-theme="light"] .mfoot.in .lo{color:#101724;background:rgba(255,255,255,.6)!important;border:1px solid rgba(13,20,32,.14)}
+html[data-theme="light"] .mlk{color:#3c4655;border-left-color:rgba(10,143,214,.4)}
+html[data-theme="light"] .mlk:hover,html[data-theme="light"] .mlk:active{background:rgba(10,143,214,.08);color:#0a8fd6}
+html[data-theme="light"] .demon{color:#5a6572}
+
+/* ---------- theme toggle button (liquid glass, ☀️ bright / 🌝 dark) ---------- */
+.nxtheme{all:unset;box-sizing:border-box;cursor:pointer;display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:17px;line-height:1;color:#f4f1ea;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(1px) saturate(1.8);backdrop-filter:url(#lg) blur(1px) saturate(1.8);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.55),inset 0 -1.5px 1px rgba(255,255,255,.3),inset 0 0 14px rgba(255,255,255,.12),0 8px 20px rgba(0,0,0,.35);touch-action:manipulation;transition:transform .15s ease}
+.nxtheme:active{transform:scale(.88)}
+html[data-theme="light"] .nxtheme{color:#101724;background:rgba(255,255,255,.6);border:1px solid rgba(13,20,32,.14);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 14px rgba(255,255,255,.25),0 8px 20px rgba(20,35,60,.16)}
+/* drawer: sits just left of the X close button */
+.nxmenu .nxtheme{position:absolute;top:18px;right:64px;z-index:2}
+/* desktop navbar: pill row; hidden on mobile (toggle lives beside the menu X there) */
+@media(max-width:1023px){#nav .nxtheme{display:none}}
+
+/* ---------- desktop dropdown panels ---------- */
+html[data-theme="light"] .nxdd{background:rgba(255,255,255,.6);border:1px solid rgba(13,20,32,.12);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 14px rgba(255,255,255,.25),inset 4px 0 8px -4px rgba(255,255,255,.55),inset -4px 0 8px -4px rgba(255,255,255,.45),0 18px 44px rgba(20,35,60,.18);color:#101724}
+html[data-theme="light"] .nxddi{color:#16202e}
+html[data-theme="light"] .nxddi:hover,html[data-theme="light"] .nxddi:focus-visible{background:rgba(10,143,214,.1);color:#0a8fd6}
+html[data-theme="light"] .nxddi:not(:first-child):before{background:rgba(13,20,32,.1)}
+
+/* ---------- Public route readability overrides (inside #smooth-wrapper) ---------- */
+html:not([data-theme="light"]) #smooth-wrapper h1.text-slate-900,
+html:not([data-theme="light"]) #smooth-wrapper h2.text-slate-900,
+html:not([data-theme="light"]) #smooth-wrapper h3.text-slate-900,
+html:not([data-theme="light"]) #smooth-wrapper .text-slate-900 {
+  color: #f1f5f9 !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .bg-white {
+  background-color: #14161b !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .border-slate-200,
+html:not([data-theme="light"]) #smooth-wrapper .border-slate-300 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper .glass-card,
+html:not([data-theme="light"]) #smooth-wrapper .bg-white\/65,
+html:not([data-theme="light"]) #smooth-wrapper .bg-white\/75 {
+  background-color: rgba(20, 22, 27, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f1f5f9 !important;
+}
+
+html:not([data-theme="light"]) #smooth-wrapper input[type="text"],
+html:not([data-theme="light"]) #smooth-wrapper input[type="email"],
+html:not([data-theme="light"]) #smooth-wrapper input[type="search"] {
+  background-color: #0f1115 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #f1f5f9 !important;
+}
+
+/* Light mode footer overrides */
+html[data-theme="light"] footer {
+  background: #e5ebf3 !important;
+  border-top-color: rgba(13, 20, 32, 0.12) !important;
+  color: #4a5568 !important;
+}
+html[data-theme="light"] footer a {
+  color: #1a202c !important;
+}
+html[data-theme="light"] footer .text-slate-400 {
+  color: #64748b !important;
+}
+html[data-theme="light"] footer .text-slate-300 {
+  color: #334155 !important;
+}
+html[data-theme="light"] footer .text-white {
+  color: #0f172a !important;
+}
