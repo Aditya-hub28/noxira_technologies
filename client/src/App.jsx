@@ -25,6 +25,10 @@ import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
 import StatusPage from './pages/StatusPage';
 import VerifyPage from './pages/VerifyPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import AccountPage from './pages/AccountPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import DashboardOverview from './pages/DashboardOverview';
 import AdminProgramsPage from './pages/AdminProgramsPage';
@@ -41,6 +45,7 @@ import DistributionPage from './pages/DistributionPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
+import { StudentAuthProvider } from './context/StudentAuthContext';
 
 function AdminConsole({ admin, onLogout }) {
   const navigate = useNavigate();
@@ -215,11 +220,13 @@ function AppContent() {
       {/* Public Pages wrapped in PublicLayout */}
       <Route
         element={
-          <PublicLayout
-            admin={admin}
-            onLogout={handleLogout}
-            onOpenAdminLogin={() => navigate('/admin/login')}
-          />
+          <StudentAuthProvider>
+            <PublicLayout
+              admin={admin}
+              onLogout={handleLogout}
+              onOpenAdminLogin={() => navigate('/admin/login')}
+            />
+          </StudentAuthProvider>
         }
       >
         <Route path="/" element={<HomePage />} />
@@ -233,6 +240,10 @@ function AppContent() {
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
         <Route path="/review-rules" element={<PolicyPage slug="review" />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/account" element={<AccountPage />} />
       </Route>
 
       {/* Admin Login Route */}

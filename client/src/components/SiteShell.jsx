@@ -8,19 +8,17 @@ import config from '../nx.config.js';
 import { currentTheme, toggleTheme } from '../theme.js';
 import { soon } from '../utils/toast.js';
 import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
+import { useStudentAuth } from '../context/StudentAuthContext';
 
 export default function SiteShell({ onToggleMobileMenu }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { googleForm1Url, isFormConfigured } = useSiteSettings();
+  const { student, logout } = useStudentAuth();
 
   const [theme, setTheme] = useState(currentTheme());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({ left: '0px', top: '0px' });
-  const [demoAuth, setDemoAuth] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return new URLSearchParams(window.location.search).get('auth') === 'in';
-  });
 
   const stageHostRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -307,66 +305,37 @@ export default function SiteShell({ onToggleMobileMenu }) {
           })}
         </div>
 
-        {/* Demo Auth Controls */}
-        {demoAuth ? (
-          <>
-            <span
-              className="l nxa nxd"
-              role="button"
-              tabIndex={0}
-              onClick={() => soon('Dashboard')}
-              title="Dashboard - preview demo"
+        {/* Student Auth Controls */}
+        {student ? (
+          <span
+            className={`l nxacct ${openDropdown === 'account' ? 'open' : ''}`}
+            role="button"
+            tabIndex={0}
+            title="Student Account"
+            onClick={(e) => toggleDropdown('account', e.currentTarget)}
+          >
+            <span className="nxav">{(student.name || 'S').trim().charAt(0).toUpperCase()}</span>
+            <span className="nxan">{(student.name || 'Student').trim().split(' ')[0]}</span>
+            <svg
+              className="chev"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                <rect x="14" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-              <span>Dashboard</span>
-            </span>
-            <span
-              className="l nxacct"
-              role="button"
-              tabIndex={0}
-              title="Account - demo preview, backend not connected yet"
-              onClick={() => soon('Account menu')}
-            >
-              <span className="nxav">A</span>
-              <span className="nxan">Aditya</span>
-              <svg
-                className="chev"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </span>
-          </>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </span>
         ) : (
           <span
             className="l nxa nxl"
             role="button"
             tabIndex={0}
-            onClick={() => {
-              setDemoAuth(true);
-              soon('Demo login - real authentication');
-            }}
+            onClick={() => navigate('/login')}
           >
             Login
           </span>
@@ -394,6 +363,42 @@ export default function SiteShell({ onToggleMobileMenu }) {
       </header>
 
       {/* Desktop Dropdown Panel */}
+      {openDropdown === 'account' && (
+        <div
+          ref={dropdownRef}
+          className="nxdd"
+          id="nxdd-account"
+          role="menu"
+          style={{
+            display: 'flex',
+            left: dropdownPos.left,
+            top: dropdownPos.top,
+          }}
+        >
+          <button
+            type="button"
+            className="nxddi"
+            onClick={() => {
+              closeDropdown(true);
+              navigate('/account');
+            }}
+          >
+            My account
+          </button>
+          <button
+            type="button"
+            className="nxddi"
+            onClick={async () => {
+              closeDropdown(true);
+              await logout();
+              navigate('/');
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      )}
+
       {openDropdown && subs[openDropdown] && (
         <div
           ref={dropdownRef}

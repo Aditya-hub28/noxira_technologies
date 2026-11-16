@@ -303,6 +303,26 @@ async function processDeliveryJob(jobId) {
   return processClaimedJob(jobId, workerLockId);
 }
 
+/**
+ * Send password reset OTP email
+ */
+async function sendPasswordResetOtpEmail(email, otp) {
+  const mailTransporter = getTransporter();
+  const text = `Your NOXIRA password reset OTP is ${otp}. It is valid for 10 minutes. If you did not ask for this, ignore this email.`;
+
+  // In dev/mock email mode, print the OTP to the server console only
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[DEV/MOCK OTP] Password reset OTP for ${email}: ${otp}`);
+  }
+
+  await mailTransporter.sendMail({
+    from: env.SMTP.FROM,
+    to: email,
+    subject: 'NOXIRA Password Reset OTP',
+    text
+  });
+}
+
 module.exports = {
   queueCertificateEmails,
   processDeliveryJob,
@@ -311,5 +331,6 @@ module.exports = {
   recoverStaleProcessingJobs,
   runWorkerCycle,
   setTransporter,
-  getTransporter
+  getTransporter,
+  sendPasswordResetOtpEmail
 };

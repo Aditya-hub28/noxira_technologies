@@ -44,6 +44,7 @@ const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('..
 const { CATALOGUE_PROGRAMS, PROGRAM_CATEGORIES, seedProgramCatalogue } = require('../src/config/programsCatalogue');
 const { requireRole } = require('../src/middleware/auth');
 const { statusRateLimiter } = require('../src/middleware/rateLimiter');
+const runStudentAuthTests = require('./studentAuth.test');
 
 // Helper to mock express req, res, next for controller integration testing
 function mockReqRes(options = {}) {
@@ -4421,6 +4422,9 @@ async function runTestSuite() {
       'Legacy successor must NOT fabricate release-gate evidence');
     assert.strictEqual(String(legacySuccessor.participantId), String(pLegacy._id), 'Legacy successor bound to same participant');
   });
+
+  // Student Auth Acceptance Tests
+  await runStudentAuthTests(test);
 
   // Cleanup
   await mongoose.disconnect();

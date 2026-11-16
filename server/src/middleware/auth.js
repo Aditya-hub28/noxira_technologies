@@ -18,6 +18,12 @@ async function requireAuth(req, res, next) {
     }
 
     const decoded = jwt.verify(token, env.JWT_SECRET);
+    if (decoded.typ === 'student') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid administrator session.'
+      });
+    }
     const admin = await Admin.findById(decoded.id).select('-passwordHash');
 
     if (!admin || !admin.isActive) {
