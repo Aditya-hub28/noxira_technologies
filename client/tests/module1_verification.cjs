@@ -126,12 +126,10 @@ test('MODULE 2: ProgramDetailPage.jsx conforms to 3-state empty curriculum copy 
   assert.ok(detailContent.includes('Application status is currently unavailable.'), 'Must include neutral error/loading copy');
 });
 
-// TEST 10: StatusPage link points to dynamic Form 1
-test('MODULE 2: StatusPage.jsx bottom intake link consumes useSiteSettings', () => {
-  const statusContent = fs.readFileSync(path.join(clientSrcDir, 'pages/StatusPage.jsx'), 'utf8');
-  assert.ok(statusContent.includes('useSiteSettings'), 'Must reference useSiteSettings');
-  assert.ok(statusContent.includes('target="_blank"'), 'Must open in new tab');
-  assert.ok(statusContent.includes('rel="noopener noreferrer"'), 'Must have secure rel attributes');
+// TEST 10: StatusPage.jsx is deleted and DownloadOfferLetterPage.jsx exists
+test('OFFER LETTER: StatusPage.jsx is removed and DownloadOfferLetterPage.jsx is configured', () => {
+  assert.strictEqual(fs.existsSync(path.join(clientSrcDir, 'pages/StatusPage.jsx')), false, 'StatusPage.jsx must be deleted');
+  assert.strictEqual(fs.existsSync(path.join(clientSrcDir, 'pages/DownloadOfferLetterPage.jsx')), true, 'DownloadOfferLetterPage.jsx must exist');
 });
 
 // TEST 11: AdminProgramsPage locks duration/fee and handles normalization
@@ -150,7 +148,7 @@ test('CONTENT RULES: Zero forbidden keywords in public client files', () => {
     'pages/HomePage.jsx',
     'pages/ProgramsPage.jsx',
     'pages/ProgramDetailPage.jsx',
-    'pages/StatusPage.jsx'
+    'pages/DownloadOfferLetterPage.jsx'
   ];
 
   const forbidden = [

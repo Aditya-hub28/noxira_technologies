@@ -199,7 +199,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Download Offer Letter':
-        navigate('/status');
+        navigate('/offer-letter');
         break;
 
       case 'Terms & Conditions':

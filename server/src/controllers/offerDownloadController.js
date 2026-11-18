@@ -7,7 +7,7 @@ const Application = require('../models/Application');
 
 function renderExpiredRecoveryHtml(appId) {
   const safeAppId = appId ? String(appId).replace(/[^a-zA-Z0-9_-]/g, '') : '';
-  const statusLink = safeAppId ? `/status?id=${encodeURIComponent(safeAppId)}` : '/status';
+  const statusLink = safeAppId ? '/offer-letter' : '/offer-letter';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

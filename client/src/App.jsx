@@ -22,7 +22,7 @@ import PolicyPage from './pages/PolicyPage';
 import HomePage from './pages/HomePage';
 import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
-import StatusPage from './pages/StatusPage';
+import DownloadOfferLetterPage from './pages/DownloadOfferLetterPage';
 import VerifyPage from './pages/VerifyPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -232,7 +232,7 @@ function AppContent() {
         <Route path="/programs" element={<ProgramsPage />} />
         <Route path="/programs/:code" element={<ProgramDetailPage />} />
         <Route path="/apply" element={<Navigate to="/" replace />} />
-        <Route path="/status" element={<StatusPage />} />
+        <Route path="/offer-letter" element={<DownloadOfferLetterPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/verify/:token" element={<VerifyPage />} />
         <Route path="/terms" element={<PolicyPage slug="terms" />} />

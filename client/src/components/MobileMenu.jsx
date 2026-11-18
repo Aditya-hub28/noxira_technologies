@@ -199,7 +199,7 @@ export default function MobileMenu({ open, onClose }) {
         navigate('/verify');
         break;
       case 'Download Offer Letter':
-        navigate('/status');
+        navigate('/offer-letter');
         break;
       case 'Terms & Conditions':
         navigate('/terms');

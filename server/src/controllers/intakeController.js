@@ -6,6 +6,7 @@ const ImportBatch = require('../models/ImportBatch');
 const AuditLog = require('../models/AuditLog');
 const Application = require('../models/Application');
 const { generateApplicationId } = require('../models/Application');
+const OfferLetter = require('../models/OfferLetter');
 
 /**
  * Public Website Application Intake
@@ -277,108 +278,6 @@ exports.websiteApply = async (req, res, next) => {
   }
 };
 
-/**
- * Public Application Status Lookup
- * Requires email and id query params as strings.
- * Compares normalized email against application's participant.
- * Returns identical generic 404 on any lookup failure to prevent enumeration.
- */
-exports.getApplicationStatus = async (req, res, next) => {
-  try {
-    const { email, id } = req.query;
-
-    // FIX 2: Strict string-only check and length caps (prevents object/array query injections)
-    if (
-      typeof email !== 'string' ||
-      typeof id !== 'string' ||
-      !email.trim() ||
-      !id.trim() ||
-      email.trim().length > 254 ||
-      id.trim().length > 32
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'Both email and application ID are required.'
-      });
-    }
-
-    const cleanId = id.trim().toUpperCase();
-    const normEmail = email.trim().toLowerCase();
-
-    const application = await Application.findOne({ applicationId: cleanId }).populate('participantId');
-
-    // On ANY failure - unknown id, missing participant, email mismatch - return identical generic 404
-    if (!application || !application.participantId) {
-      return res.status(404).json({
-        success: false,
-        message: 'No application found for the details provided.'
-      });
-    }
-
-    const participantEmail = (application.participantId.normalizedEmail || application.participantId.email || '').toLowerCase().trim();
-    if (participantEmail !== normEmail) {
-      return res.status(404).json({
-        success: false,
-        message: 'No application found for the details provided.'
-      });
-    }
-
-    const appData = {
-      applicationId: application.applicationId,
-      programTitle: application.programTitle,
-      status: application.status,
-      appliedAt: application.appliedAt
-    };
-
-    if (application.decidedAt) {
-      appData.decidedAt = application.decidedAt;
-    }
-
-    if (application.status === 'REJECTED' && application.rejectionReason) {
-      appData.rejectionReason = application.rejectionReason;
-    }
-
-    if (application.status === 'APPROVED') {
-      const deliveryState = application.offerDeliveryState;
-      const offerState = application.offerState;
-
-      if (deliveryState === 'PROVIDER_ACCEPTED') {
-        appData.offerStatus = 'Offer letter dispatched via email service provider.';
-      } else if (deliveryState === 'SIMULATED') {
-        appData.offerStatus = 'Application approved. Offer letter generated (delivery simulated in non-production mode).';
-      } else if (deliveryState === 'BLOCKED_TEMPLATE' || offerState === 'BLOCKED_TEMPLATE') {
-        appData.offerStatus = 'Offer letter is being prepared by admissions.';
-      } else if (deliveryState === 'FAILED' || deliveryState === 'DELIVERY_UNKNOWN') {
-        appData.offerStatus = 'Offer letter delivery is undergoing administrative verification by admissions.';
-      } else {
-        // Includes QUEUED, PROCESSING, GENERATED, NONE
-        appData.offerStatus = 'Application approved. Offer letter preparation is in progress.';
-      }
-
-      // Module 5: approved students see their programme's tasks and learning material on the status page
-      const program = await Program.findOne({ code: application.programCode }).select('tasks learningMaterials');
-      if (program) {
-        if (Array.isArray(program.tasks) && program.tasks.length > 0) {
-          appData.tasks = program.tasks;
-        }
-        if (Array.isArray(program.learningMaterials) && program.learningMaterials.length > 0) {
-          appData.learningMaterials = program.learningMaterials;
-        }
-      }
-    }
-
-    if (typeof application.feeLocked === 'number') {
-      appData.feeLocked = application.feeLocked;
-    }
-
-    return res.status(200).json({
-      success: true,
-      application: appData
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Parses CSV buffer into structured rows
@@ -680,4 +579,54 @@ exports.commitCsv = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+const GENERIC_OFFER_404 = 'No offer letter found for these details. If you haven\'t applied yet, please apply for a program first.';
+
+async function findOfferForLookup(emailRaw, idRaw) {
+  if (
+    typeof emailRaw !== 'string' || typeof idRaw !== 'string' ||
+    !emailRaw.trim() || !idRaw.trim() ||
+    emailRaw.trim().length > 254 || idRaw.trim().length > 32
+  ) return null;
+  const normEmail = emailRaw.toLowerCase().trim();
+  const cleanId = idRaw.trim().toUpperCase();
+  const application = await Application.findOne({ applicationId: cleanId }).populate('participantId');
+  if (!application || !application.participantId ||
+      typeof application.participantId.email !== 'string' ||
+      application.participantId.email.toLowerCase() !== normEmail) return null;
+  const offer = await OfferLetter.findOne({ applicationRef: application._id, generationStatus: 'GENERATED' });
+  if (!offer) return null;
+  return { application, offer };
+}
+
+/**
+ * Public Offer Letter Lookup
+ * Identical generic 404 on ANY failure (bad input, unknown email, unknown ID,
+ * or application without an issued offer letter) to prevent enumeration.
+ */
+exports.lookupOfferLetter = async (req, res, next) => {
+  try {
+    const found = await findOfferForLookup(req.query.email, req.query.id);
+    if (!found) return res.status(404).json({ success: false, message: GENERIC_OFFER_404 });
+    const { application, offer } = found;
+    return res.json({
+      success: true,
+      offerLetter: {
+        applicationId: application.applicationId,
+        recipientName: application.participantId.fullName,
+        programTitle: application.programTitle,
+        issuedAt: offer.issuedAt
+      }
+    });
+  } catch (error) { next(error); }
+};
+
+exports.downloadOfferLetterPdf = async (req, res, next) => {
+  try {
+    const found = await findOfferForLookup(req.query.email, req.query.id);
+    if (!found) return res.status(404).json({ success: false, message: GENERIC_OFFER_404 });
+    const { application, offer } = found;
+    return res.download(offer.pdfPath, `NOXIRA-Offer-Letter-${application.applicationId}.pdf`);
+  } catch (error) { next(error); }
 };

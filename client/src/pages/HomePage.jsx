@@ -151,8 +151,8 @@ export default function HomePage() {
               <b>Download Offer Letter</b>
               <span>Shortlisted interns access and download official letters.</span>
               <div className="mt-auto pt-3">
-                <Link to="/status" className="gb inline-flex items-center gap-1.5 text-xs font-bold">
-                  Check Status &amp; Letter
+                <Link to="/offer-letter" className="gb inline-flex items-center gap-1.5 text-xs font-bold">
+                  Download Offer Letter
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>

@@ -10,8 +10,9 @@ const { uploadCsv } = require('../middleware/upload');
 // Public Website Intake Form (Rate limited)
 router.post('/website-apply', intakeRateLimiter, intakeController.websiteApply);
 
-// Public Application Status Check (Rate limited)
-router.get('/status', statusRateLimiter, intakeController.getApplicationStatus);
+// Public Offer Letter Lookup (Rate limited)
+router.get('/offer-letter', statusRateLimiter, intakeController.lookupOfferLetter);
+router.get('/offer-letter/pdf', statusRateLimiter, intakeController.downloadOfferLetterPdf);
 
 // Protected Admin CSV Import Wizard
 router.post('/csv-preview', requireAuth, uploadCsv.single('csvFile'), intakeController.previewCsv);
