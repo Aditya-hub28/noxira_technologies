@@ -391,6 +391,36 @@ async function autoSeedIfEmpty() {
       console.error('Failed to seed sample offer template:', seedErr);
     }
   }
+
+  const Application = require('./models/Application');
+  const appCount = await Application.countDocuments();
+  if (appCount === 0) {
+    try {
+      const { generateOfferForApplication } = require('./services/offerService');
+      let demoPart = await Participant.findOne({ email: 'aarav.sharma@example.com' });
+      if (!demoPart) {
+        demoPart = await Participant.create({
+          fullName: 'Aarav Sharma',
+          email: 'aarav.sharma@example.com',
+          phone: '+919876543210'
+        });
+      }
+      await Application.create({
+        applicationId: 'NOX-2026-FSD-1001',
+        participantId: demoPart._id,
+        programCode: 'FS-DEV',
+        programTitle: 'Full Stack Web Development',
+        batchId: 'BATCH-2026-DEV',
+        status: 'APPROVED',
+        feeLocked: 99,
+        feeAcknowledged: true
+      });
+      await generateOfferForApplication('NOX-2026-FSD-1001', { forceRegenerate: true });
+      console.log('📄 Demo Offer Letter provisioned (NOX-2026-FSD-1001 / aarav.sharma@example.com).');
+    } catch (demoAppErr) {
+      console.error('Failed to seed demo application offer:', demoAppErr);
+    }
+  }
 }
 
 // Start Server
