@@ -275,8 +275,7 @@
     max-width: 100%;
   }
   .hv2 .rdbg {
-    inset: -24px -18px -24px -18px;
-    background: radial-gradient(ellipse at 40% 50%, rgba(8, 10, 14, 0.95) 0%, rgba(8, 10, 14, 0.85) 60%, rgba(8, 10, 14, 0) 100%);
+    background: none;
   }
   .hv2 h1.big.hq {
     font-size: clamp(24px, 7vw, 34px);
