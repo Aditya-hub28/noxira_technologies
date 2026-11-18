@@ -1,39 +1,32 @@
 import gsap from 'gsap';
-import { ScrollTrigger, ScrollSmoother } from 'gsap/all';
+import Lenis from 'lenis';
 import './shell.css';
 
-gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
-
-export let smoother = null;
+let lenis = null;
 
 export function makeSmoother() {
-  if (smoother) return smoother;
+  if (lenis) return lenis;
   try {
-    const wrapper = document.querySelector('#smooth-wrapper');
-    const content = document.querySelector('#smooth-content');
-    if (!wrapper || !content) return null;
-    smoother = ScrollSmoother.create({
-      wrapper: '#smooth-wrapper',
-      content: '#smooth-content',
-      smooth: 1.2,
-      effects: true,
-      smoothTouch: 0.1,
-      normalizeScroll: true,
+    lenis = new Lenis({
+      lerp: 0.05,
+      syncTouch: true,
+      autoRaf: true,
     });
-    smoother.paused(true);
-    return smoother;
+    window.nxLenis = lenis;
+    return lenis;
   } catch (err) {
-    console.warn('ScrollSmoother creation note:', err);
+    console.warn('Lenis init note:', err);
     return null;
   }
 }
 
 export function killSmoother() {
-  if (smoother) {
+  if (lenis) {
     try {
-      smoother.kill();
+      lenis.destroy();
     } catch (e) {}
-    smoother = null;
+    lenis = null;
+    window.nxLenis = null;
   }
 }
 
@@ -193,7 +186,6 @@ export function mountShell() {
   tl.call(() => window.dispatchEvent(new Event('noxira:prepare')), null, 4.05);
   tl.call(() => window.dispatchEvent(new Event('noxira:mount')), null, 5.3);
   tl.call(() => {
-    if (smoother) smoother.paused(false);
     window.dispatchEvent(new Event('noxira:ready'));
   }, null, 6.3);
   tl.to({}, { duration: 0.01 }, 6.4);
@@ -210,7 +202,6 @@ export function mountShell() {
     tl.progress(1);
     draw();
     if (counter) counter.style.opacity = 0;
-    if (smoother) smoother.paused(false);
     window.dispatchEvent(new Event('noxira:prepare'));
     window.dispatchEvent(new Event('noxira:mount'));
     window.dispatchEvent(new Event('noxira:ready'));
