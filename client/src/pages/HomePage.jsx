@@ -11,7 +11,6 @@ import { soon } from '../utils/toast';
 import {
   ShieldCheck,
   ArrowRight,
-  ExternalLink,
   AlertTriangle,
   RotateCcw,
   Clock,
@@ -121,27 +120,14 @@ export default function HomePage() {
               <b>Apply Now</b>
               <span>One short form to start your candidate evaluation.</span>
               <div className="mt-auto pt-3">
-                {isFormConfigured ? (
-                  <a
-                    href={googleForm1Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="gb pri inline-flex items-center gap-1.5 text-xs font-bold"
-                    title="Apply via official Google Form"
-                  >
-                    Apply Now
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    title={noteMessage}
-                    className="gb pri opacity-50 cursor-not-allowed text-xs font-bold"
-                  >
-                    Apply Now
-                  </button>
-                )}
+                <Link
+                  to="/apply"
+                  className="gb pri inline-flex items-center gap-1.5 text-xs font-bold"
+                  title="Browse programs and apply"
+                >
+                  Apply Now
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
 
@@ -257,26 +243,13 @@ export default function HomePage() {
                       >
                         View Details <ArrowRight className="w-3 h-3" />
                       </Link>
-                      {isFormConfigured ? (
-                        <a
-                          href={googleForm1Url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="gb pri text-xs font-bold inline-flex items-center gap-1.5"
-                          title="Apply via Google Form 1"
-                        >
-                          Apply Now <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          title={noteMessage}
-                          className="gb pri opacity-50 cursor-not-allowed text-xs font-bold"
-                        >
-                          Apply Now
-                        </button>
-                      )}
+                      <Link
+                        to="/apply"
+                        className="gb pri text-xs font-bold inline-flex items-center gap-1.5"
+                        title="Browse programs and apply"
+                      >
+                        Apply Now <ArrowRight className="w-3 h-3" />
+                      </Link>
                     </div>
                   </div>
                 ))}
@@ -465,27 +438,14 @@ export default function HomePage() {
             Start your practical engineering journey with NOXIRA.
           </p>
           <div className="mt-6 rv">
-            {isFormConfigured ? (
-              <a
-                href={googleForm1Url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="gb pri inline-flex items-center gap-2 text-sm font-bold"
-                title="Apply via official Google Form"
-              >
-                Apply via Google Form 1
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            ) : (
-              <button
-                type="button"
-                disabled
-                title={noteMessage}
-                className="gb pri opacity-50 cursor-not-allowed text-sm font-bold"
-              >
-                Apply via Google Form 1
-              </button>
-            )}
+            <Link
+              to="/apply"
+              className="gb pri inline-flex items-center gap-2 text-sm font-bold"
+              title="Browse programs and apply"
+            >
+              Apply Now
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
           <p className="foot rv">&copy; {new Date().getFullYear()} NOXIRA TECHNOLOGIES</p>
         </div>

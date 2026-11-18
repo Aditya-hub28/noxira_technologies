@@ -189,11 +189,7 @@ export default function MobileMenu({ open, onClose }) {
     onClose();
     switch (subName) {
       case 'Apply Now':
-        if (isFormConfigured && googleForm1Url) {
-          window.open(googleForm1Url, '_blank', 'noopener,noreferrer');
-        } else {
-          soon('Candidate Application form');
-        }
+        navigate('/apply');
         break;
       case 'Internship certificate verification':
         navigate('/verify');

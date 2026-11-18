@@ -12,7 +12,7 @@ import {
   ListOrdered,
   RotateCcw,
   AlertTriangle,
-  ExternalLink
+  ArrowRight
 } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
@@ -166,33 +166,14 @@ export default function ProgramDetailPage() {
             Task Submission &amp; Review Fee is payable only at final submission. Applying is free.
           </div>
 
-          {isFormConfigured ? (
-            <a
-              href={googleForm1Url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-6 py-3 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-2"
-              title="Apply via Google Form"
-            >
-              Apply for {program.code}
-              <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
-            </a>
-          ) : (
-            <div className="w-full sm:w-auto flex flex-col items-center sm:items-end">
-              <button
-                type="button"
-                disabled
-                title={noteMessage}
-                className="w-full sm:w-auto px-6 py-3 bg-ink-950/50 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed inline-flex items-center justify-center gap-2"
-              >
-                Apply for {program.code}
-                <ExternalLink className="w-3.5 h-3.5 text-cyan-400/50" />
-              </button>
-              <span className="text-[11px] text-slate-500 mt-1">
-                {noteMessage}
-              </span>
-            </div>
-          )}
+          <Link
+            to="/apply"
+            className="w-full sm:w-auto px-6 py-3 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center justify-center gap-2"
+            title="Browse programs and apply"
+          >
+            Apply for {program.code}
+            <ArrowRight className="w-3.5 h-3.5 text-cyan-400" />
+          </Link>
         </div>
       </div>
 

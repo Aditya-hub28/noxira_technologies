@@ -32,19 +32,21 @@ test('MODULE 2: siteConfig.js exports APPLICATION_UNAVAILABLE_MESSAGE and neutra
   assert.ok(configContent.includes('APPLICATION_NEUTRAL_MESSAGE'), 'Must export APPLICATION_NEUTRAL_MESSAGE');
 });
 
-// TEST 2: ApplyPage deleted and no imports remain
-test('STEP 3: ApplyPage.jsx is completely deleted from client/src/pages', () => {
+// TEST 2: ApplyPage exists and exports default ApplyPage
+test('APPLY PAGE: ApplyPage.jsx exists in client/src/pages', () => {
   const applyPagePath = path.join(clientSrcDir, 'pages/ApplyPage.jsx');
-  assert.strictEqual(fs.existsSync(applyPagePath), false, 'ApplyPage.jsx must not exist');
+  assert.strictEqual(fs.existsSync(applyPagePath), true, 'ApplyPage.jsx must exist');
+  const content = fs.readFileSync(applyPagePath, 'utf8');
+  assert.ok(content.includes('export default function ApplyPage'), 'ApplyPage must export component');
 });
 
-// TEST 3: App.jsx redirects /apply to /, mounts Settings tab and SiteSettingsProvider
-test('MODULE 2: App.jsx mounts SiteSettingsProvider, Settings admin tab, and redirects /apply to /', () => {
+// TEST 3: App.jsx mounts ApplyPage on /apply, mounts Settings tab and SiteSettingsProvider
+test('APPLY PAGE: App.jsx mounts SiteSettingsProvider, Settings admin tab, and routes /apply to ApplyPage', () => {
   const appContent = fs.readFileSync(path.join(clientSrcDir, 'App.jsx'), 'utf8');
-  assert.strictEqual(appContent.includes("from './pages/ApplyPage'"), false, 'Must not import ApplyPage');
+  assert.ok(appContent.includes("from './pages/ApplyPage'"), 'Must import ApplyPage');
   assert.ok(
-    appContent.includes('<Route path="/apply" element={<Navigate to="/" replace />} />'),
-    'App.jsx must redirect /apply route to /'
+    appContent.includes('<Route path="/apply" element={<ApplyPage />} />'),
+    'App.jsx must route /apply to ApplyPage'
   );
   assert.ok(appContent.includes('SiteSettingsProvider'), 'App.jsx must mount SiteSettingsProvider');
   assert.ok(appContent.includes("id: 'settings'"), 'AdminConsole must include settings tab');
@@ -60,34 +62,20 @@ test('MODULE 2: api.js exposes public & admin settings endpoints', () => {
   assert.ok(apiContent.includes('adminUpdateGoogleForm1:'), 'api.js must expose adminUpdateGoogleForm1');
 });
 
-// TEST 5: No link to="/apply" or href="/apply" anywhere in client/src
-test('STEP 2: Zero internal to="/apply" or href="/apply" links remain in components or pages', () => {
-  function checkDir(dir) {
-    const files = fs.readdirSync(dir);
-    for (const f of files) {
-      const full = path.join(dir, f);
-      const stat = fs.statSync(full);
-      if (stat.isDirectory()) {
-        checkDir(full);
-      } else if (f.endsWith('.jsx') || f.endsWith('.js')) {
-        const content = fs.readFileSync(full, 'utf8');
-        if (full.endsWith('App.jsx')) continue;
-        assert.strictEqual(content.includes('to="/apply"'), false, `Found to="/apply" in ${full}`);
-        assert.strictEqual(content.includes('href="/apply"'), false, `Found href="/apply" in ${full}`);
-        assert.strictEqual(content.includes('/apply?program='), false, `Found /apply?program= in ${full}`);
-      }
-    }
-  }
-  checkDir(clientSrcDir);
+// TEST 5: Internal to="/apply" routes configured across components and pages
+test('APPLY PAGE: Internal to="/apply" routes configured across site components', () => {
+  const publicLayout = fs.readFileSync(path.join(clientSrcDir, 'components/PublicLayout.jsx'), 'utf8');
+  assert.ok(publicLayout.includes('to="/apply"'), 'PublicLayout footer must link to="/apply"');
+  const heroes = fs.readFileSync(path.join(clientSrcDir, 'components/Heroes.jsx'), 'utf8');
+  assert.ok(heroes.includes('to="/apply"'), 'Heroes CTA must link to="/apply"');
+  const home = fs.readFileSync(path.join(clientSrcDir, 'pages/HomePage.jsx'), 'utf8');
+  assert.ok(home.includes('to="/apply"'), 'HomePage must link to="/apply"');
 });
 
-// TEST 6: PublicLayout routes header, mobile drawer, and footer to dynamic Form 1 hook
-test('MODULE 2: PublicLayout.jsx consumes useSiteSettings with safe neutral/unavailable fallbacks', () => {
+// TEST 6: PublicLayout routes footer and navigation to dynamic pages
+test('MODULE 2: PublicLayout.jsx mounts navigation and footer properly', () => {
   const layoutContent = fs.readFileSync(path.join(clientSrcDir, 'components/PublicLayout.jsx'), 'utf8');
-  assert.ok(layoutContent.includes('useSiteSettings'), 'Must consume useSiteSettings hook');
-  assert.ok(layoutContent.includes('googleForm1Url'), 'Must use googleForm1Url');
-  assert.ok(layoutContent.includes('target="_blank"'), 'Must open in new tab');
-  assert.ok(layoutContent.includes('rel="noopener noreferrer"'), 'Must have secure rel attributes');
+  assert.ok(layoutContent.includes('to="/apply"'), 'Must link to /apply');
 });
 
 // TEST 7: HomePage has Services section, dynamic Form 1 CTAs, and 6-Step Journey

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollSmoother } from 'gsap/all';
-import { ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import '../heroes.css';
 
 const LEDE =
@@ -365,27 +366,14 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
           <p className="lede hv-in">{LEDE}</p>
           <div className="hv-in">
             <div className="hv-cta">
-              {isFormConfigured ? (
-                <a
-                  href={googleForm1Url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="gb pri inline-flex items-center gap-2"
-                  title="Apply via official Google Form"
-                >
-                  Apply now
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  title={noteMessage}
-                  className="gb pri opacity-60 cursor-not-allowed"
-                >
-                  Apply now
-                </button>
-              )}
+              <Link
+                to="/apply"
+                className="gb pri inline-flex items-center gap-2"
+                title="Browse programs and apply"
+              >
+                Apply now
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
               <a
                 href="#services"
                 onClick={handleServicesClick}

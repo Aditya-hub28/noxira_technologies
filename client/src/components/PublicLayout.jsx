@@ -76,25 +76,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                     <li><a href="/#services" className="hover:text-cyan-400 transition">Software Services</a></li>
                     <li><Link to="/programs" className="hover:text-cyan-400 transition">All Programmes</Link></li>
                     <li><a href="/#journey" className="hover:text-cyan-400 transition">6-Step Journey</a></li>
-                    <li>
-                      {isFormConfigured ? (
-                        <a
-                          href={googleForm1Url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:text-cyan-400 transition inline-flex items-center gap-1"
-                        >
-                          Candidate Application <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span
-                          className="text-slate-500 cursor-not-allowed inline-flex items-center gap-1"
-                          title={noteMessage}
-                        >
-                          Candidate Application
-                        </span>
-                      )}
-                    </li>
+                    <li><Link to="/apply" className="hover:text-cyan-400 transition">Candidate Application</Link></li>
                     <li><Link to="/offer-letter" className="hover:text-cyan-400 transition">Download Offer Letter</Link></li>
                     <li><Link to="/verify" className="hover:text-cyan-400 transition">Public Verification Portal</Link></li>
                   </ul>
