@@ -414,6 +414,26 @@ export default function VerifyPage() {
               <span className="prog">{cert.programTitle}</span>
               <span className="cid">{cert.certificateNumber}</span>
             </div>
+            <div className="vfy-actions">
+              <a
+                className="vfy-dl"
+                href={`/api/v1/public/verify/${encodeURIComponent(cert.certificateNumber)}/pdf`}
+                download={`NOXIRA-Certificate-${cert.certificateNumber}.pdf`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v12" />
+                  <path d="M7 11l5 5 5-5" />
+                  <path d="M4 21h16" />
+                </svg>
+                Download
+              </a>
+              <button className="vfy-close" type="button" onClick={reset} aria-label="Verify another certificate">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 6l12 12" />
+                  <path d="M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
       </div>
