@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Send, Clock, CheckCircle2, AlertTriangle, XCircle, RefreshCw, RotateCcw, ShieldAlert, FileCheck, Info } from 'lucide-react';
+import { Send, Clock, CheckCircle2, AlertTriangle, XCircle, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
 
 export default function DistributionPage() {
   const [jobs, setJobs] = useState([]);

@@ -11,7 +11,6 @@ import {
   History,
   LogOut,
   ArrowLeft,
-  Shield,
   BookOpen,
   UserCheck,
   FileText,

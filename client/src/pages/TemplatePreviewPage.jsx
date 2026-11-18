@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Download, Sliders, Upload, Sparkles, QrCode, Check, RefreshCw, Layers, Image as ImageIcon } from 'lucide-react';
+import { Download, Sliders, Upload, Sparkles, QrCode, Check, Layers } from 'lucide-react';
 
 export default function TemplatePreviewPage() {
   const [template, setTemplate] = useState(null);

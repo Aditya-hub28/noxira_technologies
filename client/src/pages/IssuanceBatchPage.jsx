@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Award, CheckSquare, Square, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Award, CheckSquare, Square, AlertCircle, ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
 
 export default function IssuanceBatchPage({ onBatchSuccess }) {
   const [eligibleParticipants, setEligibleParticipants] = useState([]);

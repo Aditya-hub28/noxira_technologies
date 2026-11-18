@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { api } from '../services/api';
-import { pointToPixel, pixelToPoint } from '../utils/pdfCoordinates';
+import { pixelToPoint } from '../utils/pdfCoordinates';
 import {
   FileText,
   Upload,
@@ -10,12 +10,7 @@ import {
   Sliders,
   Eye,
   Save,
-  AlertCircle,
-  ShieldAlert,
-  Info,
-  Clock,
-  ExternalLink,
-  ChevronRight
+  ShieldAlert
 } from 'lucide-react';
 
 if (pdfjsLib.GlobalWorkerOptions) {

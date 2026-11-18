@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
-import { Shield, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
+import { Shield, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function AdminLoginPage({ onLoginSuccess }) {
   const [email, setEmail] = useState('');

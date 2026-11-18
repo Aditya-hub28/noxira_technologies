@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import { Search, CheckCircle2, AlertCircle, Clock, RotateCcw, ArrowRight, ShieldCheck, FileText, ExternalLink, ClipboardList, BookOpen } from 'lucide-react';
+import { Search, AlertCircle, Clock, RotateCcw, ExternalLink, ClipboardList, BookOpen } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 

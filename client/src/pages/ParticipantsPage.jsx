@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Search, Filter, CheckCircle2, Clock, AlertCircle, XCircle, Award, Check, X, FileText } from 'lucide-react';
+import { Search, Filter, CheckCircle2, Clock, AlertCircle, XCircle, Award, X } from 'lucide-react';
 
 export default function ParticipantsPage({ onNavigateToIssuance }) {
   const [participants, setParticipants] = useState([]);

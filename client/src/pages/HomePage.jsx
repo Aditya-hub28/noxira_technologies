@@ -15,8 +15,6 @@ import {
   AlertTriangle,
   RotateCcw,
   Clock,
-  Sparkles,
-  CheckCircle2,
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, ScrollSmoother);

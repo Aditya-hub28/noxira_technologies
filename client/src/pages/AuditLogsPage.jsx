@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Shield, Clock, FileText, RefreshCw, UserCheck } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState([]);

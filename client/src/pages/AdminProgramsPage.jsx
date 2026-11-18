@@ -10,9 +10,6 @@ import {
   XCircle,
   AlertCircle,
   RotateCcw,
-  Clock,
-  IndianRupee,
-  Users,
   X
 } from 'lucide-react';
 

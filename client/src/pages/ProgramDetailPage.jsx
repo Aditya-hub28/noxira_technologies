@@ -4,7 +4,6 @@ import { api } from '../services/api';
 import { resolveProgramDescription } from '../utils/programUtils';
 import {
   ArrowLeft,
-  ArrowRight,
   Clock,
   IndianRupee,
   Users,

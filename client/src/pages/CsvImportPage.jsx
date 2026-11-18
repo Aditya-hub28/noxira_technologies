@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Check } from 'lucide-react';
+import { Upload, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Check } from 'lucide-react';
 
 export default function CsvImportPage({ onImportSuccess }) {
   const [file, setFile] = useState(null);

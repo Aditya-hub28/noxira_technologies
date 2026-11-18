@@ -5,16 +5,13 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   ArrowRight,
   ArrowLeft,
   Check,
   RefreshCw,
   Download,
   AlertCircle,
-  Users,
-  Layers,
-  HelpCircle
+  Users
 } from 'lucide-react';
 
 /**

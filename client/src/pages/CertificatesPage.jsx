@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { ShieldCheck, XCircle, RefreshCw, AlertTriangle, ExternalLink, Hash, X, Check, Eye } from 'lucide-react';
+import { RefreshCw, AlertTriangle, ExternalLink, Hash, X } from 'lucide-react';
 
 export default function CertificatesPage({ onNavigateToVerify }) {
   const [certificates, setCertificates] = useState([]);
