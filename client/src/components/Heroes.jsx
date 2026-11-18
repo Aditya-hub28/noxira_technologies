@@ -84,10 +84,16 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
   ];
 
   const allRows = isMobile
-    ? POOL.map((_, i) => {
-        const r = POOL.slice(i).concat(POOL.slice(0, i));
-        return i % 2 ? r.slice().reverse() : r;
-      })
+    ? [
+        ['WEBSITES'],
+        ['APPS'],
+        ['AI AUTOMATION'],
+        ['INTERNSHIPS'],
+        ['PROJECTS', 'CERTIFICATES'],
+        ['JOURNEY'],
+        ['SKILL COURSE'],
+        ['CAREER TOOLS', 'TRAINING'],
+      ]
     : [
         ['WEBSITES', 'PROJECTS'],
         ['AI AUTOMATION', 'APPS'],
