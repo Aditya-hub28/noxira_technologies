@@ -229,6 +229,146 @@ async function autoSeedIfEmpty() {
   const offerPdfService = require('./services/offerPdfService');
   const storageService = require('./services/storageService');
 
+  const Certificate = require('./models/Certificate');
+  const certCount = await Certificate.countDocuments();
+  if (certCount === 0) {
+    try {
+      const { generateCertificatePdf } = require('./services/pdfService');
+      const { generate128BitToken } = require('./services/qrService');
+
+      const aarav = await Participant.findOne({ email: 'aarav.sharma@example.com' });
+      const priya = await Participant.findOne({ email: 'priya.sundaram@example.com' });
+      const christopher = await Participant.findOne({ email: 'christopher.fitzgerald@example.com' });
+      const admin = await Admin.findOne({ email: 'admin@noxira.com' });
+
+      if (aarav && admin) {
+        const cert1No = 'NOX-2026-FSD-0001';
+        const token1 = generate128BitToken();
+        const pdf1 = await generateCertificatePdf({
+          recipientName: aarav.fullName,
+          programTitle: aarav.programTitle,
+          startDate: new Date('2026-09-01'),
+          endDate: new Date('2026-10-31'),
+          issueDate: new Date('2026-11-01'),
+          certificateNumber: cert1No,
+          publicVerificationToken: token1,
+          signatoryName: 'Aditya Jha',
+          signatoryTitle: 'Managing Director & Lead Architect',
+          isDraft: false
+        });
+        const file1 = await storageService.saveCertificateFile(cert1No, pdf1);
+        await Certificate.create({
+          certificateNumber: cert1No,
+          publicVerificationToken: token1,
+          completionAwardKey: 'DEMO-AWARD-KEY-1',
+          participantId: aarav._id,
+          programCode: aarav.programCode,
+          programTitle: aarav.programTitle,
+          batchId: aarav.batchId,
+          renderedSnapshot: {
+            recipientName: aarav.fullName,
+            programTitle: aarav.programTitle,
+            startDate: new Date('2026-09-01'),
+            endDate: new Date('2026-10-31'),
+            issueDate: new Date('2026-11-01'),
+            authorizedSignatoryName: 'Aditya Jha',
+            authorizedSignatoryTitle: 'Managing Director & Lead Architect',
+            templateVersion: '1.0.0'
+          },
+          status: 'ISSUED',
+          fileStorage: file1,
+          approvedBy: admin._id
+        });
+      }
+
+      if (priya && admin) {
+        const cert2No = 'NOX-2026-AI-0002';
+        const token2 = generate128BitToken();
+        const pdf2 = await generateCertificatePdf({
+          recipientName: priya.fullName,
+          programTitle: 'Applied Artificial Intelligence & LLM Engineering',
+          startDate: new Date('2026-09-15'),
+          endDate: new Date('2026-11-01'),
+          issueDate: new Date('2026-11-05'),
+          certificateNumber: cert2No,
+          publicVerificationToken: token2,
+          signatoryName: 'Aditya Jha',
+          signatoryTitle: 'Managing Director & Lead Architect',
+          isDraft: false
+        });
+        const file2 = await storageService.saveCertificateFile(cert2No, pdf2);
+        await Certificate.create({
+          certificateNumber: cert2No,
+          publicVerificationToken: token2,
+          completionAwardKey: 'DEMO-AWARD-KEY-2',
+          participantId: priya._id,
+          programCode: 'AI-ENG',
+          programTitle: 'Applied Artificial Intelligence & LLM Engineering',
+          batchId: 'BATCH-2026-Q4',
+          renderedSnapshot: {
+            recipientName: priya.fullName,
+            programTitle: 'Applied Artificial Intelligence & LLM Engineering',
+            startDate: new Date('2026-09-15'),
+            endDate: new Date('2026-11-01'),
+            issueDate: new Date('2026-11-05'),
+            authorizedSignatoryName: 'Aditya Jha',
+            authorizedSignatoryTitle: 'Managing Director & Lead Architect',
+            templateVersion: '1.0.0'
+          },
+          status: 'ISSUED',
+          fileStorage: file2,
+          approvedBy: admin._id
+        });
+      }
+
+      if (christopher && admin) {
+        const cert3No = 'NOX-2026-FSD-0003';
+        const token3 = generate128BitToken();
+        const pdf3 = await generateCertificatePdf({
+          recipientName: christopher.fullName,
+          programTitle: christopher.programTitle,
+          startDate: new Date('2026-09-01'),
+          endDate: new Date('2026-10-31'),
+          issueDate: new Date('2026-11-01'),
+          certificateNumber: cert3No,
+          publicVerificationToken: token3,
+          signatoryName: 'Aditya Jha',
+          signatoryTitle: 'Managing Director & Lead Architect',
+          isDraft: false
+        });
+        const file3 = await storageService.saveCertificateFile(cert3No, pdf3);
+        await Certificate.create({
+          certificateNumber: cert3No,
+          publicVerificationToken: token3,
+          completionAwardKey: 'DEMO-AWARD-KEY-3',
+          participantId: christopher._id,
+          programCode: christopher.programCode,
+          programTitle: christopher.programTitle,
+          batchId: christopher.batchId,
+          renderedSnapshot: {
+            recipientName: christopher.fullName,
+            programTitle: christopher.programTitle,
+            startDate: new Date('2026-09-01'),
+            endDate: new Date('2026-10-31'),
+            issueDate: new Date('2026-11-01'),
+            authorizedSignatoryName: 'Aditya Jha',
+            authorizedSignatoryTitle: 'Managing Director & Lead Architect',
+            templateVersion: '1.0.0'
+          },
+          status: 'REVOKED',
+          revocationReason: 'Credential revoked due to academic code of conduct review.',
+          revokedAt: new Date(),
+          revokedBy: admin._id,
+          fileStorage: file3,
+          approvedBy: admin._id
+        });
+      }
+      console.log('🎓 Demo Certificates provisioned (NOX-2026-FSD-0001, NOX-2026-AI-0002, NOX-2026-FSD-0003).');
+    } catch (certSeedErr) {
+      console.error('Failed to seed demo certificates:', certSeedErr);
+    }
+  }
+
   const templateCount = await OfferLetterTemplate.countDocuments();
   if (templateCount === 0) {
     try {
