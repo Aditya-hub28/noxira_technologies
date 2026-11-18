@@ -7,6 +7,7 @@ import { currentTheme, toggleTheme } from '../theme.js';
 import config from '../nx.config.js';
 import { soon } from '../utils/toast.js';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { useStudentAuth } from '../context/StudentAuthContext';
 import '../menu.css';
 
 export function ThemeToggle() {
@@ -52,12 +53,7 @@ export default function MobileMenu({ open, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { googleForm1Url, isFormConfigured } = useSiteSettings();
-
-  // Demo auth state: ?auth=in or window.__nxAuth
-  const [demoAuth, setDemoAuth] = useState(() => {
-    const p = new URLSearchParams(window.location.search);
-    return p.get('auth') === 'in' || Boolean(window.__nxAuth);
-  });
+  const { student, logout } = useStudentAuth();
 
   const ref = useRef(null);
   const scrim = useRef(null);
@@ -308,23 +304,19 @@ export default function MobileMenu({ open, onClose }) {
           ))}
         </nav>
 
-        {/* Demo auth state in drawer */}
-        {demoAuth ? (
+        {/* Real student auth state in drawer */}
+        {student ? (
           <div className="mfoot in">
-            <div className="welcome">
-              <b>DEMO PREVIEW</b>
-              <span>Candidate Account (Demo)</span>
-            </div>
             <div className="prof">
-              <span className="av">A</span>
-              <span className="pn">Aditya Jha</span>
+              <span className="av">{(student.name || 'S').trim().charAt(0).toUpperCase()}</span>
+              <span className="pn">{student.name}</span>
               <button
                 type="button"
                 className="lo"
-                onClick={() => {
-                  setDemoAuth(false);
-                  window.__nxAuth = false;
-                  soon('Demo logged out');
+                onClick={async () => {
+                  onClose();
+                  await logout();
+                  navigate('/');
                 }}
               >
                 Logout
@@ -335,12 +327,11 @@ export default function MobileMenu({ open, onClose }) {
               className="dash"
               onClick={() => {
                 onClose();
-                soon('Candidate Dashboard');
+                navigate('/account');
               }}
             >
-              Dashboard
+              My account
             </button>
-            <p className="demon">Demo account preview - backend auth not connected yet</p>
           </div>
         ) : (
           <div className="mfoot">
@@ -349,23 +340,21 @@ export default function MobileMenu({ open, onClose }) {
               className="dash"
               onClick={() => {
                 onClose();
-                soon('Candidate Dashboard');
+                navigate('/signup');
               }}
             >
-              Dashboard
+              Sign up
             </button>
             <button
               type="button"
               className="ghostb"
               onClick={() => {
-                setDemoAuth(true);
-                window.__nxAuth = true;
-                soon('Demo login - real authentication');
+                onClose();
+                navigate('/login');
               }}
             >
               Login
             </button>
-            <p className="demon">Login and Dashboard are coming soon - backend not connected yet</p>
           </div>
         )}
       </div>

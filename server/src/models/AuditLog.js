@@ -8,7 +8,7 @@ const AuditLogSchema = new mongoose.Schema({
   },
   actorType: {
     type: String,
-    enum: ['ADMIN', 'SYSTEM', 'PUBLIC_USER'],
+    enum: ['ADMIN', 'SYSTEM', 'PUBLIC_USER', 'STUDENT'],
     default: 'ADMIN'
   },
   action: {

@@ -10,6 +10,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
+const studentAuthRoutes = require('./routes/studentAuthRoutes');
 const intakeRoutes = require('./routes/intakeRoutes');
 const participantRoutes = require('./routes/participantRoutes');
 const templateRoutes = require('./routes/templateRoutes');
@@ -53,6 +54,7 @@ app.get('/api/health', (req, res) => {
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/student/auth', studentAuthRoutes);
 app.use('/api/v1/intake', intakeRoutes);
 app.use('/api/v1/participants', participantRoutes);
 app.use('/api/v1/templates', templateRoutes);
