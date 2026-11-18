@@ -77,10 +77,15 @@
 
 .mq {
   display: inline-flex;
+  flex-wrap: nowrap;
   width: max-content;
+  will-change: transform;
 }
 
 .mq span {
+  display: inline-block;
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: clamp(48px, 8.5vw, 150px);
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -91,7 +96,6 @@
   background-clip: text;
   -webkit-text-stroke: 1px rgba(110, 190, 255, 0.38);
   color: transparent;
-  will-change: transform;
   backface-visibility: hidden;
 }
 

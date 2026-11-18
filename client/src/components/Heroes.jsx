@@ -111,110 +111,147 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
     const MP = [0.07, 0.83, 0.61, 0.77, 0.18, 0.4, 0.48, 0.85];
 
     const convs = [];
+    const cleanups = [];
+    let isVisible = true;
+    let isPlaying = false;
+
     r.querySelectorAll('.mq').forEach((row, i) => {
       const m = window.matchMedia('(max-width:800px)').matches;
-      const dir = i % 2 ? -1 : 1;
+      // Even rows move left (-1), odd rows move right (1)
+      const dir = i % 2 === 0 ? -1 : 1;
       const phase = m ? MP[i % 8] : PH[i % 6];
       const speed = () => (m ? MV[i % 8] : (DS[i % 6] * window.innerWidth) / 1440);
-      const unit = [...row.children];
-      const ulen = unit.length;
-      let spans = unit;
-      let w = [];
-      let left = [];
-      let total = 1;
-      let head = 0;
-      let built = false;
-      let want = false;
-      let on = false;
-      let vis = true;
 
-      const paint = () => {
-        for (let j = 0; j < spans.length; j++) {
-          let px = left[j] - head;
-          if (px < -w[j]) px += total;
-          gsap.set(spans[j], { x: px - left[j], force3D: true });
-        }
-      };
+      const originalSpans = [...row.querySelectorAll('span')].map((s) => {
+        const copy = s.cloneNode(true);
+        gsap.set(copy, { clearProps: 'all' });
+        return copy;
+      });
+      const ulen = originalSpans.length;
 
-      const tick = (t, dt) => {
-        dt = Math.min(dt || 16.7, 100);
-        head = (head + (dir * speed() * dt) / 1000) % total;
-        if (head < 0) head += total;
-        paint();
-      };
-
-      const startT = () => {
-        if (!on && built && want && vis) {
-          gsap.ticker.add(tick);
-          on = true;
-        }
-      };
-
-      const stopT = () => {
-        if (on) {
-          gsap.ticker.remove(tick);
-          on = false;
-        }
-      };
+      let blockWidth = 0;
+      let x = 0;
+      let tickerRunning = false;
 
       const build = () => {
-        const frac = built ? head / total : phase;
-        while (row.children.length > ulen) row.removeChild(row.lastChild);
-        const uw = unit.map((s2) => s2.offsetWidth);
-        const unitW = uw.reduce((a, b) => a + b, 0);
-        const maxW = Math.max.apply(null, uw);
+        gsap.set(row, { clearProps: 'x,transform' });
+        row.innerHTML = '';
+
+        // Add 1 base unit to measure initial unit width
+        originalSpans.forEach((s) => row.appendChild(s.cloneNode(true)));
+        const unitWidth = [...row.children].reduce((sum, el) => sum + el.offsetWidth, 0) || 1;
         const parentW = row.parentElement ? row.parentElement.clientWidth : window.innerWidth;
-        const reps = Math.max(1, Math.ceil((parentW + maxW) / (unitW || 1)));
-        for (let u = 1; u < reps; u++) {
+
+        // Number of unit repetitions in Block 1 (ensure blockWidth > parentW + 400 and even word count for alternating .o pattern)
+        let reps = Math.max(2, Math.ceil((parentW + 400) / unitWidth));
+        if ((reps * ulen) % 2 !== 0) reps += 1;
+
+        // Build Block 1
+        row.innerHTML = '';
+        for (let u = 0; u < reps; u++) {
           for (let j = 0; j < ulen; j++) {
-            const c = unit[j].cloneNode(true);
+            const c = originalSpans[j].cloneNode(true);
             c.classList.toggle('o', (u * ulen + j + i) % 2 === 1);
             row.appendChild(c);
           }
         }
-        spans = [...row.children];
-        w = spans.map((s2) => s2.offsetWidth);
-        left = [];
-        let acc = 0;
-        for (const x of w) {
-          left.push(acc);
-          acc += x;
+
+        // Measure Block 1 width
+        blockWidth = [...row.children].reduce((sum, el) => sum + el.offsetWidth, 0) || 1;
+
+        // Build Block 2 (identical duplicate of Block 1 for infinite seamless looping)
+        for (let u = 0; u < reps; u++) {
+          for (let j = 0; j < ulen; j++) {
+            const c = originalSpans[j].cloneNode(true);
+            c.classList.toggle('o', (u * ulen + j + i) % 2 === 1);
+            row.appendChild(c);
+          }
         }
-        total = acc || 1;
-        head = frac * total;
-        built = true;
-        paint();
-        startT();
+
+        // Set initial phase offset
+        x = -(phase * blockWidth);
+        gsap.set(row, { x, force3D: true });
       };
 
-      const ctl = {
-        pause() {
-          want = false;
-          stopT();
-        },
-        play() {
-          want = true;
-          startT();
-        },
-        rebuild() {
-          if (built) build();
-        },
+      const tick = (time, dt) => {
+        if (!blockWidth) return;
+        const delta = Math.min(dt || 16.7, 50);
+        const move = (speed() * delta) / 1000;
+
+        if (dir === -1) {
+          // Moving left: x decreases towards -blockWidth
+          x -= move;
+          if (x <= -blockWidth) {
+            x += blockWidth;
+          }
+        } else {
+          // Moving right: x increases towards 0
+          x += move;
+          if (x >= 0) {
+            x -= blockWidth;
+          }
+        }
+        gsap.set(row, { x, force3D: true });
+      };
+
+      const startT = () => {
+        if (!tickerRunning && isVisible && isPlaying) {
+          gsap.ticker.add(tick);
+          tickerRunning = true;
+        }
+      };
+
+      const stopT = () => {
+        if (tickerRunning) {
+          gsap.ticker.remove(tick);
+          tickerRunning = false;
+        }
       };
 
       build();
-      (document.fonts ? document.fonts.ready : Promise.resolve()).then(build);
 
-      if (typeof IntersectionObserver !== 'undefined') {
-        const observer = new IntersectionObserver((en) => {
-          vis = en[0].isIntersecting;
+      cleanups.push(() => {
+        stopT();
+      });
+
+      const ctl = {
+        play() {
+          isPlaying = true;
+          startT();
+        },
+        pause() {
+          isPlaying = false;
+          stopT();
+        },
+        updateVisibility(vis) {
           if (vis) startT();
           else stopT();
-        });
-        observer.observe(r);
-      }
+        },
+        rebuild() {
+          build();
+        },
+      };
 
       convs.push(ctl);
       tw.push(ctl);
+    });
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          isVisible = entries[0].isIntersecting;
+          convs.forEach((c) => c.updateVisibility(isVisible));
+        },
+        { rootMargin: '100px 0px' }
+      );
+      observer.observe(r);
+      cleanups.push(() => observer.disconnect());
+    }
+
+    tw.push({
+      kill() {
+        cleanups.forEach((fn) => fn());
+      },
     });
 
     tw.push(
@@ -260,16 +297,19 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
       );
     };
 
+    let lw = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth === lw) return;
+      lw = window.innerWidth;
+      fit();
+      convs.forEach((c) => c.rebuild());
+    };
+    window.addEventListener('resize', onResize);
+    cleanups.push(() => window.removeEventListener('resize', onResize));
+
     (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
       fit();
-      let lw = window.innerWidth;
-      const onResize = () => {
-        if (window.innerWidth === lw) return;
-        lw = window.innerWidth;
-        fit();
-        convs.forEach((c) => c.rebuild());
-      };
-      window.addEventListener('resize', onResize);
+      convs.forEach((c) => c.rebuild());
     });
 
     return tw;
