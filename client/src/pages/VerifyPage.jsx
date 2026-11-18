@@ -1,219 +1,426 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { api } from '../services/api';
-import { CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Search, ArrowRight, Lock } from 'lucide-react';
+import './verify.css';
 
-export default function VerifyPage({ initialToken }) {
+if (pdfjsLib.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+}
+
+const MIN_BUSY_MS = 1900;
+const CONFETTI_COLORS = ['#38c8ff', '#0a8fd6', '#10b981', '#34d399', '#67e8f9', '#059669'];
+
+// Module-level confetti engine (single canvas per page)
+const fxState = { parts: [], running: false };
+
+function fitFx(canvas) {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+function fxTick(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  fxState.parts = fxState.parts.filter((p) => p.age < p.life);
+  for (const p of fxState.parts) {
+    p.age += 1;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.16;
+    p.vx *= 0.985;
+    p.vy *= 0.99;
+    p.r += p.vr;
+    const t = 1 - p.age / p.life;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, t);
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.r);
+    ctx.fillStyle = p.c;
+    if (p.rect) ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.62);
+    else { ctx.beginPath(); ctx.arc(0, 0, p.s / 2, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+  if (fxState.parts.length) requestAnimationFrame(() => fxTick(canvas));
+  else { fxState.running = false; ctx.clearRect(0, 0, canvas.width, canvas.height); }
+}
+
+function burst(canvas, x, y) {
+  for (let i = 0; i < 85; i += 1) {
+    const a = Math.random() * Math.PI * 2;
+    const v = 3 + Math.random() * 7.5;
+    fxState.parts.push({
+      x, y,
+      vx: Math.cos(a) * v,
+      vy: Math.sin(a) * v - 2.5,
+      s: 2.5 + Math.random() * 4.5,
+      c: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      r: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.3,
+      life: 55 + Math.random() * 40,
+      age: 0,
+      rect: Math.random() < 0.55
+    });
+  }
+  if (!fxState.running) {
+    fxState.running = true;
+    requestAnimationFrame(() => fxTick(canvas));
+  }
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Render page 1 of the issued certificate PDF (the exact admin-set design frozen at
+// issuance) to an image for the flip card's front face.
+async function renderCertificateFront(certNumber) {
+  const url = `/api/v1/public/verify/${encodeURIComponent(certNumber)}/pdf`;
+  const task = pdfjsLib.getDocument({ url });
+  const doc = await task.promise;
+  try {
+    const page = await doc.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(3, 1600 / base.width);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return canvas.toDataURL('image/png');
+  } finally {
+    task.destroy();
+  }
+}
+
+function CertificateFront({ cert }) {
+  const name = cert.recipientName || '';
+  const nameClass = name.length > 36 ? 'vc-name xlong' : name.length > 24 ? 'vc-name long' : 'vc-name';
+  const start = formatDate(cert.startDate);
+  const end = formatDate(cert.endDate);
+  const dateText = start && end ? (start === end ? `Conducted on ${end}` : `Program Duration: ${start} to ${end}`) : (end || start);
+  return (
+    <div className="vc">
+      <div className="vc-outer" />
+      <div className="vc-inner" />
+      <div className="vc-badge">NOXIRA TECHNOLOGIES</div>
+      <div className="vc-head">CERTIFICATE OF ACHIEVEMENT</div>
+      <div className="vc-rule" />
+      <div className="vc-present">This is proudly presented to</div>
+      <div className={nameClass}>{name}</div>
+      <div className="vc-nameline" />
+      <div className="vc-comp">for successfully completing the rigorous curriculum and technical requirements of</div>
+      <div className="vc-prog">{cert.programTitle}</div>
+      {dateText && <div className="vc-dates">{dateText}</div>}
+      <div className="vc-id">
+        <b>Certificate ID: {cert.certificateNumber}</b>
+        <br />
+        <span>Issued On: {formatDate(cert.issueDate)}</span>
+      </div>
+      {(cert.signatoryName || cert.signatoryTitle) && (
+        <div className="vc-sign">
+          <div className="line" />
+          <b>{cert.signatoryName}</b>
+          <span>{cert.signatoryTitle}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function VerifyPage() {
   const { token: routeToken } = useParams();
-  const effectiveToken = routeToken || initialToken || '';
-  const [tokenInput, setTokenInput] = useState(effectiveToken);
-  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState(routeToken || '');
+  const [view, setView] = useState('form'); // form | busy | ok | fail | stage
   const [cert, setCert] = useState(null);
-  const [error, setError] = useState('');
+  const [fail, setFail] = useState({ title: '', sub: '', replacement: null });
+  const [pdfImg, setPdfImg] = useState(null); // rendered issued-PDF front (admin-set design)
+  const [panelFx, setPanelFx] = useState(''); // '' | 'busy' | 'ripple' | 'deny'
+  const [okFading, setOkFading] = useState(false);
 
-  const handleVerify = async (queryToken) => {
-    const q = queryToken || tokenInput;
-    if (!q || !q.trim()) return;
+  const panelRef = useRef(null);
+  const headRef = useRef(null);
+  const badgeRef = useRef(null);
+  const fxRef = useRef(null);
+  const timersRef = useRef([]);
+  const pendingMorph = useRef(null);
+  const autoFired = useRef(false);
 
-    setLoading(true);
-    setError('');
-    setCert(null);
-
-    try {
-      const data = await api.verifyToken(q.trim());
-      setCert(data);
-    } catch (err) {
-      setError(err.message || 'Credential not found or invalid token');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const later = useCallback((fn, ms) => {
+    const id = setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  }, []);
 
   useEffect(() => {
-    if (effectiveToken) {
-      setTokenInput(effectiveToken);
-      handleVerify(effectiveToken);
+    const canvas = fxRef.current;
+    if (canvas) fitFx(canvas);
+    const onResize = () => { if (fxRef.current) fitFx(fxRef.current); };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      fxState.parts = [];
+    };
+  }, []);
+
+  const morphToStage = useCallback(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    pendingMorph.current = { w0: panel.offsetWidth, h0: panel.offsetHeight };
+    setView('stage');
+  }, []);
+
+  // FLIP panel morph (560px -> 920px) once the certificate stage renders
+  useLayoutEffect(() => {
+    if (view !== 'stage' || !pendingMorph.current) return undefined;
+    const { w0, h0 } = pendingMorph.current;
+    pendingMorph.current = null;
+    const panel = panelRef.current;
+    const head = headRef.current;
+    if (!panel || !head) return undefined;
+
+    panel.classList.add('morphed');
+    const headBottom = head.getBoundingClientRect().bottom;
+    const stripH = window.innerWidth < 560 ? 100 : 64;
+    const availH = window.innerHeight - headBottom - 64 - 54 - stripH - 40;
+    const cardH = Math.max(180, Math.min(509, availH));
+    panel.style.setProperty('--cardw', `${Math.min(720, Math.round((cardH * 2000) / 1414))}px`);
+
+    const w1 = Math.min(920, Math.round(window.innerWidth * 0.96));
+    panel.style.transition = 'none';
+    panel.style.width = `${w1}px`;
+    panel.style.height = 'auto';
+    const h1 = panel.scrollHeight;
+    panel.style.width = `${w0}px`;
+    panel.style.height = `${h0}px`;
+    void panel.offsetHeight; // eslint-disable-line no-void
+    panel.style.transition = 'width .75s cubic-bezier(.45,.05,.25,1), height .75s cubic-bezier(.45,.05,.25,1), background-color .35s ease, border-color .35s ease';
+    panel.style.width = `${w1}px`;
+    panel.style.height = `${h1}px`;
+    const t = setTimeout(() => {
+      panel.style.transition = 'none';
+      panel.style.width = '';
+      panel.style.height = '';
+      void panel.offsetHeight; // eslint-disable-line no-void
+      panel.style.transition = '';
+    }, 850);
+    return () => clearTimeout(t);
+  }, [view]);
+
+  const showDeny = useCallback((title, sub, replacement = null) => {
+    setPanelFx('deny');
+    setFail({ title, sub, replacement });
+    setView('fail');
+    later(() => setPanelFx(''), 900);
+  }, [later]);
+
+  const verify = useCallback(async (raw) => {
+    const id = (raw ?? input).trim();
+    if (!id) return;
+    setCert(null);
+    setOkFading(false);
+    setPdfImg(null);
+    setView('busy');
+    setPanelFx('busy');
+    const started = Date.now();
+    const settle = (fn) => {
+      const wait = Math.max(0, MIN_BUSY_MS - (Date.now() - started));
+      later(() => { setPanelFx(''); fn(); }, wait);
+    };
+    try {
+      const data = await api.verifyToken(id);
+      settle(() => {
+        if (data.verified && data.status === 'VALID') {
+          setCert(data);
+          setView('ok');
+          setPanelFx('ripple');
+          if (data.pdfAvailable) {
+            renderCertificateFront(data.certificateNumber)
+              .then((img) => { if (img) setPdfImg(img); })
+              .catch((e) => { console.warn('Certificate PDF render failed, using vector fallback:', e); });
+          }
+          later(() => {
+            const b = badgeRef.current?.getBoundingClientRect();
+            if (b && fxRef.current) burst(fxRef.current, b.left + b.width / 2, b.top + b.height / 2);
+          }, 430);
+          later(() => setPanelFx(''), 900);
+          later(() => setOkFading(true), 1400);
+          later(morphToStage, 1750);
+        } else if (data.status === 'REVOKED') {
+          showDeny(
+            'Certificate Revoked',
+            data.revocationReason
+              ? `This certificate was revoked: ${data.revocationReason}`
+              : 'This certificate has been revoked and is no longer valid.'
+          );
+        } else if (data.status === 'REPLACED') {
+          showDeny(
+            'Certificate Replaced',
+            `This certificate has been superseded by a newer version${data.replacement?.certificateNumber ? ` (${data.replacement.certificateNumber})` : ''}.`,
+            data.replacement || null
+          );
+        } else {
+          showDeny('Invalid or Unverified Certificate', 'Certificate not found or invalid token. Check the ID and try again.');
+        }
+      });
+    } catch (err) {
+      settle(() => {
+        if (err.status === 404 || err.status === 400) {
+          showDeny('Invalid or Unverified Certificate', 'Certificate not found or invalid token. Check the ID and try again.');
+        } else {
+          showDeny('Verification Unavailable', 'The registry could not be reached. Check your connection and try again.');
+        }
+      });
     }
-  }, [effectiveToken]);
+  }, [input, later, morphToStage, showDeny]);
+
+  // Auto-verify when landing on /verify/:token (e.g. QR scan from the PDF)
+  useEffect(() => {
+    if (routeToken && !autoFired.current) {
+      autoFired.current = true;
+      setInput(routeToken);
+      verify(routeToken);
+    }
+  }, [routeToken, verify]);
+
+  const reset = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    fxState.parts = [];
+    setView('form');
+    setCert(null);
+    setPdfImg(null);
+    setPanelFx('');
+    setOkFading(false);
+    setInput('');
+  };
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center p-3 bg-ink-950 rounded-2xl mb-3 shadow-md">
-          <ShieldCheck className="w-8 h-8 text-cyan-500" />
-        </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          Public Credential Verification
-        </h1>
-        <p className="mt-2 text-slate-600 text-sm max-w-lg mx-auto">
-          Verify the authentic issuance and current validity status of any NOXIRA credential directly in the official registry.
+    <div className="vfy">
+      <div className="vfy-glow g1" />
+      <div className="vfy-glow g2" />
+      <canvas className="vfy-fx" ref={fxRef} />
+
+      <div className="vfy-head" ref={headRef}>
+        <h1>Certificate Verification</h1>
+        <p className="vfy-lede">
+          Verify the authentic issuance and current validity status of any NOXIRA certificate directly in the official registry.
         </p>
       </div>
 
-      {/* Verification Lookup Input */}
-      <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-sm p-4 sm:p-6 mb-3">
-        <form onSubmit={(e) => { e.preventDefault(); handleVerify(); }} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              placeholder="Enter Certificate ID (e.g. NOX-2026-FSD-0001) or Verification Token"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading || !tokenInput.trim()}
-            className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-medium text-sm rounded-lg shadow-sm transition disabled:opacity-50"
+      <div className={`vfy-panel ${panelFx}`} ref={panelRef}>
+        {view === 'form' && (
+          <form
+            className="vfy-formrow"
+            onSubmit={(e) => { e.preventDefault(); verify(); }}
           >
-            {loading ? 'Verifying...' : 'Verify'}
-          </button>
-        </form>
-      </div>
+            <div className="vfy-inwrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.8-3.8" />
+              </svg>
+              <input
+                className="vfy-input"
+                type="text"
+                placeholder="Enter Certificate ID (e.g. NOX-2027-0101)"
+                autoComplete="off"
+                spellCheck="false"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                aria-label="Certificate ID or verification token"
+              />
+            </div>
+            <button className="vfy-btn" type="submit">Verify</button>
+          </form>
+        )}
 
-      {/* Registry Status Scope Notice */}
-      <div className="text-center text-xs text-slate-500 max-w-xl mx-auto mb-8 px-2">
-        This registry check confirms that the credential record exists and verifies its current status (VALID, REVOKED, or REPLACED). It confirms official issuance to the named recipient. It does not independently verify that an offline document's contents are unchanged without checking this portal.
-      </div>
-
-      {/* Error / Not Found */}
-      {error && (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center">
-          <div className="inline-flex p-3 bg-rose-100 rounded-full mb-2">
-            <XCircle className="w-6 h-6 text-rose-600" />
+        {view === 'busy' && (
+          <div>
+            <div className="vfy-orbwrap">
+              <div className="pulse" />
+              <div className="pulse p2" />
+              <div className="core" />
+              <div className="vfy-orbit"><i /><i /><i /></div>
+            </div>
+            <div className="vfy-busy-text">Verifying against the registry<span className="vfy-busy-dots" /></div>
           </div>
-          <h3 className="font-bold text-rose-900 text-base">Invalid or Unverified Credential</h3>
-          <p className="text-rose-700 text-sm mt-1">{error}</p>
-        </div>
-      )}
+        )}
 
-      {/* Verified Credential Card */}
-      {cert && (
-        <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-sm overflow-hidden">
-          {/* Status Banner */}
-          {cert.status === 'VALID' && (
-            <div className="bg-emerald-600 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-6 h-6" />
-                <div>
-                  <h3 className="font-bold text-sm tracking-wide uppercase">Officially Verified & Authentic</h3>
-                  <p className="text-emerald-100 text-xs">Issued by NOXIRA Technologies</p>
-                </div>
-              </div>
-              <span className="bg-emerald-700/60 px-3 py-1 rounded-full text-xs font-semibold tracking-wider">
-                STATUS: VALID
-              </span>
+        {view === 'ok' && (
+          <div className={`vfy-pop ${okFading ? 'vfy-fadeout' : ''}`}>
+            <div className="vfy-badgewrap" ref={badgeRef}>
+              <div className="vfy-shock" />
+              <div className="vfy-shock s2" />
+              <svg className="vfy-badge ok" viewBox="0 0 84 84">
+                <circle cx="42" cy="42" r="38" />
+                <path d="M27 43 L38 54 L58 32" />
+              </svg>
             </div>
-          )}
+            <div className="vfy-result-title vfy-ok-title">Officially Verified &amp; Authentic</div>
+            <div className="vfy-result-sub">Issued by NOXIRA Technologies - record status: VALID</div>
+          </div>
+        )}
 
-          {cert.status === 'REVOKED' && (
-            <div className="bg-rose-600 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <XCircle className="w-6 h-6" />
-                <div>
-                  <h3 className="font-bold text-sm tracking-wide uppercase">Certificate Revoked</h3>
-                  <p className="text-rose-100 text-xs">This credential has been officially invalidated.</p>
-                </div>
-              </div>
-              <span className="bg-rose-700/60 px-3 py-1 rounded-full text-xs font-semibold tracking-wider">
-                STATUS: REVOKED
-              </span>
+        {view === 'fail' && (
+          <div>
+            <div className="vfy-badgewrap">
+              <svg className="vfy-badge fail" viewBox="0 0 84 84">
+                <circle cx="42" cy="42" r="38" />
+                <path d="M31 31 L53 53" />
+                <path d="M53 31 L31 53" />
+              </svg>
             </div>
-          )}
-
-          {cert.status === 'REPLACED' && (
-            <div className="bg-amber-600 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-6 h-6" />
-                <div>
-                  <h3 className="font-bold text-sm tracking-wide uppercase">Superseded / Corrected</h3>
-                  <p className="text-amber-100 text-xs">This credential was replaced by an updated edition.</p>
-                </div>
-              </div>
-              <span className="bg-amber-700/60 px-3 py-1 rounded-full text-xs font-semibold tracking-wider">
-                STATUS: REPLACED
-              </span>
-            </div>
-          )}
-
-          {/* Details Body */}
-          <div className="p-6 sm:p-8 space-y-6">
-            <div>
-              <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Recipient Name</p>
-              <h2 className="text-2xl font-black text-slate-900 mt-1">{cert.recipientName}</h2>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-              <div>
-                <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Certification Program</p>
-                <p className="text-base font-semibold text-slate-800 mt-0.5">{cert.programTitle}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Unique Certificate ID</p>
-                <p className="text-base font-mono font-bold text-cyan-600 mt-0.5">{cert.certificateNumber}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-              <div>
-                <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Program Dates</p>
-                <p className="text-sm text-slate-700 mt-0.5">
-                  {new Date(cert.startDate).toLocaleDateString()} — {new Date(cert.endDate).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase font-bold tracking-wider text-slate-400">Date of Issuance</p>
-                <p className="text-sm text-slate-700 mt-0.5">{new Date(cert.issueDate).toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            {/* If Replaced, link to successor */}
-            {cert.status === 'REPLACED' && cert.replacement && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
-                <p className="text-xs text-amber-800 font-semibold uppercase tracking-wider mb-1">
-                  Corrected Successor Certificate Available
-                </p>
-                <p className="text-sm text-amber-900 mb-2">
-                  Reason for replacement: <em>"{cert.revocationReason}"</em>
-                </p>
-                <button
-                  onClick={() => {
-                    setTokenInput(cert.replacement.publicVerificationToken);
-                    handleVerify(cert.replacement.publicVerificationToken);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
-                >
-                  Inspect Corrected Certificate ({cert.replacement.certificateNumber})
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className="vfy-result-title vfy-fail-title">{fail.title}</div>
+            <div className="vfy-result-sub">{fail.sub}</div>
+            {fail.replacement?.publicVerificationToken && (
+              <Link className="vfy-repl" to={`/verify/${fail.replacement.publicVerificationToken}`} onClick={() => { autoFired.current = false; reset(); }}>
+                Verify the replacement certificate
+              </Link>
             )}
+            <button className="vfy-btn vfy-btn-block" type="button" onClick={reset}>Try Again</button>
+          </div>
+        )}
 
-            {/* If Revoked */}
-            {cert.status === 'REVOKED' && (
-              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 mt-4">
-                <p className="text-xs text-rose-800 font-semibold uppercase tracking-wider mb-1">
-                  Revocation Audit Reason
-                </p>
-                <p className="text-sm text-rose-900">
-                  {cert.revocationReason || 'Revoked per administrative policy.'}
-                </p>
+        {view === 'stage' && cert && (
+          <div className="vfy-stage">
+            <div className="vfy-entrance">
+              <div className="vfy-flip">
+                <div className="vfy-flip-inner">
+                  <div className="vfy-face front">
+                    {pdfImg ? <img src={pdfImg} alt="NOXIRA Certificate" /> : <CertificateFront cert={cert} />}
+                    <div className="vfy-sweep" />
+                  </div>
+                  <div className="vfy-face back">
+                    <div className="vfy-frame-outer" />
+                    <div className="vfy-frame-inner" />
+                    <div className="vfy-corner tl" />
+                    <div className="vfy-corner br" />
+                    <img className="vfy-back-logo" src="/noxira-wordmark.png" alt="NOXIRA logo" />
+                    <div className="vfy-back-name">NOXIRA TECHNOLOGIES</div>
+                    <div className="vfy-back-divider" />
+                    <div className="vfy-back-sub">Verified Certificate</div>
+                  </div>
+                </div>
               </div>
-            )}
-
-            {/* Privacy Shield Notice */}
-            <div className="border-t border-slate-100 pt-5 flex items-center gap-2 text-xs text-slate-400">
-              <Lock className="w-4 h-4 flex-shrink-0 text-slate-400" />
-              <span>
-                Zero personally identifiable information (email, phone, internal grades) is exposed publicly on this portal.
-              </span>
+            </div>
+            <div className="vfy-bloom" />
+            <div className="vfy-vstrip">
+              <span className="pill">STATUS: VALID</span>
+              <span className="who">{cert.recipientName}</span>
+              <span className="prog">{cert.programTitle}</span>
+              <span className="cid">{cert.certificateNumber}</span>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      <div className="vfy-notice">
+        This registry check confirms that the certificate record exists and verifies its current status (VALID, REVOKED, or REPLACED). Zero personally identifiable information is exposed publicly on this portal.
+      </div>
     </div>
   );
 }
