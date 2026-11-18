@@ -64,9 +64,9 @@
   pointer-events: none;
   transform: rotate(-3deg) scale(var(--fit, 1.05));
   will-change: transform;
-  -webkit-mask: linear-gradient(180deg, transparent 3%, #000 28%, #000 72%, transparent 97%), linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask: linear-gradient(180deg, transparent 0%, #000 7%, #000 93%, transparent 99%), linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
   -webkit-mask-composite: source-in;
-  mask: linear-gradient(180deg, transparent 3%, #000 28%, #000 72%, transparent 97%), linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask: linear-gradient(180deg, transparent 0%, #000 7%, #000 93%, transparent 99%), linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
   mask-composite: intersect;
 }
 
@@ -86,10 +86,10 @@
   letter-spacing: -0.03em;
   line-height: 0.95;
   padding-right: 0.25em;
-  background: linear-gradient(180deg, rgba(96, 190, 255, 0.26), rgba(40, 120, 230, 0.04) 95%);
+  background: linear-gradient(180deg, rgba(120, 200, 255, 0.14), rgba(40, 120, 230, 0.02) 95%);
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-stroke: 0;
+  -webkit-text-stroke: 1px rgba(110, 190, 255, 0.38);
   color: transparent;
   will-change: transform;
   backface-visibility: hidden;
@@ -112,16 +112,18 @@
   padding-left: 0.25em;
 }
 
+/* desktop row-size rhythm: thin, huge, medium, thin, mid, mid */
 .mqw:nth-child(1) .mq span,
 .mqw:nth-child(4) .mq span { font-size: clamp(46px, 7.5vw, 116px); font-weight: 300; letter-spacing: 0.06em; }
 .mqw:nth-child(1) .mq span.o,
 .mqw:nth-child(4) .mq span.o { font-style: normal; }
 .mqw:nth-child(1),
 .mqw:nth-child(4) { filter: blur(1.5px); opacity: 0.95; }
-.mqw:nth-child(2) .mq span,
-.mqw:nth-child(6) .mq span { font-size: clamp(90px, 15vw, 230px); }
-.mqw:nth-child(3) .mq span,
-.mqw:nth-child(5) .mq span { font-size: clamp(60px, 10vw, 150px); }
+.mqw:nth-child(2) .mq span { font-size: clamp(90px, 15vw, 230px); }
+.mqw:nth-child(3) .mq span { font-size: clamp(60px, 10vw, 150px); }
+.mqw:nth-child(5) .mq span,
+.mqw:nth-child(6) .mq span { font-size: clamp(70px, 10vw, 160px); }
+.mqw:nth-child(6) { filter: blur(2px); opacity: 0.78; }
 
 /* Hero Headline */
 .hv2 h1.big.hq {
@@ -283,9 +285,17 @@
     font-size: 14px;
     padding: 12px 22px;
   }
-  .mqw:nth-child(1) .mq span, .mqw:nth-child(4) .mq span, .mqw:nth-child(8) .mq span { font-size: 50px; }
-  .mqw:nth-child(2) .mq span, .mqw:nth-child(6) .mq span { font-size: 104px; }
-  .mqw:nth-child(3) .mq span, .mqw:nth-child(5) .mq span, .mqw:nth-child(7) .mq span { font-size: 68px; }
+  .mqs {
+    inset: 84px -12% 20px;
+    justify-content: center;
+    gap: 1.2vh;
+    -webkit-mask: linear-gradient(180deg, transparent 0%, #000 6%, #000 93%, transparent 99%);
+    mask: linear-gradient(180deg, transparent 0%, #000 6%, #000 93%, transparent 99%);
+  }
+  .mqw:nth-child(1) .mq span, .mqw:nth-child(4) .mq span, .mqw:nth-child(5) .mq span, .mqw:nth-child(8) .mq span { font-size: 56px; }
+  .mqw:nth-child(2) .mq span, .mqw:nth-child(6) .mq span { font-size: 112px; }
+  .mqw:nth-child(3) .mq span, .mqw:nth-child(7) .mq span { font-size: 76px; }
+  .mqw:nth-child(5), .mqw:nth-child(8) { filter: blur(1.5px); opacity: 0.95; }
 }
 
 /* Responsive: Compact Phone Screen (< 480px) */
