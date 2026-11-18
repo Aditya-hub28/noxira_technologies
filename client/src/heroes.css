@@ -3,12 +3,13 @@
 .hv {
   position: relative;
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100dvh;
   overflow: hidden;
   display: flex;
   align-items: center;
   padding: 120px 6vw 70px;
   background: radial-gradient(ellipse 60% 70% at 24% 62%, rgba(56, 200, 255, 0.1), transparent 70%), #0b0c0f;
+  box-sizing: border-box;
 }
 
 .hv-c {
@@ -233,8 +234,11 @@
 @media (max-width: 767px) {
   .hv {
     align-items: center;
-    padding: 92px 20px 48px;
-    min-height: auto;
+    justify-content: center;
+    padding: 80px 20px 40px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-sizing: border-box;
   }
   .hv2 .rd {
     max-width: 100%;
@@ -266,7 +270,10 @@
 /* Responsive: Compact Phone Screen (< 480px) */
 @media (max-width: 480px) {
   .hv {
-    padding: 86px 16px 40px;
+    padding: 76px 16px 32px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-sizing: border-box;
   }
   .hv2 h1.big.hq {
     font-size: clamp(22px, 7.8vw, 30px);
