@@ -266,7 +266,7 @@ export default function DownloadOfferLetterPage() {
   };
 
   return (
-    <div className="vfy-wrap">
+    <div className="vfy">
       <canvas ref={fxRef} className="vfy-fx" />
       <div ref={headRef} className="vfy-head">
         <h1>Download Offer Letter</h1>
@@ -371,7 +371,7 @@ export default function DownloadOfferLetterPage() {
             </div>
             <div className="vfy-bloom" />
             <div className="vfy-vstrip">
-              <span className="pill">STATUS: ISSUED</span>
+              <span className="pill">OFFER ISSUED</span>
               <span className="who">{offer.recipientName}</span>
               <span className="prog">{offer.programTitle}</span>
               <span className="cid">{offer.applicationId}</span>
