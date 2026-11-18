@@ -6,7 +6,6 @@ import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '..
 import {
   ExternalLink,
   Clock,
-  IndianRupee,
   Users,
   RotateCcw,
   AlertTriangle,
@@ -68,7 +67,7 @@ export default function ApplyPage() {
           Programs
         </h1>
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          Pick your 1-month track and apply in under a minute. Applying is free; the Task Submission &amp; Review Fee is payable only at final submission.
+          Pick your 1-month track and apply in under a minute.
         </p>
       </div>
 
@@ -168,10 +167,6 @@ export default function ApplyPage() {
                   <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                     <Clock className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
                     <span>Duration: 1 Month (4 Weeks)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                    <IndianRupee className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                    <span>Applying is free · ₹{Number(prg.feeInr ?? 99).toLocaleString('en-IN')} only at final submission</span>
                   </div>
                   {prg.seats != null && (
                     <div className="flex items-center gap-1.5 text-slate-700 font-medium">
