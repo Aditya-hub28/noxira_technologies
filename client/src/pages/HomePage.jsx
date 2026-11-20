@@ -259,50 +259,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 02 - SKILL COURSE AND CAREER TOOLS */}
-      <section id="career-tools">
-        <div className="wrap">
-          <p className="kick rv">02 - SKILL COURSE AND CAREER TOOLS</p>
-          <h2 className="rv">
-            Learn it. Prove it.
-            <br />
-            Get hired.
-          </h2>
-          <div className="grid g3">
-            {[
-              ['Browse Courses', 'skill courses to pick from'],
-              ['My Certificates', 'all your certificates in one place'],
-              ['Skill Certificate verification', 'verify a skill certificate'],
-              ['Check ATS Score', 'see how your resume reads'],
-              ['Job Email Builder', 'write the application email'],
-              ['Interview Preparation', 'get ready before the call'],
-            ].map(([a, b], i) => (
-              <div
-                className="card rv cursor-pointer transition hover:border-cyan-400/50"
-                key={a}
-                role="button"
-                tabIndex={0}
-                onClick={() => soon(a)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    soon(a);
-                  }
-                }}
-              >
-                <small>0{i + 1}</small>
-                <b>{a}</b>
-                <span>{b}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 03 - JOURNEY (The 6-Step Internship Journey) */}
+      {/* 02 - JOURNEY (The 6-Step Internship Journey) */}
       <section id="journey">
         <div className="wrap">
-          <p className="kick rv">03 - JOURNEY</p>
+          <p className="kick rv">02 - JOURNEY</p>
           <h2 className="rv">The 6-Step Internship Journey</h2>
           <div className="grid g3">
             {[
@@ -347,10 +307,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 04 - SERVICES */}
+      {/* 03 - SERVICES */}
       <section id="services">
         <div className="wrap">
-          <p className="kick rv">04 - SERVICES</p>
+          <p className="kick rv">03 - SERVICES</p>
           <h2 className="rv">What we build.</h2>
           <div className="grid g2">
             <div className="card big rv">
@@ -407,10 +367,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 05 - CONTACT PLACEHOLDER */}
+      {/* 04 - CONTACT PLACEHOLDER */}
       <section id="contact">
         <div className="wrap">
-          <p className="kick rv">05 - CONTACT</p>
+          <p className="kick rv">04 - CONTACT</p>
           <h2 className="rv">Get in Touch</h2>
           <div className="card rv text-center p-8 space-y-3">
             <b>Inquiries &amp; Partnerships</b>

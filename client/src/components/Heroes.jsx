@@ -79,9 +79,9 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
     'APPS',
     'CERTIFICATES',
     'INTERNSHIPS',
-    'SKILL COURSE',
+    'PROJECTS',
     'TRAINING',
-    'CAREER TOOLS',
+    'WEBSITES',
   ];
 
   const allRows = isMobile
@@ -92,16 +92,16 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
         ['INTERNSHIPS'],
         ['PROJECTS', 'CERTIFICATES'],
         ['JOURNEY'],
-        ['SKILL COURSE'],
-        ['CAREER TOOLS', 'TRAINING'],
+        ['PROJECTS'],
+        ['WEBSITES', 'TRAINING'],
       ]
     : [
         ['WEBSITES', 'PROJECTS'],
         ['AI AUTOMATION', 'APPS'],
         ['INTERNSHIPS', 'JOURNEY'],
         ['CERTIFICATES', 'TRAINING'],
-        ['SKILL COURSE'],
-        ['CAREER TOOLS'],
+        ['PROJECTS'],
+        ['WEBSITES'],
       ];
 
   const root = useIntro((r) => {

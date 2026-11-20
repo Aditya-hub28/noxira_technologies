@@ -1,5 +1,5 @@
 export default {
-  links:['Home','Internships','Tools','Services','More'],
+  links:['Home','Internships','Services','More'],
   /* Desktop navbar dropdown items - the exact submenu options the mobile drawer
      already lists for Internships and More (Menu.jsx reads these same lists). */
   subs:{
