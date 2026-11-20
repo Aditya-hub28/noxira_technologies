@@ -1,3 +1,4 @@
+const { validateApprovedOfferProgram } = require('../config/approvedOfferTemplate');
 const fs = require('fs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -191,6 +192,7 @@ async function generateOfferForApplication(applicationId, options = {}) {
 
   const participant = application.participantId;
   const program = await Program.findOne({ code: application.programCode }).lean();
+  validateApprovedOfferProgram(template, program);
 
   const recipientSnapshot = {
     fullName: participant ? participant.fullName : 'Applicant',
