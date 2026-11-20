@@ -135,6 +135,37 @@ export default function JourneyBoard({ steps }) {
     build();
     const LOOP = T0 + total * PER + 1400;
 
+    // Intro: on every entry the drums roll (same easing as later steps) from a scrambled
+    // position and settle on step 1, so APPLY is never shown as a static word.
+    const INTRO = 2500;
+    const intro = drums.map((_, s) => [s * 90, 1500 + (s % 3) * 140, -(360 + ((s * 7 + 5) % 13 + 4) * STEP)]);
+    let introOn = false, introPrev = 0;
+    const seekIntro = (ms) => {
+      drums.forEach((d, s) => {
+        const [i0, dur, off] = intro[s];
+        const from = d.initial + off, to = d.initial;
+        const t = Math.max(0, Math.min(1, (ms - i0) / dur));
+        const OVER = 4;
+        const a = t < 0.85
+          ? from + (to + OVER - from) * easeInOutCubic(t / 0.85)
+          : to + OVER - OVER * easeInOutQuad((t - 0.85) / 0.15);
+        setAngle(d, a);
+      });
+      if (lastIdx !== 0) { lastIdx = 0; setActive(0); }
+    };
+    const introSound = (ms) => {
+      if (!on || !ctx || ctx.state !== 'running') return;
+      drums.forEach((d, slot) => {
+        const face = Math.floor((d.angle + 0.0001) / STEP);
+        const pf = Math.floor(((d.prevAngle ?? d.angle) + 0.0001) / STEP);
+        if (face > pf) for (let i = 0, n = Math.min(face - pf, 8); i < n; i++) clack(false, slot);
+        d.prevAngle = d.angle;
+        const end = intro[slot][0] + intro[slot][1];
+        if (introPrev < end && ms >= end) clack(true, slot);
+      });
+      introPrev = ms;
+    };
+
     let lastIdx = -1;
     const seek = (ms) => {
       drums.forEach((d, s) => {
@@ -171,6 +202,12 @@ export default function JourneyBoard({ steps }) {
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
       if (!visible) return;
+      if (introOn) {
+        const e = now - t0;
+        if (e < INTRO) { seekIntro(e); introSound(e); return; }
+        introOn = false; t0 = now; prev = 0; seek(0);
+        return;
+      }
       const ms = (now - t0) % LOOP;
       seek(ms);
       soundFrame(prev, ms);
@@ -179,6 +216,7 @@ export default function JourneyBoard({ steps }) {
 
     ctl.current.go = (i) => {
       if (reduce) { showWord(i); lastIdx = i; setActive(i); return; }
+      introOn = false;
       const start = i === 0 ? T0 + (total - 1) * PER : T0 + (i - 1) * PER;
       t0 = performance.now() - start;
       prev = start;
@@ -199,11 +237,13 @@ export default function JourneyBoard({ steps }) {
       lastIdx = -1;
       if (reduce) { showWord(0); setActive(0); lastIdx = 0; return; }
       t0 = performance.now(); prev = 0;
-      seek(0);
+      introOn = true; introPrev = 0;
+      drums.forEach((d) => { d.prevAngle = undefined; });
+      seekIntro(0);
       visible = true;
     };
     const halt = () => {
-      visible = false;
+      visible = false; introOn = false;
       if (reduce) { showWord(0); setActive(0); lastIdx = 0; return; }
       seek(0);
     };
