@@ -5,7 +5,7 @@ import { ScrollSmoother } from 'gsap/all';
 import markup from '../shell/markup.html?raw';
 import { mountShell, makeSmoother, killSmoother } from '../shell/shell.js';
 import config from '../nx.config.js';
-import { currentTheme, toggleTheme } from '../theme.js';
+import SnowGlobeToggle from './SnowGlobeToggle.jsx';
 import { soon } from '../utils/toast.js';
 import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 import { useStudentAuth } from '../context/StudentAuthContext';
@@ -16,7 +16,6 @@ export default function SiteShell({ onToggleMobileMenu }) {
   const { googleForm1Url, isFormConfigured } = useSiteSettings();
   const { student, logout } = useStudentAuth();
 
-  const [theme, setTheme] = useState(currentTheme());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({ left: '0px', top: '0px' });
 
@@ -24,13 +23,6 @@ export default function SiteShell({ onToggleMobileMenu }) {
   const dropdownRef = useRef(null);
   const shellInstanceRef = useRef(null);
   const navRef = useRef(null);
-
-  // Sync theme icon with state
-  useEffect(() => {
-    const handleThemeChange = () => setTheme(currentTheme());
-    window.addEventListener('nx:theme', handleThemeChange);
-    return () => window.removeEventListener('nx:theme', handleThemeChange);
-  }, []);
 
   // Mount loader & liquid-glass shell once
   useEffect(() => {
@@ -337,16 +329,8 @@ export default function SiteShell({ onToggleMobileMenu }) {
           </span>
         )}
 
-        {/* Theme Toggle Button */}
-        <button
-          type="button"
-          className="nxtheme"
-          aria-label={theme === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
-          title={theme === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
-          onClick={() => toggleTheme()}
-        >
-          {theme === 'light' ? '☀️' : '🌝'}
-        </button>
+        {/* Theme Toggle: snow-globe pill (day = light, night = dark) */}
+        <SnowGlobeToggle />
 
         {/* Mobile Burger Menu Icon */}
         <span
