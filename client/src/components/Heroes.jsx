@@ -292,9 +292,12 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
       const nat =
         ws.reduce((a, w) => a + w.offsetHeight, 0) +
         parseFloat(getComputedStyle(mqs).rowGap || 0) * (ws.length - 1);
+      // Fit the stack to the conveyor's own box (not the viewport height) and keep a
+      // small margin so the tilted rows never slice at the top or bottom edge.
+      const area = mqs.clientHeight || window.innerHeight;
       mqs.style.setProperty(
         '--fit',
-        Math.min(1.6, Math.max(0.85, (window.innerHeight * 1) / (nat * Math.cos((3 * Math.PI) / 180)))).toFixed(3)
+        Math.min(1.6, Math.max(0.45, (area * 0.95) / (nat * Math.cos((3 * Math.PI) / 180)))).toFixed(3)
       );
     };
 

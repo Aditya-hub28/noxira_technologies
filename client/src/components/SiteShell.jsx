@@ -341,11 +341,24 @@ export default function SiteShell({ onToggleMobileMenu }) {
         <button
           type="button"
           className="nxtheme"
+          role="switch"
+          aria-checked={theme !== 'light'}
           aria-label={theme === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
           title={theme === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
           onClick={() => toggleTheme()}
         >
-          {theme === 'light' ? '☀️' : '🌝'}
+          <span className="nxthumb" aria-hidden="true" />
+          <span className="nxsun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <circle cx="12" cy="12" r="3.5" />
+              <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
+          </span>
+          <span className="nxmoon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.2 14.2A8.5 8.5 0 0 1 9.8 3.8a8.5 8.5 0 1 0 10.4 10.4Z" />
+            </svg>
+          </span>
         </button>
 
         {/* Mobile Burger Menu Icon */}
