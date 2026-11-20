@@ -1,0 +1,86 @@
+[
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "applicationId",
+    "label": "Ref (Application ID)",
+    "x": 84,
+    "y": 137.8,
+    "maxWidth": 150,
+    "isRequired": true
+  },
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "issueDate",
+    "label": "Date",
+    "x": 92,
+    "y": 156.5,
+    "maxWidth": 150,
+    "isRequired": true
+  },
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "studentName",
+    "label": "To (Candidate Name)",
+    "x": 316,
+    "y": 137.8,
+    "maxWidth": 225,
+    "isRequired": true
+  },
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "email",
+    "label": "Candidate Email",
+    "x": 312,
+    "y": 156.5,
+    "maxWidth": 230,
+    "isRequired": false
+  },
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "phone",
+    "label": "Candidate Phone",
+    "x": 312,
+    "y": 175.2,
+    "maxWidth": 230,
+    "isRequired": false
+  },
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "programTitle",
+    "label": "Programme",
+    "x": 203.5,
+    "y": 305.0,
+    "maxWidth": 340,
+    "isRequired": true
+  },
+  {
+    "page": 1,
+    "fontSize": 10,
+    "fontColor": "#23233a",
+    "alignment": "left",
+    "id": "startDate",
+    "label": "Start Date",
+    "x": 203.5,
+    "y": 350.0,
+    "maxWidth": 200,
+    "isRequired": true
+  }
+]
