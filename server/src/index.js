@@ -392,6 +392,76 @@ async function autoSeedIfEmpty() {
     }
   }
 
+  // Scoped development restore: ensure the approved offer template is available and restored as active
+  const approvedSha = '461dacc94ceb2c1ab47b2adf6366aebbc844e41258894dff85c61d3af57ebaee';
+  const existingApproved = await OfferLetterTemplate.findOne({ pdfSha256: approvedSha });
+  if (!existingApproved) {
+    const manifestPath = path.resolve(__dirname, '../storage/certificates/offer_templates/approved_template_manifest.json');
+    const repoAssetPath = path.resolve(__dirname, 'assets/2-NOXIRA-approved-offer-background.pdf');
+
+    let templateDataToRestore = null;
+    if (fs.existsSync(manifestPath)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.pdfStoragePath && fs.existsSync(manifest.pdfStoragePath)) {
+          templateDataToRestore = manifest;
+        }
+      } catch (_) {}
+    }
+
+    if (!templateDataToRestore && fs.existsSync(repoAssetPath)) {
+      try {
+        const { identifyApprovedOffer, APPROVED_OFFER_NAME } = require('./config/approvedOfferTemplate');
+        const buf = fs.readFileSync(repoAssetPath);
+        const recognized = identifyApprovedOffer(buf);
+        if (recognized.approved) {
+          const validation = await offerPdfService.validateUploadedOfferPdf(buf);
+          const savedStorage = await storageService.saveOfferTemplateFile(buf, 'template_approved_offer_4w.pdf');
+          const savedPath = savedStorage.diskPath || String(savedStorage);
+          templateDataToRestore = {
+            name: APPROVED_OFFER_NAME,
+            version: 2,
+            pdfSha256: recognized.sha256,
+            pdfStoragePath: savedPath,
+            pdfSizeBytes: buf.length,
+            pageCount: validation.pageCount,
+            pageDimensions: validation.pageDimensions,
+            fields: recognized.fields,
+            isActive: true
+          };
+        }
+      } catch (assetErr) {
+        console.error('Failed to restore approved offer asset:', assetErr.message);
+      }
+    }
+
+    if (templateDataToRestore) {
+      try {
+        const Admin = require('./models/Admin');
+        const admin = await Admin.findOne({ email: 'admin@noxira.com' });
+        await OfferLetterTemplate.updateMany({ isActive: true }, { $set: { isActive: false } });
+        await OfferLetterTemplate.create({
+          name: templateDataToRestore.name,
+          version: templateDataToRestore.version || 2,
+          isSample: false,
+          isActive: templateDataToRestore.isActive !== false,
+          pdfStoragePath: templateDataToRestore.pdfStoragePath,
+          pdfSizeBytes: templateDataToRestore.pdfSizeBytes || fs.statSync(templateDataToRestore.pdfStoragePath).size,
+          pdfSha256: templateDataToRestore.pdfSha256,
+          pageCount: templateDataToRestore.pageCount || 1,
+          pageDimensions: templateDataToRestore.pageDimensions || [{ pageNumber: 1, width: 594.96, height: 841.92 }],
+          fields: templateDataToRestore.fields,
+          createdBy: admin ? admin._id : undefined,
+          activatedAt: new Date(),
+          activatedBy: admin ? admin._id : undefined
+        });
+        console.log('📄 Approved NOXIRA Offer Template durably restored and activated in development.');
+      } catch (restoreErr) {
+        console.error('Failed to provision approved offer template:', restoreErr.message);
+      }
+    }
+  }
+
   const Application = require('./models/Application');
   const appCount = await Application.countDocuments();
   if (appCount === 0) {

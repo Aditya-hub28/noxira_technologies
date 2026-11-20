@@ -2,11 +2,17 @@
 
 The approved NOXIRA background has a fixed **4 Weeks** duration. The PDF includes the signature, stamp, logo, footer and static terms. Those elements must not be redrawn by the renderer.
 
-## Install after merge and deployment
+## Approved asset location and durability
 
-The signed PDF is intentionally not committed to this public repository. Use the exact PDF privately delivered to the owner, not an older filled-in offer or a re-export. Its SHA-256 is:
+The approved signed blank PDF background has been explicitly approved for inclusion in the repository at:
+`server/src/assets/2-NOXIRA-approved-offer-background.pdf` (commit `474c5cf6d7b8a90d85be68973b4c07c9c1f477a7`).
 
+Its SHA-256 is:
 `461dacc94ceb2c1ab47b2adf6366aebbc844e41258894dff85c61d3af57ebaee`
+
+Runtime uploads, private manifests, and candidate-issued letters continue to reside exclusively in private authenticated server storage (`server/storage/certificates/`), never in git or public client bundles.
+
+In local development environments without an external MongoDB connection (using the embedded MongoMemoryServer fallback), a scoped restore automatically ensures this approved template is provisioned and restored as active across server restarts using the private disk storage.
 
 1. Deploy this feature, sign in to the existing admin console and open **Offer Letter Studio**.
 2. Upload that PDF. The authenticated server stores it privately and recognizes its hash. It preloads all seven tested field positions from `server/src/config/approvedOfferFields.json`. Other PDFs retain the generic starter mapping.
