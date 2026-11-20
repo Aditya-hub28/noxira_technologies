@@ -70,12 +70,21 @@ html[data-theme="light"] .mlk{color:#3c4655;border-left-color:rgba(10,143,214,.4
 html[data-theme="light"] .mlk:hover,html[data-theme="light"] .mlk:active{background:rgba(10,143,214,.08);color:#0a8fd6}
 html[data-theme="light"] .demon{color:#5a6572}
 
-/* ---------- theme toggle button (liquid glass, ☀️ bright / 🌝 dark) ---------- */
-.nxtheme{all:unset;box-sizing:border-box;cursor:pointer;display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:17px;line-height:1;color:#f4f1ea;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(1px) saturate(1.8);backdrop-filter:url(#lg) blur(1px) saturate(1.8);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.55),inset 0 -1.5px 1px rgba(255,255,255,.3),inset 0 0 14px rgba(255,255,255,.12),0 8px 20px rgba(0,0,0,.35);touch-action:manipulation;transition:transform .15s ease}
-.nxtheme:active{transform:scale(.88)}
-html[data-theme="light"] .nxtheme{color:#101724;background:rgba(255,255,255,.6);border:1px solid rgba(13,20,32,.14);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),inset 0 -1.5px 1px rgba(255,255,255,.4),inset 0 0 14px rgba(255,255,255,.25),0 8px 20px rgba(20,35,60,.16)}
+/* ---------- theme toggle: quiet glass pill with thin sun/moon line icons ---------- */
+.nxtheme{all:unset;box-sizing:border-box;position:relative;display:inline-flex;align-items:center;justify-content:space-between;width:74px;height:36px;padding:4px;flex:none;border-radius:999px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.13);box-shadow:inset 0 1px 2px rgba(0,0,0,.14),0 1px 0 rgba(255,255,255,.035);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background-color .35s ease,border-color .35s ease}
+.nxtheme:before{content:'';position:absolute;inset:-5px 0;z-index:-1}
+.nxtheme:focus-visible{outline:2px solid #38c8ff;outline-offset:4px}
+.nxtheme>span:not(.nxthumb){width:28px;height:26px;display:grid;place-items:center;position:relative;z-index:1;color:#878d98;transition:color .3s}
+.nxtheme svg{width:16px;height:16px;display:block}
+.nxtheme .nxthumb{position:absolute;left:3px;top:3px;width:28px;height:28px;border-radius:50%;transform:translateX(38px);background:linear-gradient(160deg,rgba(255,255,255,.17),rgba(255,255,255,.07));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 1px rgba(255,255,255,.2),0 2px 5px rgba(0,0,0,.18);transition:transform .38s cubic-bezier(.22,1,.36,1),background-color .35s ease,border-color .35s ease,scale .16s ease}
+.nxtheme:active .nxthumb{scale:.94}
+html:not([data-theme="light"]) .nxtheme .nxmoon{color:#f4f5f7}
+html[data-theme="light"] .nxtheme{background:rgba(12,20,32,.04);border-color:rgba(13,20,32,.12);box-shadow:inset 0 1px 2px rgba(13,20,32,.08)}
+html[data-theme="light"] .nxtheme>span:not(.nxthumb){color:#828a97}
+html[data-theme="light"] .nxtheme .nxsun{color:#1e293b}
+html[data-theme="light"] .nxtheme .nxthumb{transform:translateX(0);background:linear-gradient(160deg,#fff,#f4f6fa);border-color:rgba(255,255,255,.8);box-shadow:0 1px 4px rgba(13,20,32,.13),inset 0 1px 1px #fff}
 /* drawer: sits just left of the X close button */
-.nxmenu .nxtheme{position:absolute;top:18px;right:64px;z-index:2}
+.nxmenu .nxtheme{position:absolute;top:19px;right:62px;z-index:2}
 /* desktop navbar: pill row; hidden on mobile (toggle lives beside the menu X there) */
 @media(max-width:1023px){#nav .nxtheme{display:none}}
 
