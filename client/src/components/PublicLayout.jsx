@@ -75,7 +75,7 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                     <li><Link to="/" className="hover:text-cyan-400 transition">Home Overview</Link></li>
                     <li><a href="/#services" className="hover:text-cyan-400 transition">Software Services</a></li>
                     <li><Link to="/programs" className="hover:text-cyan-400 transition">All Programmes</Link></li>
-                    <li><a href="/#journey" className="hover:text-cyan-400 transition">6-Step Journey</a></li>
+                    <li><a href="/#journey" className="hover:text-cyan-400 transition">8-Step Journey</a></li>
                     <li><Link to="/apply" className="hover:text-cyan-400 transition">Candidate Application</Link></li>
                     <li><Link to="/offer-letter" className="hover:text-cyan-400 transition">Download Offer Letter</Link></li>
                     <li><Link to="/verify" className="hover:text-cyan-400 transition">Public Verification Portal</Link></li>
