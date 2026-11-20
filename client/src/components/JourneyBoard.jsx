@@ -26,7 +26,7 @@ export default function JourneyBoard({ steps }) {
   const stageRef = useRef(null);
   const ctl = useRef({ go: () => {}, sound: () => {} });
   const [active, setActive] = useState(0);
-  const [soundOn, setSoundOn] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
   const [soundOk, setSoundOk] = useState(true);
 
   useEffect(() => {
@@ -59,8 +59,8 @@ export default function JourneyBoard({ steps }) {
     fit();
     window.addEventListener('resize', fit);
 
-    // Audio (procedural, optional, off by default)
-    let ctx = null, noise = null, master = null, on = false;
+    // Audio (procedural). Default ON, but browsers keep it silent until the first tap/click/key.
+    let ctx = null, noise = null, master = null, on = true;
     const setupAudio = () => {
       if (ctx) return true;
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -77,6 +77,13 @@ export default function JourneyBoard({ steps }) {
       master.connect(comp); comp.connect(ctx.destination);
       return true;
     };
+    const unlock = () => {
+      if (!on || !setupAudio()) return;
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    };
+    const unlockEvents = ['pointerdown', 'touchend', 'keydown', 'click'];
+    unlockEvents.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+    setupAudio();
     const clack = (strong, slot) => {
       if (!on || !ctx || ctx.state !== 'running') return;
       const t = ctx.currentTime;
@@ -191,6 +198,7 @@ export default function JourneyBoard({ steps }) {
       cancelAnimationFrame(raf);
       io.disconnect();
       window.removeEventListener('resize', fit);
+      unlockEvents.forEach((e) => window.removeEventListener(e, unlock));
       if (ctx) ctx.close().catch(() => {});
     };
   }, [steps]);
