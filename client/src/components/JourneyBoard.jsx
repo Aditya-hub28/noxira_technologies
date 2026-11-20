@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import iconUrl from '../assets/noxira-icon-roller.svg';
 import './JourneyBoard.css';
+
+gsap.registerPlugin(ScrollTrigger);
 
 // Rolling-drum journey board (approved Nov 14 demo). 8 fixed slots, one revolution per change.
 const SLOTS = 8;
@@ -150,7 +154,7 @@ export default function JourneyBoard({ steps }) {
       if (wi !== lastIdx) { lastIdx = wi; setActive(wi); }
     };
 
-    let t0 = performance.now(), prev = 0, raf = 0, visible = true;
+    let t0 = performance.now(), prev = 0, raf = 0, visible = false;
     const soundFrame = (p, ms) => {
       if (!on || !ctx || ctx.state !== 'running' || ms < p || ms - p > 120) return;
       drums.forEach((d, slot) => {
@@ -189,14 +193,36 @@ export default function JourneyBoard({ steps }) {
       setSoundOn(on);
     };
 
-    const io = new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { threshold: 0.05 });
-    io.observe(stage);
-
+    // GSAP ScrollTrigger: run only while the Journey section is on screen.
+    // Every entry (scrolling down or back up) restarts from step 1; leaving stops and resets.
+    const begin = () => {
+      lastIdx = -1;
+      if (reduce) { showWord(0); setActive(0); lastIdx = 0; return; }
+      t0 = performance.now(); prev = 0;
+      seek(0);
+      visible = true;
+    };
+    const halt = () => {
+      visible = false;
+      if (reduce) { showWord(0); setActive(0); lastIdx = 0; return; }
+      seek(0);
+    };
+    const section = stage.parentElement || stage;
+    const st = ScrollTrigger.create({
+      trigger: section,
+      start: 'top 85%',
+      end: 'bottom 15%',
+      onEnter: begin,
+      onEnterBack: begin,
+      onLeave: halt,
+      onLeaveBack: halt,
+    });
     if (reduce) { showWord(0); setActive(0); } else { seek(0); raf = requestAnimationFrame(loop); }
+    if (st.isActive) begin();
 
     return () => {
       cancelAnimationFrame(raf);
-      io.disconnect();
+      st.kill();
       window.removeEventListener('resize', fit);
       unlockEvents.forEach((e) => window.removeEventListener(e, unlock));
       if (ctx) ctx.close().catch(() => {});
