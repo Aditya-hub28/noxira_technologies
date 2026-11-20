@@ -25,10 +25,6 @@ import ProgramDetailPage from './pages/ProgramDetailPage';
 import ApplyPage from './pages/ApplyPage';
 import DownloadOfferLetterPage from './pages/DownloadOfferLetterPage';
 import VerifyPage from './pages/VerifyPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import AccountPage from './pages/AccountPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import DashboardOverview from './pages/DashboardOverview';
 import AdminProgramsPage from './pages/AdminProgramsPage';
@@ -45,7 +41,6 @@ import DistributionPage from './pages/DistributionPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
-import { StudentAuthProvider } from './context/StudentAuthContext';
 
 function AdminConsole({ admin, onLogout }) {
   const navigate = useNavigate();
@@ -220,13 +215,11 @@ function AppContent() {
       {/* Public Pages wrapped in PublicLayout */}
       <Route
         element={
-          <StudentAuthProvider>
-            <PublicLayout
-              admin={admin}
-              onLogout={handleLogout}
-              onOpenAdminLogin={() => navigate('/admin/login')}
-            />
-          </StudentAuthProvider>
+          <PublicLayout
+            admin={admin}
+            onLogout={handleLogout}
+            onOpenAdminLogin={() => navigate('/admin/login')}
+          />
         }
       >
         <Route path="/" element={<HomePage />} />
@@ -240,10 +233,10 @@ function AppContent() {
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
         <Route path="/review-rules" element={<PolicyPage slug="review" />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/account" element={<AccountPage />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/signup" element={<Navigate to="/" replace />} />
+        <Route path="/forgot-password" element={<Navigate to="/" replace />} />
+        <Route path="/account" element={<Navigate to="/" replace />} />
       </Route>
 
       {/* Admin Login Route */}
