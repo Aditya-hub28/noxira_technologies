@@ -3,6 +3,7 @@ const OfferLetterTemplate = require('../models/OfferLetterTemplate');
 const AuditLog = require('../models/AuditLog');
 const storageService = require('../services/storageService');
 const offerPdfService = require('../services/offerPdfService');
+const { identifyApprovedOffer, APPROVED_OFFER_NAME } = require('../config/approvedOfferTemplate');
 
 /**
  * List all offer letter templates.
@@ -61,7 +62,8 @@ exports.uploadTemplate = async (req, res, next) => {
     }
 
     const { name } = req.body;
-    const cleanName = (name || req.file.originalname || 'Custom Offer Template').trim();
+    const recognized = identifyApprovedOffer(req.file.buffer);
+    const cleanName = (name || (recognized.approved ? APPROVED_OFFER_NAME : req.file.originalname) || 'Custom Offer Template').trim();
 
     // Byte & structure validation: magic header, unencrypted, 1-5 pages
     const validation = await offerPdfService.validateUploadedOfferPdf(req.file.buffer);
@@ -75,8 +77,9 @@ exports.uploadTemplate = async (req, res, next) => {
     const highestVer = await OfferLetterTemplate.findOne().sort({ version: -1 }).select('version').lean();
     const nextVersion = highestVer ? highestVer.version + 1 : 1;
 
-    // Use default sample fields as starter layout
-    const initialFields = offerPdfService.DEFAULT_SAMPLE_FIELDS.map((f) => ({ ...f }));
+    // Exact approved background gets its own tested positions, never the
+    // unrelated generic sample coordinates. Other PDFs keep existing behavior.
+    const initialFields = recognized.fields || offerPdfService.DEFAULT_SAMPLE_FIELDS.map((f) => ({ ...f }));
 
     const template = new OfferLetterTemplate({
       name: cleanName,
@@ -85,6 +88,7 @@ exports.uploadTemplate = async (req, res, next) => {
       isActive: false, // Uploaded as inactive draft
       pdfStoragePath: savedPath,
       pdfSizeBytes: req.file.buffer.length,
+      pdfSha256: recognized.sha256,
       pageCount: validation.pageCount,
       pageDimensions: validation.pageDimensions,
       fields: initialFields,
@@ -104,7 +108,9 @@ exports.uploadTemplate = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: `Template v${nextVersion} uploaded successfully as draft.`,
+      message: recognized.approved
+        ? 'Approved signed background uploaded privately with all 7 field positions. Preview, then explicitly activate this draft. Programme duration must be 4 weeks and Start Date must be configured.'
+        : `Template v${nextVersion} uploaded successfully as draft.`,
       template
     });
   } catch (error) {
@@ -211,6 +217,7 @@ exports.updateTemplate = async (req, res, next) => {
         isActive: false, // New version starts as draft
         pdfStoragePath: template.pdfStoragePath,
         pdfSizeBytes: template.pdfSizeBytes,
+        pdfSha256: template.pdfSha256,
         pageCount: template.pageCount,
         pageDimensions: template.pageDimensions,
         fields: Array.isArray(fields) ? fields : template.fields,
@@ -284,8 +291,10 @@ exports.previewTemplate = async (req, res, next) => {
       programTitle: 'Full-Stack Web Development',
       code: 'FS-DEV',
       batchId: 'BATCH-2026-Q1',
-      durationWeeks: 12,
-      feeLocked: 499,
+      durationWeeks: 4,
+      feeLocked: 99,
+      startDate: new Date('2026-12-10T12:00:00+05:30'),
+      endDate: new Date('2027-01-06T12:00:00+05:30'),
       applicationId: 'NOX-SAMPLE',
       issueDate: new Date()
     };
