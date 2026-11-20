@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollSmoother } from 'gsap/all';
-import { currentTheme, toggleTheme } from '../theme.js';
+import SnowGlobeToggle from './SnowGlobeToggle.jsx';
 import config from '../nx.config.js';
 import { soon } from '../utils/toast.js';
 import { useSiteSettings } from '../context/SiteSettingsContext';
@@ -11,25 +11,7 @@ import { useStudentAuth } from '../context/StudentAuthContext';
 import '../menu.css';
 
 export function ThemeToggle() {
-  const [t, setT] = useState(currentTheme());
-
-  useEffect(() => {
-    const f = () => setT(currentTheme());
-    window.addEventListener('nx:theme', f);
-    return () => window.removeEventListener('nx:theme', f);
-  }, []);
-
-  return (
-    <button
-      type="button"
-      className="nxtheme"
-      aria-label={t === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
-      title="Toggle light/dark theme"
-      onClick={() => toggleTheme()}
-    >
-      {t === 'light' ? '☀️' : '🌝'}
-    </button>
-  );
+  return <SnowGlobeToggle />;
 }
 
 const Chev = () => (

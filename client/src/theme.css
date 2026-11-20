@@ -152,3 +152,43 @@ html[data-theme="light"] footer .text-slate-300 {
 html[data-theme="light"] footer .text-white {
   color: #0f172a !important;
 }
+
+/* ---------- snow-globe theme toggle (pill + circular glass globe knob) ---------- */
+.nxtheme.nxglobe{width:76px;border-radius:999px;position:relative;overflow:hidden;display:inline-block;font-size:0;line-height:0}
+.nxtheme.nxglobe:active{transform:scale(.94)}
+.nxg-scene{position:absolute;inset:0;border-radius:inherit;overflow:hidden;display:block}
+.nxg-scene>*{position:absolute;pointer-events:none}
+.nxg-sky{inset:0;transition:opacity .55s ease}
+.nxg-skyday{background:linear-gradient(180deg,#8fc7f2 0%,#c8e6fa 100%)}
+.nxg-skynight{background:linear-gradient(180deg,#0d1734 0%,#27407c 100%);opacity:0}
+.nxglobe.on .nxg-skyday{opacity:0}
+.nxglobe.on .nxg-skynight{opacity:1}
+.nxg-stars{inset:0;width:100%;height:100%;opacity:0;transition:opacity .55s ease}
+.nxglobe.on .nxg-stars{opacity:.95}
+.nxg-sun{width:9px;height:9px;border-radius:50%;top:22%;right:14%;background:radial-gradient(circle at 35% 35%,#fff8d8,#ffd94d 60%,#ffb52e);box-shadow:0 0 7px 2px rgba(255,214,80,.75);transition:transform .55s ease,opacity .55s ease}
+.nxg-moon{width:8px;height:8px;border-radius:50%;top:20%;right:14%;background:radial-gradient(circle at 35% 35%,#fff,#dfe6f2 60%,#b9c4da);box-shadow:0 0 6px 2px rgba(210,225,255,.55);opacity:0;transform:translateY(12px) scale(.6);transition:transform .55s ease,opacity .55s ease}
+.nxglobe.on .nxg-sun{transform:translateY(14px) scale(.5);opacity:0}
+.nxglobe.on .nxg-moon{opacity:1;transform:none}
+.nxg-cloud{width:14px;height:4.5px;border-radius:999px;background:#fff;top:38%;left:8%;opacity:.9;transition:opacity .55s ease}
+.nxg-cloud:before{content:'';position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;top:-3px;left:2px}
+.nxg-cloud:after{content:'';position:absolute;width:4px;height:4px;border-radius:50%;background:#fff;top:-2px;left:7px}
+.nxglobe.on .nxg-cloud{opacity:0}
+.nxg-land{bottom:0;left:0;width:100%;height:58%;transition:opacity .55s ease}
+.nxg-landsnow{opacity:0}
+.nxglobe.on .nxg-landsnow{opacity:1}
+.nxglobe.on .nxg-landday{opacity:0}
+.nxg-win{transition:fill .55s ease}
+.nxglobe.on .nxg-win{fill:#ffd76a}
+.nxg-snow{inset:0;width:100%;height:100%;opacity:0;transition:opacity .5s ease}
+.nxglobe.on .nxg-snow{opacity:1}
+.nxg-knob{position:absolute;top:3px;left:3px;width:32px;height:32px;border-radius:50%;overflow:hidden;display:block;transition:left .55s cubic-bezier(.45,-.12,.3,1.22);box-shadow:0 2px 7px rgba(10,20,45,.5),inset 0 0 0 1px rgba(255,255,255,.55)}
+.nxglobe.on .nxg-knob{left:41px}
+.nxg-gin{position:absolute;inset:0;width:100%;height:100%}
+.nxg-gsnow{border-radius:50%}
+.nxg-glass{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 22%,rgba(255,255,255,.9) 0%,rgba(255,255,255,.28) 20%,rgba(255,255,255,0) 45%),radial-gradient(circle at 72% 84%,rgba(255,255,255,.35) 0%,rgba(255,255,255,0) 36%),radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 60%,rgba(120,160,220,.3) 88%,rgba(70,105,170,.45) 100%);box-shadow:inset 0 -4px 7px rgba(30,50,100,.35),inset 0 3px 5px rgba(255,255,255,.5)}
+.nxg-knob.nxg-shake{animation:nxg-shake .6s ease}
+@keyframes nxg-shake{0%,100%{transform:rotate(0)}22%{transform:rotate(-7deg)}48%{transform:rotate(6deg)}74%{transform:rotate(-3deg)}}
+@media (prefers-reduced-motion: reduce){.nxg-knob.nxg-shake{animation:none}}
+
+/* keep the drawer placement (theme.css earlier rule positions .nxmenu .nxtheme absolutely) */
+.nxmenu .nxtheme.nxglobe{position:absolute}
