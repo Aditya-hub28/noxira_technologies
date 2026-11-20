@@ -60,7 +60,7 @@ const JOURNEY_STEPS = [
     word: 'EVALUATE',
     step: '07',
     title: 'Technical Review',
-    desc: 'Your submission is checked after payment is manually verified. Technical review must be approved before a certificate can be released.',
+    desc: 'Your submission goes through technical review. Technical review approval and manual payment verification are both required before a certificate can be released.',
   },
   {
     word: 'CERTIFY',
