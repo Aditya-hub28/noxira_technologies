@@ -14,7 +14,8 @@ import {
   BookOpen,
   UserCheck,
   FileText,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  MessageSquareHeart
 } from 'lucide-react';
 
 import PublicLayout from './components/PublicLayout';
@@ -42,6 +43,7 @@ import CertificatesPage from './pages/CertificatesPage';
 import DistributionPage from './pages/DistributionPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
+import AdminReviewsPage from './pages/AdminReviewsPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 
 function AdminConsole({ admin, onLogout }) {
@@ -63,7 +65,8 @@ function AdminConsole({ admin, onLogout }) {
     { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
     { id: 'distribution', label: 'Email Distribution', icon: Send },
     { id: 'audit', label: 'Audit Trail', icon: History },
-    { id: 'settings', label: 'Settings', icon: SettingsIcon }
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+    { id: 'reviews', label: 'Reviews', icon: MessageSquareHeart }
   ];
 
   return (
@@ -176,6 +179,9 @@ function AdminConsole({ admin, onLogout }) {
         )}
         {adminTab === 'settings' && (
           <AdminSettingsPage />
+        )}
+        {adminTab === 'reviews' && (
+          <AdminReviewsPage />
         )}
       </main>
 

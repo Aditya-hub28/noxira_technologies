@@ -1,13 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Info, Heart, Send, ArrowLeft } from 'lucide-react';
+import { api } from '../services/api';
 import './reviews.css';
 
 /*
  * Student Reviews page.
- * The 15 reviews below are clearly-labelled SAMPLE data so the layout can be
- * previewed before real interns finish their programmes. No backend stores
- * feedback yet: the form validates and shows an honest notice, nothing is sent.
+ * Approved reviews come from the backend (submissions stay hidden until an
+ * admin approves them). When the API is unreachable (static preview) or no
+ * review has been approved yet, the 15 SAMPLE_REVIEWS below render instead,
+ * always behind the visible demo badge. Samples are never sent to the server.
  */
 
 const SAMPLE_REVIEWS = [
@@ -69,20 +71,69 @@ function RatingInput({ value, onChange }) {
 }
 
 export default function ReviewsPage() {
-  const [form, setForm] = useState({ name: '', role: '', feedback: '' });
+  const [form, setForm] = useState({ name: '', role: '', feedback: '', website: '' });
   const [rating, setRating] = useState(0);
   const [notice, setNotice] = useState('');
+  const [noticeKind, setNoticeKind] = useState('info');
+  const [submitting, setSubmitting] = useState(false);
+  const [apiReviews, setApiReviews] = useState(null);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const reviews = useMemo(() => SAMPLE_REVIEWS, []);
+  useEffect(() => {
+    let alive = true;
+    api.getApprovedReviews()
+      .then((res) => {
+        if (alive && res && Array.isArray(res.reviews) && res.reviews.length > 0) {
+          setApiReviews(res.reviews);
+        }
+      })
+      .catch(() => { /* static preview or empty: sample cards stay */ });
+    return () => { alive = false; };
+  }, []);
 
-  const submit = (e) => {
+  const sampleMode = !apiReviews;
+  const reviews = useMemo(
+    () => (apiReviews || SAMPLE_REVIEWS).map((r, i) => ({
+      key: r._id || r.name,
+      name: r.name,
+      role: r.role,
+      text: r.text,
+      rating: r.rating,
+      hue: AVATAR_HUES[i % AVATAR_HUES.length]
+    })),
+    [apiReviews]
+  );
+
+  const submit = async (e) => {
     e.preventDefault();
     if (!rating) {
+      setNoticeKind('info');
       setNotice('Please pick a star rating first.');
       return;
     }
-    setNotice('Thanks! Review submission is not connected yet, so this was not sent or published. Real reviews will be collected here once the backend is ready.');
+    setSubmitting(true);
+    try {
+      const res = await api.submitReview({
+        name: form.name,
+        role: form.role,
+        text: form.feedback,
+        rating,
+        website: form.website
+      });
+      setNoticeKind('ok');
+      setNotice(res.message || 'Thank you! Your feedback was submitted and will appear after review.');
+      setForm({ name: '', role: '', feedback: '', website: '' });
+      setRating(0);
+    } catch (err) {
+      setNoticeKind('info');
+      if (err && err.status && err.status !== 404) {
+        setNotice(err.message || 'Could not submit feedback right now. Please try again later.');
+      } else {
+        setNotice('Feedback submission is not connected in this preview, so nothing was sent. On the live site, reviews are saved and appear after admin approval.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -95,18 +146,20 @@ export default function ReviewsPage() {
             See what our interns have to say about their journey with <span className="ac">NOXIRA</span>.
           </h1>
           <p className="lede">Your experience matters to us.</p>
-          <p className="rv-demo">
-            <Info width={13} height={13} aria-hidden="true" />
-            Preview build: these 15 reviews are sample data, not real students. Real reviews appear here once interns start completing programmes.
-          </p>
+          {sampleMode && (
+            <p className="rv-demo">
+              <Info width={13} height={13} aria-hidden="true" />
+              Preview build: these 15 reviews are sample data, not real students. Real reviews appear here once interns start completing programmes.
+            </p>
+          )}
         </div>
       </section>
 
       <section className="rv-gridsec">
         <div className="wrap">
           <div className="rv-grid">
-            {reviews.map((r, i) => (
-              <article className="rv-card" key={r.name}>
+            {reviews.map((r) => (
+              <article className="rv-card" key={r.key}>
                 <svg className="rv-quote" width="30" height="24" viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
                   <path d="M0 24V13.7C0 5.8 4.6 1.1 12.3 0l1.5 4.1c-4.3 1.2-6.4 3.6-6.7 6.9H13V24H0zm17 0V13.7C17 5.8 21.6 1.1 29.3 0l1.5 4.1c-4.3 1.2-6.4 3.6-6.7 6.9H30V24H17z" transform="scale(0.94)" />
                 </svg>
@@ -114,7 +167,7 @@ export default function ReviewsPage() {
                 <div className="rv-meta">
                   <span
                     className="rv-av"
-                    style={{ background: `linear-gradient(135deg, hsl(${AVATAR_HUES[i % AVATAR_HUES.length]} 80% 55%), hsl(${(AVATAR_HUES[i % AVATAR_HUES.length] + 40) % 360} 75% 40%))` }}
+                    style={{ background: `linear-gradient(135deg, hsl(${r.hue} 80% 55%), hsl(${(r.hue + 40) % 360} 75% 40%))` }}
                     aria-hidden="true"
                   >
                     {initials(r.name)}
@@ -150,11 +203,22 @@ export default function ReviewsPage() {
                   </div>
                 </div>
                 <label htmlFor="rv-feedback">Your Feedback</label>
-                <textarea id="rv-feedback" required rows={4} value={form.feedback} onChange={set('feedback')} />
+                <textarea id="rv-feedback" required rows={4} maxLength={600} value={form.feedback} onChange={set('feedback')} />
+                {/* honeypot: hidden from people, bots fill it and get dropped server-side */}
+                <input
+                  type="text"
+                  name="website"
+                  className="rv-hp"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  value={form.website}
+                  onChange={set('website')}
+                />
                 <label>Your Rating</label>
                 <RatingInput value={rating} onChange={setRating} />
-                <button type="submit" className="rv-send"><Send width={14} height={14} aria-hidden="true" /> Submit Feedback</button>
-                {notice && <p role="status" className="rv-notice">{notice}</p>}
+                <button type="submit" className="rv-send" disabled={submitting}><Send width={14} height={14} aria-hidden="true" /> {submitting ? 'Submitting...' : 'Submit Feedback'}</button>
+                {notice && <p role="status" className={`rv-notice${noticeKind === 'ok' ? ' ok' : ''}`}>{notice}</p>}
               </form>
             </div>
             <div className="rv-thanks">
