@@ -5,7 +5,6 @@ import { resolveProgramDescription } from '../utils/programUtils';
 import {
   ArrowLeft,
   Clock,
-  IndianRupee,
   Users,
   BookOpen,
   CheckCircle2,
@@ -61,8 +60,7 @@ export default function ProgramDetailPage() {
   const hasContent = program && (
     (Array.isArray(program.syllabus) && program.syllabus.length > 0) ||
     (Array.isArray(program.tasks) && program.tasks.length > 0) ||
-    program.seats != null ||
-    program.feeInr != null
+    program.seats != null
   );
 
   if (loading) {
@@ -192,22 +190,6 @@ export default function ProgramDetailPage() {
                 1 Month (4 Weeks)
               </div>
             </div>
-
-            {/* Task Submission & Review Fee (Only rendered when feeInr != null) */}
-            {program.feeInr != null && (
-              <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-4 shadow-2xs">
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-                  <IndianRupee className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Task Submission &amp; Review Fee</span>
-                </div>
-                <div className="text-base font-bold text-slate-900">
-                  {program.feeInr === 0 ? '₹0 (Free)' : `₹${Number(program.feeInr).toLocaleString('en-IN')}`}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  Payable only at final submission. Applying is free.
-                </div>
-              </div>
-            )}
 
             {/* Available Seats (Only rendered when seats != null) */}
             {program.seats != null && (

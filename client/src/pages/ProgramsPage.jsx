@@ -5,7 +5,6 @@ import { resolveProgramDescription } from '../utils/programUtils';
 import {
   ArrowRight,
   Clock,
-  IndianRupee,
   Users,
   RotateCcw,
   AlertTriangle,
@@ -225,13 +224,6 @@ export default function ProgramsPage() {
                             <Clock className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
                             <span>Duration: 1 Month (4 Weeks)</span>
                           </div>
-
-                          {prg.feeInr != null && (
-                            <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                              <IndianRupee className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                              <span>Task Submission &amp; Review Fee: {prg.feeInr === 0 ? '₹0 (Free)' : `₹${Number(prg.feeInr).toLocaleString('en-IN')}`}</span>
-                            </div>
-                          )}
 
                           {prg.seats != null && (
                             <div className="flex items-center gap-1.5 text-slate-700">

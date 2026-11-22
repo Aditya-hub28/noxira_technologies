@@ -150,13 +150,13 @@ export default function MobileMenu({ open, onClose }) {
         navigate('/privacy');
         break;
       case 'Cookies Policy':
-        soon('Cookies Policy');
+        navigate('/cookies');
         break;
       case 'Student Reviews':
         soon('Student Reviews');
         break;
       case 'Contact Support':
-        soon('Contact Support');
+        navigate('/contact');
         break;
       default:
         soon(subName);

@@ -205,7 +205,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Cookies Policy':
-        soon('Cookies Policy');
+        navigate('/cookies');
         break;
 
       case 'Student Reviews':
@@ -213,7 +213,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Contact Support':
-        soon('Contact Support');
+        navigate('/contact');
         break;
 
       default:
