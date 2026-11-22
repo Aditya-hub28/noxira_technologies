@@ -7,8 +7,9 @@ import './reviews.css';
 /*
  * Student Reviews page.
  * Approved reviews come from the backend (submissions stay hidden until an
- * admin approves them). When the API is unreachable (static preview) or no
- * review has been approved yet, the 15 SAMPLE_REVIEWS below render instead,
+ * admin approves them). The normal page shows honest loading / empty / error
+ * states - never sample data. The 15 SAMPLE_REVIEWS render ONLY in the
+ * explicit demo preview (?demo=1) when there is no approved data to show,
  * always behind the visible demo badge. Samples are never sent to the server.
  */
 
@@ -76,33 +77,44 @@ export default function ReviewsPage() {
   const [notice, setNotice] = useState('');
   const [noticeKind, setNoticeKind] = useState('info');
   const [submitting, setSubmitting] = useState(false);
+  // 'loading' | 'live' | 'empty' | 'error'
+  const [feedState, setFeedState] = useState('loading');
   const [apiReviews, setApiReviews] = useState(null);
+  // Sample reviews render ONLY in the explicit demo preview (?demo=1), never
+  // on the normal page: production shows honest loading/empty/error states.
+  const [demoMode] = useState(() => new URLSearchParams(window.location.search).get('demo') === '1');
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   useEffect(() => {
     let alive = true;
     api.getApprovedReviews()
       .then((res) => {
-        if (alive && res && Array.isArray(res.reviews) && res.reviews.length > 0) {
+        if (!alive) return;
+        if (res && Array.isArray(res.reviews) && res.reviews.length > 0) {
           setApiReviews(res.reviews);
+          setFeedState('live');
+        } else {
+          setFeedState('empty');
         }
       })
-      .catch(() => { /* static preview or empty: sample cards stay */ });
+      .catch(() => {
+        if (alive) setFeedState('error');
+      });
     return () => { alive = false; };
   }, []);
 
-  const sampleMode = !apiReviews;
-  const reviews = useMemo(
-    () => (apiReviews || SAMPLE_REVIEWS).map((r, i) => ({
+  const sampleMode = demoMode && (feedState === 'empty' || feedState === 'error');
+  const reviews = useMemo(() => {
+    const source = feedState === 'live' ? apiReviews : (sampleMode ? SAMPLE_REVIEWS : []);
+    return (source || []).map((r, i) => ({
       key: r._id || r.name,
       name: r.name,
       role: r.role,
       text: r.text,
       rating: r.rating,
       hue: AVATAR_HUES[i % AVATAR_HUES.length]
-    })),
-    [apiReviews]
-  );
+    }));
+  }, [apiReviews, feedState, sampleMode]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -132,7 +144,7 @@ export default function ReviewsPage() {
       } else if (serverMessage && err.status && err.status < 500) {
         setNotice(serverMessage);
       } else {
-        setNotice('Feedback submission is not connected in this preview, so nothing was sent. On the live site, reviews are saved and appear after admin approval.');
+        setNotice('Feedback submission is not connected in this preview, so nothing was sent. Once the site is deployed with its backend, submitted reviews are saved and appear after admin approval.');
       }
     } finally {
       setSubmitting(false);
@@ -152,7 +164,7 @@ export default function ReviewsPage() {
           {sampleMode && (
             <p className="rv-demo">
               <Info width={13} height={13} aria-hidden="true" />
-              Preview build: these 15 reviews are sample data, not real students. Real reviews appear here once interns start completing programmes.
+              Demo preview: these 15 reviews are sample data, not real students. Real reviews appear here once interns complete programmes and their feedback is approved.
             </p>
           )}
         </div>
@@ -160,6 +172,15 @@ export default function ReviewsPage() {
 
       <section className="rv-gridsec">
         <div className="wrap">
+          {feedState === 'loading' && !sampleMode && (
+            <p className="rv-state" role="status">Loading reviews...</p>
+          )}
+          {feedState === 'empty' && !sampleMode && (
+            <p className="rv-state">No reviews yet. Feedback from interns appears here after it is reviewed and approved. Yours could be the first - share your story below.</p>
+          )}
+          {feedState === 'error' && !sampleMode && (
+            <p className="rv-state">Reviews could not be loaded right now. Please try again later.</p>
+          )}
           <div className="rv-grid">
             {reviews.map((r) => (
               <article className="rv-card" key={r.key}>
