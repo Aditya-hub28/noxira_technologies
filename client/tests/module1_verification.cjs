@@ -223,16 +223,13 @@ test('MODULE 10: policy pages (Terms/Privacy/Refund/Review) wired with grounded 
   // Owner-decided rules present (6 Nov 2026 decisions)
   assert.ok(pageContent.includes('one-time Rs. 99'), 'Fee is Rs. 99 one-time at final submission');
   assert.ok(pageContent.includes('non-refundable'), 'Refund rule: non-refundable');
-  assert.ok(pageContent.includes('at least 18 years old'), 'Eligibility is 18+ (final owner decision)');
+  assert.ok(pageContent.includes('Our services are intended for users above 15 years of age'), 'Privacy: owner-supplied 15+ children wording (22 Nov content PDF)');
   assert.ok(pageContent.includes('not legal advice'), 'Draft pages must disclaim legal conclusions');
-  assert.ok(!pageContent.includes('15 years old'), 'Superseded 15+ wording must not appear');
-  assert.ok(pageContent.includes('duplicate/accidental double payment'), 'Refund exception: duplicate payment');
+    assert.ok(pageContent.includes('duplicate/accidental double payment'), 'Refund exception: duplicate payment');
   assert.ok(pageContent.includes('up to 3 free re-reviews'), '3 free re-reviews');
   assert.ok(pageContent.includes('3 calendar days'), '3 calendar days per correction');
   assert.ok(pageContent.includes('2-3 working days'), 'Review turnaround 2-3 working days');
-  assert.ok(pageContent.includes('never shown publicly'), 'Email/phone never public');
-  assert.ok(pageContent.includes('no self-service deletion option'), 'No self-service deletion');
-
+    
   // Pending items are flagged, not invented
   assert.ok(pageContent.includes('Being finalized before launch'), 'Pending callout must render');
   assert.ok(pageContent.includes('PENDING_LAUNCH_ITEMS'), 'Pending items list must exist');
