@@ -84,9 +84,9 @@ export default function ReviewMarquee() {
         </div>
       </div>
       <div className="wrap rv-mmore">
-        <Link to="/reviews" className="gb inline-flex items-center gap-1.5 text-xs font-bold">
+        <Link to="/reviews" className="rv-mcta">
           Read all reviews &amp; share your story
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
         </Link>
       </div>
     </section>

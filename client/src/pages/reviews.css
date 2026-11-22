@@ -22,6 +22,10 @@ html[data-theme="light"] .rv-state{color:#3f4c63;border-color:#b9c6dd;background
 @keyframes rv-mscroll{to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion: reduce){.rv-mtrack{animation:none}}
 .rv-mmore{margin-top:1.5rem}
+.rv-mcta{display:inline-flex;align-items:center;gap:.55rem;padding:.72rem 1.5rem;border-radius:999px;font:600 .82rem 'Space Grotesk',sans-serif;letter-spacing:.02em;color:#dff2ff !important;text-decoration:none !important;background:rgba(56,200,255,.1);border:1px solid rgba(56,200,255,.35);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.25),0 8px 20px rgba(0,0,0,.3);transition:transform .2s ease,box-shadow .2s ease}
+.rv-mcta:hover{transform:translateY(-1px);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.3),0 0 24px rgba(56,200,255,.25)}
+.rv-mcta svg{flex:none}
+html[data-theme="light"] .rv-mcta{color:#0b5c86 !important;background:rgba(10,143,214,.1);border-color:rgba(10,143,214,.4);box-shadow:inset 0 1.5px 1px rgba(255,255,255,.85),0 8px 18px rgba(20,35,60,.14)}
 .rv-grid{columns:3;column-gap:18px}
 .rv-card{break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:18px;background:var(--card,#14161b);border:1px solid var(--line,rgba(255,255,255,.08));border-radius:18px;padding:24px 22px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .rv-quote{color:var(--cy,#38c8ff);opacity:.55}
