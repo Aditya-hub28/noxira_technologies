@@ -14,12 +14,14 @@ import {
   BookOpen,
   UserCheck,
   FileText,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  MessageSquareHeart
 } from 'lucide-react';
 
 import PublicLayout from './components/PublicLayout';
 import PolicyPage from './pages/PolicyPage';
 import ContactSupportPage from './pages/ContactSupportPage';
+import ReviewsPage from './pages/ReviewsPage';
 import HomePage from './pages/HomePage';
 import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
@@ -41,6 +43,7 @@ import CertificatesPage from './pages/CertificatesPage';
 import DistributionPage from './pages/DistributionPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
+import AdminReviewsPage from './pages/AdminReviewsPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 
 function AdminConsole({ admin, onLogout }) {
@@ -62,7 +65,8 @@ function AdminConsole({ admin, onLogout }) {
     { id: 'certificates', label: 'Certificates Registry', icon: ShieldCheck },
     { id: 'distribution', label: 'Email Distribution', icon: Send },
     { id: 'audit', label: 'Audit Trail', icon: History },
-    { id: 'settings', label: 'Settings', icon: SettingsIcon }
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+    { id: 'reviews', label: 'Reviews', icon: MessageSquareHeart }
   ];
 
   return (
@@ -176,6 +180,9 @@ function AdminConsole({ admin, onLogout }) {
         {adminTab === 'settings' && (
           <AdminSettingsPage />
         )}
+        {adminTab === 'reviews' && (
+          <AdminReviewsPage />
+        )}
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
@@ -234,6 +241,7 @@ function AppContent() {
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/cookies" element={<PolicyPage slug="cookies" />} />
         <Route path="/contact" element={<ContactSupportPage />} />
+        <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
         <Route path="/review-rules" element={<PolicyPage slug="review" />} />
         <Route path="/login" element={<Navigate to="/" replace />} />

@@ -89,6 +89,30 @@ const offerLetterPdfRateLimiter = rateLimit({
   }
 });
 
+// Public review submission rate limiter: max 5 submissions per 15 minutes per IP
+const reviewSubmitRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many feedback submissions from this IP. Please try again after 15 minutes.'
+  }
+});
+
+// Public approved-review list rate limiter: max 60 requests per minute per IP
+const reviewListRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests. Please slow down.'
+  }
+});
+
 module.exports = {
   intakeRateLimiter,
   verifyRateLimiter,
@@ -96,5 +120,7 @@ module.exports = {
   statusRateLimiter,
   offerDownloadRateLimiter,
   offerLetterLookupRateLimiter,
-  offerLetterPdfRateLimiter
+  offerLetterPdfRateLimiter,
+  reviewSubmitRateLimiter,
+  reviewListRateLimiter
 };

@@ -119,6 +119,14 @@ export const api = {
 
   // Site Settings (Form 1 intake link)
   getPublicSettings: () => request('/settings/public'),
+
+  // Student Reviews
+  getApprovedReviews: () => request('/reviews'),
+  submitReview: (payload) => request('/reviews', { method: 'POST', body: JSON.stringify(payload) }),
+  adminGetReviews: (status = 'PENDING') => request(`/admin/reviews?status=${encodeURIComponent(status)}`),
+  adminApproveReview: (id) => request(`/admin/reviews/${encodeURIComponent(id)}/approve`, { method: 'PATCH' }),
+  adminRejectReview: (id) => request(`/admin/reviews/${encodeURIComponent(id)}/reject`, { method: 'PATCH' }),
+  adminDeleteReview: (id) => request(`/admin/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   adminGetGoogleForm1: () => request('/admin/settings/google-form-1'),
   adminUpdateGoogleForm1: (url) => request('/admin/settings/google-form-1', { method: 'PUT', body: JSON.stringify({ url }) })
 };

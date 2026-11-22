@@ -24,6 +24,8 @@ const adminOfferTemplateRoutes = require('./routes/adminOfferTemplateRoutes');
 const offerDownloadRoutes = require('./routes/offerDownloadRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const adminReviewRoutes = require('./routes/adminReviewRoutes');
 
 const app = express();
 
@@ -67,6 +69,8 @@ app.use('/api/v1/admin/offer-templates', adminOfferTemplateRoutes);
 app.use('/api/v1/offers', offerDownloadRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/admin/settings', adminSettingsRoutes);
+app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/admin/reviews', adminReviewRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
