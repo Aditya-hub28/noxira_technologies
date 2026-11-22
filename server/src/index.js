@@ -390,6 +390,107 @@ async function autoSeedIfEmpty() {
     }
   }
 
+  // Scoped development restore: keep the approved offer template available.
+  //
+  // Safety rules:
+  // 1. Only bytes that hash to the approved SHA-256 are ever restored. The
+  //    on-disk manifest is a hint, never proof: its claimed path and hash are
+  //    verified against the actual file bytes before use, so a stale or
+  //    tampered manifest cannot resurrect an outdated template.
+  // 2. An admin's template selection is never overridden on startup. The
+  //    approved template is auto-activated only when no template is active
+  //    (e.g. a fresh database); otherwise it comes back as an inactive draft.
+  const { identifyApprovedOffer, APPROVED_OFFER_NAME, APPROVED_OFFER_SHA256 } = require('./config/approvedOfferTemplate');
+  const approvedSha = APPROVED_OFFER_SHA256;
+  const existingApproved = await OfferLetterTemplate.findOne({ pdfSha256: approvedSha });
+  if (!existingApproved) {
+    const manifestPath = path.resolve(__dirname, '../storage/certificates/offer_templates/approved_template_manifest.json');
+    const repoAssetPath = path.resolve(__dirname, 'assets/2-NOXIRA-approved-offer-background.pdf');
+
+    // Authoritative source: the versioned repo asset, hash-verified.
+    const loadFromRepoAsset = async () => {
+      if (!fs.existsSync(repoAssetPath)) return null;
+      try {
+        const buf = fs.readFileSync(repoAssetPath);
+        const recognized = identifyApprovedOffer(buf);
+        if (!recognized.approved) return null;
+        const validation = await offerPdfService.validateUploadedOfferPdf(buf);
+        const savedStorage = await storageService.saveOfferTemplateFile(buf, 'template_approved_offer_4w.pdf');
+        const savedPath = savedStorage.diskPath || String(savedStorage);
+        return {
+          name: APPROVED_OFFER_NAME,
+          pdfSha256: recognized.sha256,
+          pdfStoragePath: savedPath,
+          pdfSizeBytes: buf.length,
+          pageCount: validation.pageCount,
+          pageDimensions: validation.pageDimensions,
+          fields: recognized.fields
+        };
+      } catch (assetErr) {
+        console.error('Failed to restore approved offer asset:', assetErr.message);
+        return null;
+      }
+    };
+
+    // Fallback: the manifest written at activation time, trusted only when the
+    // file it points to still hashes to the approved SHA-256.
+    const loadFromManifest = () => {
+      try {
+        if (!fs.existsSync(manifestPath)) return null;
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (manifest.pdfSha256 !== approvedSha) return null;
+        if (!manifest.pdfStoragePath || !fs.existsSync(manifest.pdfStoragePath)) return null;
+        const recognized = identifyApprovedOffer(fs.readFileSync(manifest.pdfStoragePath));
+        if (!recognized.approved) return null;
+        return {
+          name: typeof manifest.name === 'string' && manifest.name.trim() ? manifest.name : APPROVED_OFFER_NAME,
+          pdfSha256: recognized.sha256,
+          pdfStoragePath: manifest.pdfStoragePath,
+          pdfSizeBytes: fs.statSync(manifest.pdfStoragePath).size,
+          pageCount: manifest.pageCount || 1,
+          pageDimensions: manifest.pageDimensions || [{ pageNumber: 1, width: 594.96, height: 841.92 }],
+          fields: recognized.fields
+        };
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const templateDataToRestore = (await loadFromRepoAsset()) || loadFromManifest();
+
+    if (templateDataToRestore) {
+      try {
+        const Admin = require('./models/Admin');
+        const admin = await Admin.findOne({ email: 'admin@noxira.com' });
+        // Preserve any active template the admin selected; only auto-activate
+        // when nothing is active at all.
+        const activeExists = await OfferLetterTemplate.exists({ isActive: true });
+        const shouldActivate = !activeExists;
+        const highestVer = await OfferLetterTemplate.findOne().sort({ version: -1 }).select('version').lean();
+        await OfferLetterTemplate.create({
+          name: templateDataToRestore.name,
+          version: highestVer ? highestVer.version + 1 : 2,
+          isSample: false,
+          isActive: shouldActivate,
+          pdfStoragePath: templateDataToRestore.pdfStoragePath,
+          pdfSizeBytes: templateDataToRestore.pdfSizeBytes,
+          pdfSha256: templateDataToRestore.pdfSha256,
+          pageCount: templateDataToRestore.pageCount || 1,
+          pageDimensions: templateDataToRestore.pageDimensions || [{ pageNumber: 1, width: 594.96, height: 841.92 }],
+          fields: templateDataToRestore.fields,
+          createdBy: admin ? admin._id : undefined,
+          activatedAt: shouldActivate ? new Date() : undefined,
+          activatedBy: shouldActivate && admin ? admin._id : undefined
+        });
+        console.log(shouldActivate
+          ? '📄 Approved NOXIRA Offer Template durably restored and activated in development.'
+          : '📄 Approved NOXIRA Offer Template restored as an inactive draft; existing active template selection preserved.');
+      } catch (restoreErr) {
+        console.error('Failed to provision approved offer template:', restoreErr.message);
+      }
+    }
+  }
+
   const Application = require('./models/Application');
   const appCount = await Application.countDocuments();
   if (appCount === 0) {
@@ -399,8 +500,14 @@ async function autoSeedIfEmpty() {
       if (!demoPart) {
         demoPart = await Participant.create({
           fullName: 'Aarav Sharma',
+          normalizedName: 'aarav sharma',
           email: 'aarav.sharma@example.com',
-          phone: '+919876543210'
+          normalizedEmail: 'aarav.sharma@example.com',
+          phone: '+919876543210',
+          programCode: 'FS-DEV',
+          programTitle: 'Full Stack Web Development',
+          batchId: 'BATCH-2026-DEV',
+          source: 'CSV_IMPORT'
         });
       }
       await Application.create({
@@ -436,4 +543,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { app, startServer };
+module.exports = { app, startServer, autoSeedIfEmpty };

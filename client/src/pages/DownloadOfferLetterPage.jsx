@@ -9,6 +9,7 @@ if (pdfjsLib.GlobalWorkerOptions) {
 }
 
 const FAIL_TEXT = "No offer letter found for these details. If you haven't applied yet, please apply for a program first.";
+const RATE_LIMIT_TEXT = 'Too many attempts from this network. Please wait about 15 minutes and try again. Your offer letter is safe.';
 const CONFETTI_COLORS = ['#38c8ff', '#0a8fd6', '#10b981', '#34d399', '#67e8f9', '#059669'];
 
 // Module-level confetti engine
@@ -129,6 +130,7 @@ export default function DownloadOfferLetterPage() {
   const [email, setEmail] = useState('');
   const [appId, setAppId] = useState('');
   const [view, setView] = useState('form'); // form | busy | ok | stage | fail
+  const [failText, setFailText] = useState(FAIL_TEXT);
   const [offer, setOffer] = useState(null);
   const [pdfImg, setPdfImg] = useState(null);
   const [panelFx, setPanelFx] = useState(''); // '' | 'busy' | 'ripple' | 'deny'
@@ -162,6 +164,7 @@ export default function DownloadOfferLetterPage() {
     setOffer(null);
     setPdfImg(null);
     setPanelFx('');
+    setFailText(FAIL_TEXT);
     setView('form');
     const panel = panelRef.current;
     if (panel) {
@@ -258,6 +261,10 @@ export default function DownloadOfferLetterPage() {
     } catch (err) {
       const wait = Math.max(0, 1400 - (Date.now() - started));
       later(() => {
+        // A rate limit is not a missing offer: say so instead of the generic
+        // "no offer letter found" message, which wrongly suggests the
+        // candidate's letter does not exist.
+        setFailText(err && err.status === 429 ? RATE_LIMIT_TEXT : FAIL_TEXT);
         setPanelFx('deny');
         setView('fail');
         later(() => setPanelFx(''), 900);
@@ -317,7 +324,7 @@ export default function DownloadOfferLetterPage() {
               </button>
             </div>
             {view === 'fail' && (
-              <div className="vfy-fail-strip" role="alert">{FAIL_TEXT}</div>
+              <div className="vfy-fail-strip" role="alert">{failText}</div>
             )}
           </form>
         )}

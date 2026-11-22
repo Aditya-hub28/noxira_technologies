@@ -60,10 +60,41 @@ const offerDownloadRateLimiter = rateLimit({
   }
 });
 
+// Public offer-letter lookup rate limiter: max 60 requests per 15 minutes per IP.
+// Separate from the status limiter so checking an application status cannot
+// exhaust a candidate's offer-letter budget (and vice versa).
+const offerLetterLookupRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many offer letter requests from this IP. Please try again after 15 minutes.'
+  }
+});
+
+// Public offer-letter PDF rate limiter: max 60 requests per 15 minutes per IP.
+// The PDF endpoint disables range support, so every fetch - with or without a
+// Range header - is one full, counted request. There is no header-based bypass,
+// and no range-request exhaustion either: one preview costs exactly one request.
+const offerLetterPdfRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many offer letter requests from this IP. Please try again after 15 minutes.'
+  }
+});
+
 module.exports = {
   intakeRateLimiter,
   verifyRateLimiter,
   loginRateLimiter,
   statusRateLimiter,
-  offerDownloadRateLimiter
+  offerDownloadRateLimiter,
+  offerLetterLookupRateLimiter,
+  offerLetterPdfRateLimiter
 };

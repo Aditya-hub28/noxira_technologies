@@ -28,6 +28,7 @@ export default function AdminOfferTemplatesPage() {
   const [uploadName, setUploadName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [uploadMessage, setUploadMessage] = useState('');
 
   // Editor state
   const [fields, setFields] = useState([]);
@@ -210,6 +211,7 @@ export default function AdminOfferTemplatesPage() {
 
     setUploading(true);
     setUploadError('');
+    setUploadMessage('');
 
     try {
       const formData = new FormData();
@@ -220,6 +222,7 @@ export default function AdminOfferTemplatesPage() {
 
       const res = await api.adminUploadOfferTemplate(formData);
       if (res.success) {
+        setUploadMessage(res.message || 'PDF uploaded as an inactive draft.');
         setUploadFile(null);
         setUploadName('');
         await fetchTemplates();
@@ -328,7 +331,10 @@ export default function AdminOfferTemplatesPage() {
               Upload Custom PDF
             </h2>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Upload an official offer letter PDF (1–5 pages, up to 10 MB). The engine will preserve all background graphics and map dynamic applicant text.
+              Upload an official offer letter PDF (1–5 pages, up to 10 MB). The engine preserves its background graphics. The approved signed NOXIRA PDF is recognized automatically and loads all 7 tested field positions; other PDFs start with generic positions. Uploads stay in private server storage, not public source.
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              After uploading, check Preview and activate the draft explicitly. Nothing is emailed by uploading or previewing. For the approved design, set the programme Start Date and keep its duration at 4 weeks.
             </p>
 
             <form onSubmit={handleUpload} className="space-y-3">
@@ -356,6 +362,10 @@ export default function AdminOfferTemplatesPage() {
                   className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-800"
                 />
               </div>
+
+              {uploadMessage && (
+                <div role="status" className="text-xs text-emerald-800 bg-emerald-50 p-2 rounded border border-emerald-200">{uploadMessage}</div>
+              )}
 
               {uploadError && (
                 <div className="text-[11px] text-rose-600 bg-rose-50 p-2 rounded border border-rose-100">
@@ -567,13 +577,15 @@ export default function AdminOfferTemplatesPage() {
                             key={f.id || f.origIdx}
                             onPointerDown={(e) => {
                               e.stopPropagation();
+                              e.currentTarget.setPointerCapture(e.pointerId);
                               setSelectedFieldIndex(f.origIdx);
                               if (!selectedTemplate.isSample) setDraggingIndex(f.origIdx);
                             }}
                             style={{
                               left: `${leftPercent}%`,
                               top: `${topPercent}%`,
-                              width: `${widthPercent}%`
+                              width: `${widthPercent}%`,
+                              touchAction: selectedTemplate.isSample ? 'auto' : 'none'
                             }}
                             className={`absolute p-1 rounded border text-[10px] font-mono select-none transition-shadow ${
                               isSelected
@@ -595,6 +607,11 @@ export default function AdminOfferTemplatesPage() {
               </div>
 
               {/* Dynamic Coordinate Mappings */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">
+                To change text placement later, drag a field on the PDF or edit X / Y, font size, width and alignment below. Save Draft, inspect Preview, then activate the new draft. Editing an active layout creates a new version; already generated offer PDFs stay unchanged. Preview uses clearly marked dummy data, not a real student.
+                <br />
+                The signature, stamp, logo, footer and fixed wording are part of the background PDF, not draggable fields. To move those, upload a revised background as a new draft and check all positions again. Only the exact approved PDF loads its tested positions automatically.
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
