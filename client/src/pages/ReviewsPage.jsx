@@ -126,8 +126,11 @@ export default function ReviewsPage() {
       setRating(0);
     } catch (err) {
       setNoticeKind('info');
-      if (err && err.status && err.status !== 404) {
-        setNotice(err.message || 'Could not submit feedback right now. Please try again later.');
+      const serverMessage = err && err.data && err.data.message;
+      if (err && err.status === 429) {
+        setNotice(serverMessage || 'Too many submissions from your network. Please try again later.');
+      } else if (serverMessage && err.status && err.status < 500) {
+        setNotice(serverMessage);
       } else {
         setNotice('Feedback submission is not connected in this preview, so nothing was sent. On the live site, reviews are saved and appear after admin approval.');
       }
