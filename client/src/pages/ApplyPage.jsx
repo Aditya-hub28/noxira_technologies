@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { api } from '../services/api';
+import '../programme-cards.css';
+import React, { useState, useMemo } from 'react';
+import { PROGRAMME_IMAGES } from '../config/programmeImages';
+import { useProgrammeCatalogue } from '../utils/useProgrammeCatalogue';
 import { resolveProgramDescription } from '../utils/programUtils';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 import {
-  ExternalLink,
   Clock,
   Users,
   RotateCcw,
@@ -14,46 +15,25 @@ import {
 } from 'lucide-react';
 
 export default function ApplyPage() {
-  const [programs, setPrograms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [query, setQuery] = useState('');
+  const { programs, loading, configured, refresh: fetchPrograms } = useProgrammeCatalogue();
+  const loadError = false;
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const categories = [...new Set(programs.map(p => p.category || 'Other Tracks'))];
+  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get('program') || '');
 
   const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } = useSiteSettings();
-  const formReady = isFormConfigured && !settingsLoading && !settingsError;
-  const noteMessage = (settingsLoading || settingsError)
+  const formReady = !configured && isFormConfigured && !settingsLoading && !settingsError;
+  const noteMessage = (configured || settingsLoading || settingsError)
     ? APPLICATION_NEUTRAL_MESSAGE
     : APPLICATION_UNAVAILABLE_MESSAGE;
 
-  const fetchPrograms = async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const data = await api.getPrograms();
-      setPrograms(data.programs || []);
-    } catch (err) {
-      console.warn('Failed to load programs catalogue:', err.message);
-      setLoadError(true);
-      setPrograms([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPrograms();
-  }, []);
-
   const visiblePrograms = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return programs;
     return programs.filter(p =>
-      (p.title || '').toLowerCase().includes(q) ||
-      (p.code || '').toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q) ||
-      (resolveProgramDescription(p) || '').toLowerCase().includes(q)
+      (selectedCategory === 'ALL' || (p.category || 'Other Tracks') === selectedCategory) &&
+      (!q || `${p.title || ''} ${p.code || ''} ${p.category || ''} ${resolveProgramDescription(p) || ''}`.toLowerCase().includes(q))
     );
-  }, [programs, query]);
+  }, [programs, query, selectedCategory]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-10 font-sans">
@@ -61,23 +41,24 @@ export default function ApplyPage() {
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-700 border border-cyan-500/30">
           <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-          <span>Admissions Open</span>
+          <span>Application status</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-          Programs
+          Find your next <span className="text-cyan-500">direction.</span>
         </h1>
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          Pick your 1-month track and apply in under a minute.
+          Choose a NOXIRA programme and check the current application instructions.
         </p>
       </div>
 
+      {configured && <p role="status" className="text-sm text-slate-500 text-center">Showing NOXIRA's configured catalogue. Live intake status is unavailable; listing a track does not confirm applications are open.</p>}
       {/* Search */}
       {!loading && !loadError && programs.length > 0 && (
         <div className="max-w-xl mx-auto w-full">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
-              type="text"
+              type="search"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search programs (e.g. AI, design, marketing)"
@@ -91,9 +72,20 @@ export default function ApplyPage() {
         </div>
       )}
 
+      {!loading && programs.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2" aria-label="Programme categories">
+          {['ALL', ...categories].map(category => <button
+            key={category}
+            type="button"
+            aria-pressed={selectedCategory === category}
+            onClick={() => setSelectedCategory(category)}
+            className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition ${selectedCategory === category ? 'bg-cyan-500 border-cyan-500 text-slate-950' : 'bg-white/5 border-slate-400/30 text-slate-500 hover:border-cyan-400'}`}
+          >{category === 'ALL' ? 'All Programmes' : category} ({category === 'ALL' ? programs.length : programs.filter(p => (p.category || 'Other Tracks') === category).length})</button>)}
+        </div>
+      )}
       {/* Loading Skeleton */}
       {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
           {[1, 2, 3].map(m => (
             <div key={m} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs animate-pulse space-y-4">
               <div className="h-5 bg-slate-200 rounded-md w-1/4"></div>
@@ -134,39 +126,52 @@ export default function ApplyPage() {
       )}
       {!loading && !loadError && programs.length > 0 && visiblePrograms.length === 0 && (
         <div className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-12 text-center max-w-md mx-auto text-xs text-slate-500">
-          No programs match &ldquo;{query}&rdquo;. Try a different search.
+          <p>No programmes match your search and category. Try a different search.</p>
+          <button type="button" onClick={() => { setQuery(''); setSelectedCategory('ALL'); }} className="mt-4 text-cyan-500 font-semibold">Clear filters</button>
         </div>
       )}
 
       {/* Program Cards */}
       {!loading && !loadError && visiblePrograms.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
           {visiblePrograms.map(prg => (
             <div
               key={prg.code}
-              className="bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl p-6 shadow-xs hover:border-cyan-300 hover:shadow-md transition flex flex-col justify-between space-y-5"
+              data-program-code={prg.code}
+              className="programme-square-card bg-white/65 backdrop-blur-xl border border-white/60 shadow-glass rounded-2xl shadow-xs hover:border-cyan-300 hover:shadow-md transition"
             >
-              {/* Card artwork area (program code monogram) */}
-              <div className="relative -mx-6 -mt-6 h-32 rounded-t-2xl bg-gradient-to-br from-slate-100 via-cyan-50 to-slate-100 border-b border-slate-200 flex items-center justify-center overflow-hidden">
-                <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wider text-cyan-700 bg-white/85 border border-cyan-200 px-2 py-0.5 rounded-md">
+              {/* Real subject photography is illustrative, not a NOXIRA facility or student claim. */}
+              <div className="programme-square-art relative border-b border-slate-200 overflow-hidden">
+                {PROGRAMME_IMAGES[prg.code] && <img
+                  src={PROGRAMME_IMAGES[prg.code].src}
+                  srcSet={`${PROGRAMME_IMAGES[prg.code].small} 480w, ${PROGRAMME_IMAGES[prg.code].src} 960w`}
+                  sizes="(min-width: 1280px) 604px, (min-width: 768px) 45vw, 100vw"
+                  width="960"
+                  height="640"
+                  alt={PROGRAMME_IMAGES[prg.code].alt}
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />}
+                <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wider text-cyan-700 bg-white/95 border border-cyan-200 px-2 py-0.5 rounded-md">
                   {prg.category || 'Engineering'}
                 </span>
-                <span className="font-mono text-2xl font-black text-slate-300 tracking-widest select-none">
+                <span className="absolute bottom-3 right-3 font-mono text-xs font-bold text-white tracking-widest select-none bg-slate-950/65 px-2 py-1 rounded-md">
                   {prg.code}
                 </span>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="text-base font-bold text-slate-900 leading-snug">
+              <div className="programme-square-body">
+                <h3 className="programme-square-title font-bold text-slate-900">
                   {prg.title}
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                <p className="programme-square-description text-slate-600 line-clamp-3">
                   {resolveProgramDescription(prg)}
                 </p>
-                <div className="space-y-1.5 pt-2 text-[11px] text-slate-600">
+                <div className="programme-square-meta text-slate-600">
                   <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                     <Clock className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
-                    <span>Duration: 1 Month (4 Weeks)</span>
+                    <span>Duration: 4 weeks</span>
                   </div>
                   {prg.seats != null && (
                     <div className="flex items-center gap-1.5 text-slate-700 font-medium">
@@ -175,20 +180,18 @@ export default function ApplyPage() {
                     </div>
                   )}
                 </div>
-              </div>
 
               {/* Apply CTA - opens the official Google Form */}
-              <div className="pt-1">
+              <div className="programme-square-action">
                 {formReady ? (
                   <a
                     href={googleForm1Url}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Apply via the official Google Form"
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-bold shadow-sm transition"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-ink-950 hover:bg-ink-800 text-white rounded-xl text-xs font-bold shadow-sm transition"
                   >
                     Apply
-                    <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
                   </a>
                 ) : (
                   <>
@@ -196,14 +199,14 @@ export default function ApplyPage() {
                       type="button"
                       disabled
                       title={noteMessage}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-ink-950/50 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed"
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-ink-950/50 text-white/70 rounded-xl text-xs font-bold cursor-not-allowed"
                     >
                       Apply
-                      <ExternalLink className="w-3.5 h-3.5 text-cyan-400/50" />
                     </button>
-                    <p className="text-[11px] text-slate-500 mt-1.5 text-center">{noteMessage}</p>
+                    <p className="programme-square-status text-slate-500 text-center">{noteMessage}</p>
                   </>
                 )}
+              </div>
               </div>
             </div>
           ))}

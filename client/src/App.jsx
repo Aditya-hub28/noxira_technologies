@@ -23,7 +23,6 @@ import PolicyPage from './pages/PolicyPage';
 import ContactSupportPage from './pages/ContactSupportPage';
 import ReviewsPage from './pages/ReviewsPage';
 import HomePage from './pages/HomePage';
-import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
 import ApplyPage from './pages/ApplyPage';
 import DownloadOfferLetterPage from './pages/DownloadOfferLetterPage';
@@ -45,6 +44,11 @@ import AuditLogsPage from './pages/AuditLogsPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminReviewsPage from './pages/AdminReviewsPage';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
+
+function ProgrammeListingRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: '/apply', search: location.search }} replace />;
+}
 
 function AdminConsole({ admin, onLogout }) {
   const navigate = useNavigate();
@@ -231,7 +235,7 @@ function AppContent() {
         }
       >
         <Route path="/" element={<HomePage />} />
-        <Route path="/programs" element={<ProgramsPage />} />
+        <Route path="/programs" element={<ProgrammeListingRedirect />} />
         <Route path="/programs/:code" element={<ProgramDetailPage />} />
         <Route path="/apply" element={<ApplyPage />} />
         <Route path="/offer-letter" element={<DownloadOfferLetterPage />} />

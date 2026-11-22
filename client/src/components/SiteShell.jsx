@@ -184,6 +184,9 @@ export default function SiteShell({ onToggleMobileMenu }) {
         }
         break;
 
+      case 'All Programmes':
+        navigate('/apply');
+        break;
       case 'Apply Now':
         navigate('/apply');
         break;

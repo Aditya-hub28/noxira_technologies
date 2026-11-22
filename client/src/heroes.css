@@ -190,12 +190,23 @@
 }
 
 .gb {
+  /* Own the layout after the reset: utility display rules load before this file.
+     An inline box can fragment its pill background and put the SVG on a new line. */
   all: unset;
   box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+  text-align: center;
+  overflow-wrap: anywhere;
   position: relative;
   cursor: pointer;
   color: #fff;
-  font: 600 15px 'Space Grotesk', sans-serif;
+  font: 600 15px/1.4 'Space Grotesk', sans-serif;
   padding: 14px 28px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
@@ -209,6 +220,11 @@
     0 10px 24px rgba(0, 0, 0, 0.35);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
+}
+
+/* Keep the icon beside the label, including inside narrow cards. */
+.gb > svg {
+  flex-shrink: 0;
 }
 
 .gb:hover {

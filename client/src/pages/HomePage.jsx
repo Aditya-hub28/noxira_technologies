@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger, ScrollSmoother } from 'gsap/all';
-import { api } from '../services/api';
-import { resolveProgramDescription } from '../utils/programUtils';
+import { useProgrammeCatalogue } from '../utils/useProgrammeCatalogue';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 import Hero from '../components/Heroes';
 import JourneyBoard from '../components/JourneyBoard';
 import ReviewMarquee from '../components/ReviewMarquee';
+import CertificateShowcase from '../components/CertificateShowcase';
+import ProgramShowcase from '../components/ProgramShowcase';
 import { soon } from '../utils/toast';
 import {
   ShieldCheck,
   ArrowRight,
-  AlertTriangle,
-  RotateCcw,
-  Clock,
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
@@ -73,33 +71,12 @@ const JOURNEY_STEPS = [
 
 
 export default function HomePage() {
-  const [programs, setPrograms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const { programs, loading, configured } = useProgrammeCatalogue();
 
   const { googleForm1Url, isFormConfigured, loading: settingsLoading, error: settingsError } =
     useSiteSettings();
   const noteMessage =
     settingsLoading || settingsError ? APPLICATION_NEUTRAL_MESSAGE : APPLICATION_UNAVAILABLE_MESSAGE;
-
-  const fetchPrograms = async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const data = await api.getPrograms();
-      setPrograms(data.programs || []);
-    } catch (err) {
-      console.warn('Failed to load active programs:', err.message);
-      setLoadError(true);
-      setPrograms([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPrograms();
-  }, []);
 
   // Handle hash scrolling (e.g. #services) with ScrollSmoother
   useEffect(() => {
@@ -157,7 +134,7 @@ export default function HomePage() {
       />
 
       {/* 01 - INTERNSHIPS & PROGRAMMES */}
-      <section id="programs">
+      <section id="internship-start">
         <div className="wrap">
           <p className="kick rv">01 - INTERNSHIPS</p>
           <h2 className="rv">
@@ -212,104 +189,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Published Technical Programmes */}
-          <div className="mt-12 pt-8 border-t border-white/10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <span className="text-xs font-mono text-cyan-400 font-bold uppercase tracking-wider block">
-                  Active Engineering Tracks
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight">
-                  Available Internship Programmes
-                </h3>
-              </div>
-              {programs.length > 0 && (
-                <Link
-                  to="/programs"
-                  className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1"
-                >
-                  Browse all {programs.length} technical tracks <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              )}
-            </div>
-
-            {/* Loading State */}
-            {loading && (
-              <div className="grid g2">
-                {[1, 2].map((n) => (
-                  <div key={n} className="card rv animate-pulse">
-                    <div className="h-4 bg-white/10 rounded w-1/4 mb-2"></div>
-                    <div className="h-6 bg-white/10 rounded w-3/4 mb-2"></div>
-                    <div className="h-12 bg-white/5 rounded mb-4"></div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Error State */}
-            {!loading && loadError && (
-              <div className="card rv text-center p-8 max-w-md mx-auto space-y-3">
-                <AlertTriangle className="w-6 h-6 text-cyan-400 mx-auto" />
-                <b>Unable to Load Programmes</b>
-                <span>Please check your connection and try again shortly.</span>
-                <div>
-                  <button
-                    onClick={fetchPrograms}
-                    className="gb pri text-xs font-semibold inline-flex items-center gap-1.5"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Retry
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Empty State */}
-            {!loading && !loadError && programs.length === 0 && (
-              <div className="card rv text-center p-6 text-xs text-slate-400">
-                No active programmes are currently published. Please check back shortly.
-              </div>
-            )}
-
-            {/* Dynamic Programs Grid */}
-            {!loading && !loadError && programs.length > 0 && (
-              <div className="grid g2">
-                {programs.map((prg) => (
-                  <div key={prg.code} className="card big rv flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <small>{prg.code}</small>
-                        <span className="text-[11px] font-semibold text-cyan-400 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Active Track
-                        </span>
-                      </div>
-                      <b className="block mb-2">{prg.title}</b>
-                      <span>{resolveProgramDescription(prg)}</span>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 pt-3">
-                        <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>Duration: 1 Month (4 Weeks)</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 mt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
-                      <Link
-                        to={`/programs/${encodeURIComponent(prg.code)}`}
-                        className="text-xs font-bold text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1"
-                      >
-                        View Details <ArrowRight className="w-3 h-3" />
-                      </Link>
-                      <Link
-                        to="/apply"
-                        className="gb pri text-xs font-bold inline-flex items-center gap-1.5"
-                        title="Browse programs and apply"
-                      >
-                        Apply Now <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </section>
 
@@ -361,27 +240,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trust & Verification Section */}
-      <section id="verification-teaser">
-        <div className="wrap">
-          <div className="card big rv flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2">
-              <small>AUTHENTICITY GUARANTEED</small>
-              <b>Registry-Verified Credentials</b>
-              <span>
-                Every certificate issued by NOXIRA includes a unique verification token. Employers and institutions can verify authentic issuance and record status directly against the official registry.
-              </span>
-            </div>
-            <div className="flex-shrink-0">
-              <Link to="/verify" className="gb pri inline-flex items-center gap-2 text-sm font-bold">
-                Verify Credential
-                <ShieldCheck className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* 04 - CONTACT PLACEHOLDER */}
       <section id="contact">
         <div className="wrap">
@@ -405,29 +263,19 @@ export default function HomePage() {
         </div>
       </section>
 
+      <ProgramShowcase programs={programs} loading={loading} configured={configured} />
+
+      <CertificateShowcase />
+
       {/* 05 - STUDENT REVIEWS: continuous right-to-left marquee (hidden until approved reviews exist; samples only in demo preview) */}
       <ReviewMarquee />
 
-      {/* End section */}
-      <section className="end">
+      {/* Copyright footer, directly after feedback. */}
+      <div className="home-copyright">
         <div className="wrap">
-          <h2 className="rv">Apply.</h2>
-          <p className="lede rv">
-            Start your practical engineering journey with NOXIRA.
-          </p>
-          <div className="mt-6 rv">
-            <Link
-              to="/apply"
-              className="gb pri inline-flex items-center gap-2 text-sm font-bold"
-              title="Browse programs and apply"
-            >
-              Apply Now
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
           <p className="foot rv">&copy; {new Date().getFullYear()} NOXIRA TECHNOLOGIES</p>
         </div>
-      </section>
+      </div>
     </main>
   );
 }

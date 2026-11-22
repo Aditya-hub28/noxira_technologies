@@ -78,14 +78,14 @@ test('MODULE 2: PublicLayout.jsx mounts navigation and footer properly', () => {
   assert.ok(layoutContent.includes('to="/apply"'), 'Must link to /apply');
 });
 
-// TEST 7: HomePage has Services section, dynamic Form 1 CTAs, and 6-Step Journey
-test('MODULE 2: HomePage.jsx contains Services section, dynamic Form 1 CTAs, and agreed 6-step lifecycle', () => {
+// TEST 7: HomePage has Services section, dynamic Form 1 CTAs, and 8-Step Journey
+test('MODULE 2: HomePage.jsx contains Services section, dynamic Form 1 CTAs, and agreed 8-step lifecycle', () => {
   const homeContent = fs.readFileSync(path.join(clientSrcDir, 'pages/HomePage.jsx'), 'utf8');
   assert.ok(homeContent.includes('id="services"'), 'Must have services section with id="services"');
   assert.ok(homeContent.includes('Web Application Development'), 'Must include Web Application Development');
   assert.ok(homeContent.includes('Mobile Application Development'), 'Must include Mobile Application Development');
   assert.ok(homeContent.includes('useSiteSettings'), 'Must use useSiteSettings hook');
-  assert.ok(homeContent.includes('The 6-Step Internship Journey'), 'Must have 6-Step Internship Journey heading');
+  assert.ok(homeContent.includes('The 8-Step Internship Journey'), 'Must have 8-Step Internship Journey heading');
   assert.ok(homeContent.includes('Apply via Google Form 1'), 'Step 1 must be Apply via Google Form 1');
   assert.ok(homeContent.includes('Official Offer Letter'), 'Step 3 must mention Official Offer Letter');
   assert.ok(homeContent.includes('Final Project Submission (Form 2)'), 'Step 5 must mention Form 2 project submission');
@@ -93,21 +93,29 @@ test('MODULE 2: HomePage.jsx contains Services section, dynamic Form 1 CTAs, and
 });
 
 // TEST 8: ProgramsPage routes cards to dynamic Form 1 and enforces 1-month duration guard
-test('MODULE 2: ProgramsPage.jsx guards duration to 1-month model and routes Apply via useSiteSettings', () => {
-  const programsContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ProgramsPage.jsx'), 'utf8');
-  assert.ok(programsContent.includes('useSiteSettings'), 'Must reference useSiteSettings');
-  assert.ok(programsContent.includes('Duration: 1 Month (4 Weeks)'), 'Must enforce 1 Month (4 Weeks) duration guard');
+test('MODULE 2: catalogue uses source-backed feed with live precedence and status-first application route', () => {
+  const programsContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ApplyPage.jsx'), 'utf8');
+  const feedContent = fs.readFileSync(path.join(clientSrcDir, 'utils/useProgrammeCatalogue.js'), 'utf8');
+  const applyContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ApplyPage.jsx'), 'utf8');
+  assert.ok(programsContent.includes('useProgrammeCatalogue'), 'Must use source-backed catalogue feed');
+  assert.ok(feedContent.includes('CONFIGURED_PROGRAMMES') && feedContent.includes('Array.isArray(data?.programs)'), 'Must distinguish valid live feed from unavailable feed');
+  assert.ok(programsContent.includes("get('program')") && programsContent.includes('selectedCategory'), 'Single application catalogue must preserve selected programme search and categories');
+  const appContent = fs.readFileSync(path.join(clientSrcDir, 'App.jsx'), 'utf8');
+  assert.ok(!appContent.includes('import ProgramsPage'), 'Must not introduce a second catalogue page');
+  assert.ok(appContent.includes('ProgrammeListingRedirect') && appContent.includes("pathname: '/apply'"), 'Old catalogue URL must redirect to existing application catalogue');
+  assert.ok(applyContent.includes('useSiteSettings') && applyContent.includes('!configured && isFormConfigured'), 'Must gate actual form on live programme/status availability');
+  assert.ok(!programsContent.includes('1 Month (4 Weeks)'), 'Must not invent duration on identity-only catalogue entries');
   assert.strictEqual(programsContent.includes('3-month'), false, 'Must not mention 3-month');
   assert.strictEqual(programsContent.includes('prg.startDate'), false, 'Must not render raw batch start dates');
 });
 
 // TEST 9: ProgramDetailPage copy rules, fee info, and dynamic form integration
-test('MODULE 2: ProgramDetailPage.jsx conforms to 3-state empty curriculum copy rules & 1-month / Rs.99 model', () => {
+test('MODULE 2: programme details preserve fee-policy, live duration and three-state application copy', () => {
   const detailContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ProgramDetailPage.jsx'), 'utf8');
   assert.ok(detailContent.includes('useSiteSettings'), 'Must consume useSiteSettings');
   assert.ok(detailContent.includes('Task Submission &amp; Review Fee is payable only at final submission. Applying is free.'), 'Must state fee is payable only at final submission and applying is free');
   assert.strictEqual(detailContent.includes('Applications open once NOXIRA publishes the fee'), false, 'Must NOT contain fee-gate blocking statement');
-  assert.ok(detailContent.includes('1 Month (4 Weeks)'), 'Must enforce 1 Month (4 Weeks) duration guard');
+  assert.ok(detailContent.includes('program.durationWeeks') && detailContent.includes('Not published'), 'Must display live duration only when supplied, not invent fallback duration');
   assert.strictEqual(detailContent.includes('program.startDate'), false, 'Must not render raw cohort dates');
   assert.ok(detailContent.includes('Applications are open for candidate intake via Google Form.'), 'Must include open copy');
   assert.ok(detailContent.includes('Applications are not open yet. The application link is not available yet.'), 'Must include closed copy');
@@ -134,7 +142,7 @@ test('CONTENT RULES: Zero forbidden keywords in public client files', () => {
   const filesToCheck = [
     'components/PublicLayout.jsx',
     'pages/HomePage.jsx',
-    'pages/ProgramsPage.jsx',
+    'pages/ApplyPage.jsx',
     'pages/ProgramDetailPage.jsx',
     'pages/DownloadOfferLetterPage.jsx'
   ];

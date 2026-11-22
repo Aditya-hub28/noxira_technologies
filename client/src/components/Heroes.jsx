@@ -14,9 +14,10 @@ function useIntro(fn, deps = []) {
     let ctx;
     let done = false;
     let tws = [];
+    let disposed = false;
 
     const go = () => {
-      if (done || !root.current) return;
+      if (done || disposed || !root.current) return;
       done = true;
       ctx = gsap.context(() => {
         tws = fn(root.current) || [];
@@ -32,17 +33,14 @@ function useIntro(fn, deps = []) {
     if (window.__nxPrepared) go();
     else window.addEventListener('noxira:prepare', go, { once: true });
 
+    const onMount = () => {
+      window.__nxMounted = 1;
+      start();
+    };
     if (window.__nxMounted || document.documentElement.classList.contains('nx-ready')) {
       start();
     } else {
-      window.addEventListener(
-        'noxira:mount',
-        () => {
-          window.__nxMounted = 1;
-          start();
-        },
-        { once: true }
-      );
+      window.addEventListener('noxira:mount', onMount, { once: true });
     }
 
     const fb = setTimeout(() => {
@@ -51,7 +49,11 @@ function useIntro(fn, deps = []) {
     }, 4000);
 
     return () => {
+      disposed = true;
       clearTimeout(fb);
+      window.removeEventListener('noxira:prepare', go);
+      window.removeEventListener('noxira:mount', onMount);
+      tws.forEach((t) => t && t.kill && t.kill());
       if (ctx) ctx.revert();
     };
   }, deps);
@@ -115,6 +117,7 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
     const cleanups = [];
     let isVisible = true;
     let isPlaying = false;
+    let alive = true;
 
     r.querySelectorAll('.mq').forEach((row, i) => {
       const m = window.matchMedia('(max-width:800px)').matches;
@@ -251,6 +254,7 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
 
     tw.push({
       kill() {
+        alive = false;
         cleanups.forEach((fn) => fn());
       },
     });
@@ -312,6 +316,7 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
     cleanups.push(() => window.removeEventListener('resize', onResize));
 
     (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+      if (!alive) return;
       fit();
       convs.forEach((c) => c.rebuild());
     });
@@ -338,7 +343,7 @@ export default function Hero({ googleForm1Url, isFormConfigured, noteMessage, on
     <section className="hv hv2" ref={root}>
       <div className="lt" />
       <div className="lt2" />
-      <div className="mqs">
+      <div className="mqs" key={isMobile ? 'mobile-conveyor' : 'desktop-conveyor'}>
         {allRows.map((r, i) => (
           <div className="mqw" key={i}>
             <div className="mq">
