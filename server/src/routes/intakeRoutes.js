@@ -4,15 +4,15 @@ const intakeController = require('../controllers/intakeController');
 const form1ImportController = require('../controllers/form1ImportController');
 const form2ImportController = require('../controllers/form2ImportController');
 const { requireAuth } = require('../middleware/auth');
-const { intakeRateLimiter, statusRateLimiter } = require('../middleware/rateLimiter');
+const { intakeRateLimiter, offerLetterLookupRateLimiter, offerLetterPdfRateLimiter } = require('../middleware/rateLimiter');
 const { uploadCsv } = require('../middleware/upload');
 
 // Public Website Intake Form (Rate limited)
 router.post('/website-apply', intakeRateLimiter, intakeController.websiteApply);
 
 // Public Offer Letter Lookup (Rate limited)
-router.get('/offer-letter', statusRateLimiter, intakeController.lookupOfferLetter);
-router.get('/offer-letter/pdf', statusRateLimiter, intakeController.downloadOfferLetterPdf);
+router.get('/offer-letter', offerLetterLookupRateLimiter, intakeController.lookupOfferLetter);
+router.get('/offer-letter/pdf', offerLetterPdfRateLimiter, intakeController.downloadOfferLetterPdf);
 
 // Protected Admin CSV Import Wizard
 router.post('/csv-preview', requireAuth, uploadCsv.single('csvFile'), intakeController.previewCsv);
