@@ -8,13 +8,11 @@ import config from '../nx.config.js';
 import { currentTheme, toggleTheme } from '../theme.js';
 import { soon } from '../utils/toast.js';
 import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
-import { useStudentAuth } from '../context/StudentAuthContext';
 
 export default function SiteShell({ onToggleMobileMenu }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { googleForm1Url, isFormConfigured } = useSiteSettings();
-  const { student, logout } = useStudentAuth();
 
   const [theme, setTheme] = useState(currentTheme());
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -207,7 +205,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Cookies Policy':
-        soon('Cookies Policy');
+        navigate('/cookies');
         break;
 
       case 'Student Reviews':
@@ -215,11 +213,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Contact Support':
-        soon('Contact Support');
-        break;
-
-      case 'Tools':
-        soon('Career & Developer Tools');
+        navigate('/contact');
         break;
 
       default:
@@ -238,7 +232,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
     handleItemNavigation(linkName);
   };
 
-  const links = config?.links || ['Home', 'Internships', 'Tools', 'Services', 'More'];
+  const links = config?.links || ['Home', 'Internships', 'Services', 'More'];
   const subs = config?.subs || {};
 
   return (
@@ -301,51 +295,28 @@ export default function SiteShell({ onToggleMobileMenu }) {
           })}
         </div>
 
-        {/* Student Auth Controls */}
-        {student ? (
-          <span
-            className={`l nxacct ${openDropdown === 'account' ? 'open' : ''}`}
-            role="button"
-            tabIndex={0}
-            title="Student Account"
-            onClick={(e) => toggleDropdown('account', e.currentTarget)}
-          >
-            <span className="nxav">{(student.name || 'S').trim().charAt(0).toUpperCase()}</span>
-            <span className="nxan">{(student.name || 'Student').trim().split(' ')[0]}</span>
-            <svg
-              className="chev"
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </span>
-        ) : (
-          <span
-            className="l nxa nxl"
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate('/login')}
-          >
-            Login
-          </span>
-        )}
-
         {/* Theme Toggle Button */}
         <button
           type="button"
           className="nxtheme"
+          role="switch"
+          aria-checked={theme !== 'light'}
           aria-label={theme === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
           title={theme === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
           onClick={() => toggleTheme()}
         >
-          {theme === 'light' ? '☀️' : '🌝'}
+          <span className="nxthumb" aria-hidden="true" />
+          <span className="nxsun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <circle cx="12" cy="12" r="3.5" />
+              <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+            </svg>
+          </span>
+          <span className="nxmoon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.2 14.2A8.5 8.5 0 0 1 9.8 3.8a8.5 8.5 0 1 0 10.4 10.4Z" />
+            </svg>
+          </span>
         </button>
 
         {/* Mobile Burger Menu Icon */}
@@ -359,42 +330,6 @@ export default function SiteShell({ onToggleMobileMenu }) {
       </header>
 
       {/* Desktop Dropdown Panel */}
-      {openDropdown === 'account' && (
-        <div
-          ref={dropdownRef}
-          className="nxdd"
-          id="nxdd-account"
-          role="menu"
-          style={{
-            display: 'flex',
-            left: dropdownPos.left,
-            top: dropdownPos.top,
-          }}
-        >
-          <button
-            type="button"
-            className="nxddi"
-            onClick={() => {
-              closeDropdown(true);
-              navigate('/account');
-            }}
-          >
-            My account
-          </button>
-          <button
-            type="button"
-            className="nxddi"
-            onClick={async () => {
-              closeDropdown(true);
-              await logout();
-              navigate('/');
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      )}
-
       {openDropdown && subs[openDropdown] && (
         <div
           ref={dropdownRef}

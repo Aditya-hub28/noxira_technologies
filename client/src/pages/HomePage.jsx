@@ -7,6 +7,7 @@ import { resolveProgramDescription } from '../utils/programUtils';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 import Hero from '../components/Heroes';
+import JourneyBoard from '../components/JourneyBoard';
 import { soon } from '../utils/toast';
 import {
   ShieldCheck,
@@ -17,6 +18,58 @@ import {
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
+
+const JOURNEY_STEPS = [
+  {
+    word: 'APPLY',
+    step: '01',
+    title: 'Apply via Google Form 1',
+    desc: 'Select your preferred engineering track and submit your candidate application through official Google Form 1. Applying is completely free.',
+  },
+  {
+    word: 'REVIEW',
+    step: '02',
+    title: 'Administrative Review',
+    desc: 'NOXIRA administration reviews applicant background, track selection, and eligibility for cohort intake.',
+  },
+  {
+    word: 'OFFER',
+    step: '03',
+    title: 'Official Offer Letter',
+    desc: 'Approved candidates receive a personalized, administrative offer letter delivered directly to their registered email address.',
+  },
+  {
+    word: 'TASKS',
+    step: '04',
+    title: 'Tasks & Cohort Guidance',
+    desc: 'Interns receive practical technical task deliverables, project requirements, and guidance through the dedicated WhatsApp cohort group.',
+  },
+  {
+    word: 'CODE',
+    step: '05',
+    title: 'Build the Project',
+    desc: 'Work through your assigned tasks and build your project, keeping your code in a project repository you can share.',
+  },
+  {
+    word: 'SUBMIT',
+    step: '06',
+    title: 'Final Project Submission (Form 2)',
+    desc: 'Submit your completed project repository link, Task Submission & Review Fee, and payment transaction ID through Google Form 2.',
+  },
+  {
+    word: 'EVALUATE',
+    step: '07',
+    title: 'Technical Review',
+    desc: 'Your submission goes through technical review. Technical review approval and manual payment verification are both required before a certificate can be released.',
+  },
+  {
+    word: 'CERTIFY',
+    step: '08',
+    title: 'Verified Certificate Issuance',
+    desc: 'Once payment is verified and technical review is approved, your official Certificate of Achievement is explicitly released and publicly verifiable on the registry.',
+  },
+];
+
 
 export default function HomePage() {
   const [programs, setPrograms] = useState([]);
@@ -259,98 +312,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 02 - SKILL COURSE AND CAREER TOOLS */}
-      <section id="career-tools">
-        <div className="wrap">
-          <p className="kick rv">02 - SKILL COURSE AND CAREER TOOLS</p>
-          <h2 className="rv">
-            Learn it. Prove it.
-            <br />
-            Get hired.
-          </h2>
-          <div className="grid g3">
-            {[
-              ['Browse Courses', 'skill courses to pick from'],
-              ['My Certificates', 'all your certificates in one place'],
-              ['Skill Certificate verification', 'verify a skill certificate'],
-              ['Check ATS Score', 'see how your resume reads'],
-              ['Job Email Builder', 'write the application email'],
-              ['Interview Preparation', 'get ready before the call'],
-            ].map(([a, b], i) => (
-              <div
-                className="card rv cursor-pointer transition hover:border-cyan-400/50"
-                key={a}
-                role="button"
-                tabIndex={0}
-                onClick={() => soon(a)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    soon(a);
-                  }
-                }}
-              >
-                <small>0{i + 1}</small>
-                <b>{a}</b>
-                <span>{b}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 03 - JOURNEY (The 6-Step Internship Journey) */}
+      {/* 02 - JOURNEY (The 8-Step Internship Journey) */}
       <section id="journey">
         <div className="wrap">
-          <p className="kick rv">03 - JOURNEY</p>
-          <h2 className="rv">The 6-Step Internship Journey</h2>
-          <div className="grid g3">
-            {[
-              {
-                step: '01',
-                title: 'Apply via Google Form 1',
-                desc: 'Select your preferred engineering track and submit your candidate application through official Google Form 1. Applying is completely free.',
-              },
-              {
-                step: '02',
-                title: 'Administrative Review',
-                desc: 'NOXIRA administration reviews applicant background, track selection, and eligibility for cohort intake.',
-              },
-              {
-                step: '03',
-                title: 'Official Offer Letter',
-                desc: 'Approved candidates receive a personalized, administrative offer letter delivered directly to their registered email address.',
-              },
-              {
-                step: '04',
-                title: 'Tasks & Cohort Guidance',
-                desc: 'Interns receive practical technical task deliverables, project requirements, and guidance through the dedicated WhatsApp cohort group.',
-              },
-              {
-                step: '05',
-                title: 'Final Project Submission (Form 2)',
-                desc: 'Submit your completed project repository link, Task Submission & Review Fee, and payment transaction ID through Google Form 2.',
-              },
-              {
-                step: '06',
-                title: 'Verified Certificate Issuance',
-                desc: 'Once payment is manually verified and technical review is approved, your official Certificate of Achievement is explicitly released and publicly verifiable on the registry.',
-              },
-            ].map((item) => (
-              <div className="card rv" key={item.step}>
-                <small>Step {item.step}</small>
-                <b>{item.title}</b>
-                <span>{item.desc}</span>
-              </div>
-            ))}
-          </div>
+          <p className="kick rv">02 - JOURNEY</p>
+          <h2 className="rv">The 8-Step Internship Journey</h2>
+          <JourneyBoard steps={JOURNEY_STEPS} />
         </div>
       </section>
 
-      {/* 04 - SERVICES */}
+      {/* 03 - SERVICES */}
       <section id="services">
         <div className="wrap">
-          <p className="kick rv">04 - SERVICES</p>
+          <p className="kick rv">03 - SERVICES</p>
           <h2 className="rv">What we build.</h2>
           <div className="grid g2">
             <div className="card big rv">
@@ -407,10 +381,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 05 - CONTACT PLACEHOLDER */}
+      {/* 04 - CONTACT PLACEHOLDER */}
       <section id="contact">
         <div className="wrap">
-          <p className="kick rv">05 - CONTACT</p>
+          <p className="kick rv">04 - CONTACT</p>
           <h2 className="rv">Get in Touch</h2>
           <div className="card rv text-center p-8 space-y-3">
             <b>Inquiries &amp; Partnerships</b>

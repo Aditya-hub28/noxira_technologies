@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { SUPPORT_EMAIL } from '../config/supportContact';
+import '../doc.css';
 
 /**
  * Module 10: Public policy pages (Terms, Privacy, Payment & Refund, Review Rules).
@@ -11,84 +13,64 @@ import { Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
  * page. Do not fill these in without the owner's explicit decision.
  */
 
-const PENDING_LAUNCH_ITEMS = [
-  'Public support contact email - to be published before launch',
-  'Deadline extension rule - deadline is communicated as strict; extension policy to be finalized before launch',
-  'Data retention, deletion and consent handling - pending legal review before launch; nothing on this page is legal advice',
-];
-
 const POLICIES = {
   terms: {
     title: 'Terms & Conditions',
-    intro: 'These terms govern participation in NOXIRA Technologies internship programmes. By applying, you accept these terms.',
+    official: true,
+    intro: 'This page provides a clear overview of your rights, payment terms, and responsibilities, ensuring transparency at every step. We are committed to maintaining fair policies, responsible practices, and a trustworthy experience for everyone.',
     sections: [
-      {
-        heading: 'Who we are',
-        body: 'NOXIRA Technologies is an independent software services and training brand operated by its founding team. Programme operations, reviews, and certificate decisions are handled by the founder and the authorised team.',
-      },
-      {
-        heading: 'Eligibility',
-        body: 'Participants must be at least 18 years old. Programmes are open to everyone - college students, beginners, and working professionals.',
-      },
-      {
-        heading: 'What a programme includes',
-        body: 'Each programme provides practice projects, learning material, and review feedback on your submissions. Projects are practice work assigned by NOXIRA; they are not work for real clients.',
-      },
-      {
-        heading: 'Duration and batches',
-        body: 'Programmes run for one month, counted from the fixed batch start date. New batches start every month. Published batch deadlines are strict and must be followed.',
-      },
-      {
-        heading: 'Programme fee',
-        body: 'The programme fee is a one-time Rs. 99, payable only at final project submission. There is no separate charge for application, review, re-reviews, or the certificate. See the Payment & Refund Policy for details.',
-      },
-      {
-        heading: 'Reviews and certificate',
-        body: 'Every final submission receives an initial review plus up to 3 free re-reviews, as described in the Review Rules. A certificate is released only after your payment is verified and your review is passed, through an explicit release by our team - never automatically.',
-      },
-      {
-        heading: 'Your project',
-        body: 'Your project lives on your own GitHub account and remains yours. Submitted work must be your own. Suspected copied or misrepresented work is handled through the same review and re-review process as any other correction.',
-      },
+      { heading: 'Introduction', body: 'By using NOXIRA TECHNOLOGIES website, participating in its internship programs, or accessing its services, you agree to comply with these Terms and Conditions.' },
+      { heading: 'Services Offered', body: 'NOXIRA TECHNOLOGIES provides digital internships:', list: ['Internship programs with practical tasks and projects'] },
+      { heading: 'Eligibility', body: 'Users must meet the eligibility requirements of the internship program. All information provided during application must be accurate, complete and up to date. Applicants must not use false identities or submit misleading qualifications or documents.' },
+      { heading: 'User Responsibilities', body: 'To maintain a fair and safe environment, users must:', list: ['Avoid plagiarism or cheating in any submitted tasks', 'Use all services legally and ethically', 'Not misuse or redistribute platform content', 'Not attempt hacking, copying, or reverse-engineering'], after: 'Violation of these responsibilities may lead to immediate suspension or termination of services.' },
+      { heading: 'Internship Fees & Payments', body: 'Internship participation requires a small task submission fee to cover administrative costs:', fee: { label: 'Internship Task Submission Fee', plan: '1 MONTH INTERNSHIP', price: '₹149' }, quote: '"These are task review charges, not hidden fees, and help maintain platform operations, servers, and mentorship support."', after: 'These charges help support servers, mentors, and platform operations. They are charged only for managing and reviewing tasks. No personal profit or unnecessary fees are collected.' },
+      { heading: 'Refund Policy', body: 'All payments are non-refundable unless NOXIRA TECHNOLOGIES cancels the program itself.', after: 'Please ensure you are committed to the program before making any payment. Refunds are issued only in the rare event that NOXIRA TECHNOLOGIES cancels the specific program you enrolled in, or when a duplicate or accidental double payment is made for the same program.' },
+      { heading: 'Certificates & Deliverables', body: 'Certificates are issued only after successful completion of tasks and a positive performance evaluation by our mentors.' },
+      { heading: 'Intellectual Property', body: 'All content, code, branding, and materials belong to NOXIRA TECHNOLOGIES and cannot be copied, resold, or redistributed without explicit written permission.' },
+      { heading: 'Confidentiality', body: 'Any project data shared with NOXIRA TECHNOLOGIES is treated with strict confidentiality and is protected by our internal security protocols.' },
+      { heading: 'Limitation of Liability', body: 'NOXIRA TECHNOLOGIES is not responsible for:', list: ['Internet or technical issues on the user\'s end', 'Data loss due to user mistakes or negligence', 'Third-party payment failures or delays', 'External tool downtime or API failures'] },
+      { heading: 'Third-Party Tools', body: 'Some services may use payment gateways, APIs, or hosting providers beyond NOXIRA TECHNOLOGIES\' control. Usage of these tools is subject to their respective terms.' },
+      { heading: 'Updates to Terms', body: 'Terms may change anytime to reflect changes in our services or legal requirements. Continued use of the platform means acceptance of the updated terms.' },
     ],
   },
   privacy: {
     title: 'Privacy Policy',
-    intro: 'This policy explains what data NOXIRA Technologies collects, who can see it, and how it is used.',
+    official: true,
+    intro: 'This page explains your rights, payments, and responsibilities clearly to ensure transparency and trust. We believe in transparent policies and fair usage.',
     sections: [
-      {
-        heading: 'What we collect',
-        body: 'Application details you submit in the application form, final submission details (project link and payment transaction/UTR reference), and the review, payment, and certificate records created from them.',
-      },
-      {
-        heading: 'Who can access your data',
-        body: 'Only the founder and the authorised NOXIRA team. Your data is not sold or shared with outside parties.',
-      },
-      {
-        heading: 'What is public',
-        body: 'Only the public certificate verification page is visible to anyone: it shows the recipient name, programme, batch, and certificate status for a valid certificate ID. Your email address and phone number are never shown publicly.',
-      },
-      {
-        heading: 'Payment references',
-        body: 'The UTR or transaction ID you submit is stored so our team can manually verify your payment against actual bank/UPI records. Until verified, it is treated as an unconfirmed claim.',
-      },
-      {
-        heading: 'Communications',
-        body: 'We contact you on the channels you provide (including WhatsApp and email) for programme updates, and occasionally for promotional messages about future NOXIRA programmes.',
-      },
-      {
-        heading: 'Corrections and retention',
-        body: 'Student records are retained for verification and record-keeping. The portal currently has no self-service deletion option; requests about your data (including correction) can be made through our support contact once published. Final retention and data-rights handling is under legal review before launch.',
-      },
+      { heading: 'Information Collected', body: 'We collect the following information to provide and improve our services:', list: ['Name, email, and phone number for account creation and communication', 'Payment details processed securely through our payment partners', 'Internship activity including task submissions and performance data', 'Website usage analytics to understand how users interact with our platform'] },
+      { heading: 'How Data Is Used', body: 'Your data is used for the following purposes:', list: ['Service delivery including internship', 'Communication and support to assist you with any queries', 'Certificates and invoices generation upon completion'] },
+      { heading: 'Data Protection', body: 'NOXIRA TECHNOLOGIES uses industry-standard security practices and restricted access protocols to protect your personal data from unauthorized access, alteration, or disclosure.' },
+      { heading: 'Data Sharing', body: 'Your data is never sold to third parties. It may be shared only with trusted service providers like payment gateways or hosting partners strictly for the purpose of service delivery.' },
+      { heading: 'User Rights', body: 'You have the right to request correction, deletion, or access to your personal data.' },
+      { heading: 'Data Retention', body: 'Data is stored only as long as needed for the fulfillment of our services and to comply with legal and regulatory requirements.' },
+      { heading: "Children's Privacy", body: 'Our services are intended for users above 15 years of age. We do not knowingly collect data from children under this age.' },
+      { heading: 'Updates', body: 'This policy may change anytime to reflect changes in our data practices. Any updates will be posted on this page with a revised "Last Updated" date.' },
+      { heading: 'Contact', body: 'If you have any questions regarding your privacy, please contact us at:', contact: true },
+    ],
+  },
+  cookies: {
+    title: 'Cookies Policy',
+    official: true,
+    intro: 'This page explains your rights, payments, and responsibilities clearly to ensure transparency and trust. We believe in transparent policies and fair usage.',
+    sections: [
+      { heading: 'What Cookies Are', body: 'Cookies are small text files that are stored on your device when you visit a website. They help improve your browsing experience by remembering your preferences and analyzing how you use the site.' },
+      { heading: 'How NOXIRA TECHNOLOGIES Uses Cookies', body: 'We use cookies for the following purposes:', list: ['Remember user preferences such as language and login status', 'Analyze traffic to understand which parts of our site are most popular', 'Improve performance by identifying and fixing technical issues'] },
+      { heading: 'Third-Party Cookies', body: 'In addition to our own cookies, we may also use third-party cookies from trusted partners like Google Analytics and payment providers to help us analyze usage and process transactions.' },
+      { heading: 'Managing Cookies', body: 'You have full control over your cookie settings. Most browsers allow you to disable or delete cookies through their settings menu. Please note that disabling cookies may affect the functionality of some parts of our website.' },
+      { heading: 'Consent', body: 'By continuing to use our website, you consent to our use of cookies as described in this policy. We will always notify you of any major changes to our cookie practices.' },
+      { heading: 'Updates', body: 'This policy may be updated from time to time to reflect changes in technology or legal requirements. We encourage you to review this page periodically for the latest information.' },
+      { heading: 'Contact', body: 'If you have any questions about our use of cookies, please reach out to us:', contact: true },
     ],
   },
   refund: {
     title: 'Payment & Refund Policy',
+    official: true,
     intro: 'This policy covers the one-time programme fee, how it is confirmed, and when refunds apply.',
     sections: [
       {
         heading: 'Fee and payment method',
-        body: 'The fee is a one-time Rs. 99, paid at final project submission through the UPI QR shown in the submission form. You then enter your UTR/transaction ID in the form.',
+        body: 'The fee is a one-time ₹149, paid at final project submission through the UPI QR shown in the submission form. You then enter your UTR/transaction ID in the form.',
       },
       {
         heading: 'Manual verification',
@@ -106,6 +88,7 @@ const POLICIES = {
   },
   review: {
     title: 'Review Rules',
+    official: true,
     intro: 'How project reviews, corrections, and passing work in every NOXIRA programme.',
     sections: [
       {
@@ -135,6 +118,7 @@ const POLICIES = {
 export const POLICY_LINKS = [
   { slug: 'terms', path: '/terms', label: 'Terms & Conditions' },
   { slug: 'privacy', path: '/privacy', label: 'Privacy Policy' },
+  { slug: 'cookies', path: '/cookies', label: 'Cookies Policy' },
   { slug: 'refund', path: '/payment-refund', label: 'Payment & Refund' },
   { slug: 'review', path: '/review-rules', label: 'Review Rules' },
 ];
@@ -150,47 +134,31 @@ export default function PolicyPage({ slug }) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
-      <Link to="/" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 mb-6">
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
-      </Link>
+    <div className="nxdoc">
+      <Link to="/" className="back"><ArrowLeft width={14} height={14} /> Back to Home</Link>
+      <p className="eyebrow">OFFICIAL POLICY</p>
+      <h1>{policy.title}</h1>
+      <p className="intro">{policy.intro}</p>
+      {policy.sections.map((s) => (
+        <section key={s.heading} className="sec">
+          <h2>{s.heading}</h2>
+          <p>{s.body}</p>
+          {s.list && <ul>{s.list.map((li) => <li key={li}>{li}</li>)}</ul>}
+          {s.fee && (
+            <div className="fee">
+              <div><small>{s.fee.label}</small><b>{s.fee.plan}</b></div>
+              <span className="price">{s.fee.price}</span>
+            </div>
+          )}
+          {s.quote && <p className="quote">{s.quote}</p>}
+          {s.after && <p>{s.after}</p>}
+          {s.contact && <p className="mail" data-testid="support-email">{SUPPORT_EMAIL}</p>}
+        </section>
+      ))}
 
-      <div className="flex items-center gap-3 mb-2">
-        <div className="h-9 w-9 bg-cyan-500/10 border border-cyan-500/30 rounded-lg flex items-center justify-center">
-          <Shield className="w-4.5 h-4.5 text-cyan-600" />
-        </div>
-        <h1 className="text-2xl font-black text-slate-900">{policy.title}</h1>
-      </div>
-      <p className="text-xs text-slate-500 mb-2">{policy.intro}</p>
-      <p className="text-[11px] text-slate-400 mb-2">Last updated: 6 November 2026</p>
-      <p className="text-[11px] font-semibold text-cyan-700 bg-amber-50 border border-amber-200 rounded-md inline-block px-2 py-1 mb-8">Draft - pending final owner confirmation and legal review before launch. This page is not legal advice.</p>
-
-      <div className="space-y-6">
-        {policy.sections.map((s) => (
-          <section key={s.heading} className="glass-card p-6 sm:p-7">
-            <h2 className="text-sm font-bold text-ink-950 mb-1.5">{s.heading}</h2>
-            <p className="text-sm text-slate-600 leading-relaxed">{s.body}</p>
-          </section>
-        ))}
-      </div>
-
-      <div className="mt-10 bg-amber-50 border border-amber-200 rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600" />
-          <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider">Being finalized before launch</h3>
-        </div>
-        <ul className="list-disc list-inside text-xs text-amber-900/80 space-y-1">
-          {PENDING_LAUNCH_ITEMS.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="mt-8 pt-6 border-t border-slate-200 flex flex-wrap gap-4 text-xs">
+      <div className="more">
         {POLICY_LINKS.filter((l) => l.slug !== slug).map((l) => (
-          <Link key={l.slug} to={l.path} className="text-cyan-600 hover:text-cyan-700 font-semibold">
-            {l.label}
-          </Link>
+          <Link key={l.slug} to={l.path}>{l.label}</Link>
         ))}
       </div>
     </div>

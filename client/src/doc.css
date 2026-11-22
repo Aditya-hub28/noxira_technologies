@@ -1,0 +1,54 @@
+/* Public document pages (policies, contact). Dark is default; light under html[data-theme="light"]. */
+.nxdoc{max-width:46rem;margin:0 auto;padding:3rem 1.25rem 2rem;font-family:'Inter',system-ui,sans-serif;color:#aab3c2}
+.nxdoc a.back{display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;color:#8590a3;margin-bottom:1.5rem}
+.nxdoc a.back:hover{color:#fff}
+.nxdoc .eyebrow{font-size:.7rem;font-weight:700;letter-spacing:.14em;color:#38c8ff;margin:0 0 .5rem}
+.nxdoc h1{font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:clamp(1.9rem,5vw,2.6rem);line-height:1.1;color:#fff;margin:0 0 .75rem}
+.nxdoc .intro{font-size:.95rem;line-height:1.7;margin:0 0 2rem;max-width:40rem}
+.nxdoc .sec{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:1.1rem;padding:1.4rem 1.5rem;margin-bottom:1rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.nxdoc h2{font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:1.05rem;color:#fff;margin:0 0 .5rem}
+.nxdoc p,.nxdoc li{font-size:.9rem;line-height:1.7}
+.nxdoc p{margin:.4rem 0 0}
+.nxdoc ul{margin:.6rem 0 0;padding-left:1.2rem;list-style:disc}
+.nxdoc li{margin:.25rem 0}
+.nxdoc li::marker{color:#38c8ff}
+.nxdoc .fee{margin-top:.9rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;border:1px solid rgba(56,200,255,.35);background:rgba(56,200,255,.07);border-radius:.9rem;padding:.9rem 1.1rem}
+.nxdoc .fee small{display:block;font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8590a3}
+.nxdoc .fee b{color:#fff;font-weight:600}
+.nxdoc .fee .price{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;color:#38c8ff}
+.nxdoc .quote{font-style:italic;color:#8590a3}
+.nxdoc .mail{font-weight:600;color:#38c8ff}
+.nxdoc .ways{list-style:none;padding:0;margin:.8rem 0 0}
+.nxdoc .ways li{display:flex;gap:.7rem;align-items:flex-start;margin:.7rem 0}
+.nxdoc .ways svg{width:1.05rem;height:1.05rem;margin-top:.3rem;color:#38c8ff;flex:none}
+.nxdoc .ways b{color:#fff;font-weight:600}
+.nxdoc label{display:block;font-size:.78rem;font-weight:600;color:#d3d9e4;margin:1rem 0 .35rem}
+.nxdoc input,.nxdoc textarea{width:100%;box-sizing:border-box;font:inherit;font-size:.9rem;color:#fff;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:.7rem;padding:.7rem .85rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.nxdoc textarea{resize:vertical;min-height:7rem}
+.nxdoc input:focus,.nxdoc textarea:focus{border-color:#38c8ff;box-shadow:0 0 0 3px rgba(56,200,255,.18)}
+.nxdoc button.send{margin-top:1.2rem;font:inherit;font-weight:600;font-size:.9rem;color:#04121f;background:#38c8ff;border:0;border-radius:999px;padding:.7rem 1.6rem;cursor:pointer;transition:filter .2s,transform .2s}
+.nxdoc button.send:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.nxdoc .notice{margin-top:1rem;font-size:.8rem;border-radius:.7rem;padding:.65rem .85rem;color:#ffd58a;background:rgba(255,190,80,.1);border:1px solid rgba(255,190,80,.3)}
+.nxdoc .more{margin-top:1.5rem;padding-top:1.2rem;border-top:1px solid rgba(255,255,255,.09);display:flex;flex-wrap:wrap;gap:1.2rem;font-size:.8rem;font-weight:600}
+.nxdoc .more a{color:#38c8ff}
+.nxdoc .pending{margin-top:2rem;background:rgba(255,190,80,.08);border:1px solid rgba(255,190,80,.3);border-radius:1rem;padding:1rem 1.2rem;color:#ffd58a}
+.nxdoc .pending h3{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .4rem}
+.nxdoc .pending li{font-size:.78rem}
+.nxdoc .draft{display:inline-block;font-size:.7rem;font-weight:600;color:#ffd58a;background:rgba(255,190,80,.1);border:1px solid rgba(255,190,80,.3);border-radius:.5rem;padding:.3rem .6rem;margin-bottom:1.5rem}
+@media(max-width:600px){.nxdoc{padding-top:1.5rem}.nxdoc .sec{padding:1.15rem 1.1rem}}
+
+html[data-theme="light"] .nxdoc{color:#455060}
+html[data-theme="light"] .nxdoc a.back{color:#68737f}
+html[data-theme="light"] .nxdoc a.back:hover{color:#101724}
+html[data-theme="light"] .nxdoc .eyebrow,html[data-theme="light"] .nxdoc .mail,html[data-theme="light"] .nxdoc .more a,html[data-theme="light"] .nxdoc .fee .price,html[data-theme="light"] .nxdoc .ways svg{color:#0a8fd6}
+html[data-theme="light"] .nxdoc h1,html[data-theme="light"] .nxdoc h2,html[data-theme="light"] .nxdoc .ways b,html[data-theme="light"] .nxdoc .fee b{color:#101724}
+html[data-theme="light"] .nxdoc .sec{background:#fff;border-color:rgba(13,20,32,.10);box-shadow:0 8px 24px rgba(20,35,60,.07)}
+html[data-theme="light"] .nxdoc li::marker{color:#0a8fd6}
+html[data-theme="light"] .nxdoc .fee{border-color:rgba(10,143,214,.35);background:rgba(10,143,214,.07)}
+html[data-theme="light"] .nxdoc .fee small,html[data-theme="light"] .nxdoc .quote{color:#68737f}
+html[data-theme="light"] .nxdoc label{color:#2a3442}
+html[data-theme="light"] .nxdoc input,html[data-theme="light"] .nxdoc textarea{color:#101724;background:#f6f8fb;border-color:rgba(13,20,32,.18)}
+html[data-theme="light"] .nxdoc input:focus,html[data-theme="light"] .nxdoc textarea:focus{border-color:#0a8fd6;box-shadow:0 0 0 3px rgba(10,143,214,.18)}
+html[data-theme="light"] .nxdoc button.send{color:#fff;background:#0a8fd6}
+html[data-theme="light"] .nxdoc .notice,html[data-theme="light"] .nxdoc .pending,html[data-theme="light"] .nxdoc .draft{color:#7a4a00;background:#fff6e5;border-color:#f1d49b}
+html[data-theme="light"] .nxdoc .more{border-color:rgba(13,20,32,.1)}

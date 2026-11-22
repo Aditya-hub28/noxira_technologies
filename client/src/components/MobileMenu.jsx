@@ -7,7 +7,6 @@ import { currentTheme, toggleTheme } from '../theme.js';
 import config from '../nx.config.js';
 import { soon } from '../utils/toast.js';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { useStudentAuth } from '../context/StudentAuthContext';
 import '../menu.css';
 
 export function ThemeToggle() {
@@ -23,11 +22,24 @@ export function ThemeToggle() {
     <button
       type="button"
       className="nxtheme"
+      role="switch"
+      aria-checked={t !== 'light'}
       aria-label={t === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
-      title="Toggle light/dark theme"
+      title={t === 'light' ? 'Light theme on - tap for dark' : 'Dark theme on - tap for light'}
       onClick={() => toggleTheme()}
     >
-      {t === 'light' ? '☀️' : '🌝'}
+      <span className="nxthumb" aria-hidden="true" />
+      <span className="nxsun" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          <circle cx="12" cy="12" r="3.5" />
+          <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      </span>
+      <span className="nxmoon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.2 14.2A8.5 8.5 0 0 1 9.8 3.8a8.5 8.5 0 1 0 10.4 10.4Z" />
+        </svg>
+      </span>
     </button>
   );
 }
@@ -53,7 +65,6 @@ export default function MobileMenu({ open, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { googleForm1Url, isFormConfigured } = useSiteSettings();
-  const { student, logout } = useStudentAuth();
 
   const ref = useRef(null);
   const scrim = useRef(null);
@@ -65,78 +76,13 @@ export default function MobileMenu({ open, onClose }) {
     hostRef.current = h;
   }
 
-  // Elastic pull physics for drawer buttons
+  // Host container for drawer portal
   useEffect(() => {
     if (!hostRef.current) return;
     document.body.appendChild(hostRef.current);
     const host = hostRef.current;
-    let cur = null;
-
-    const pull = (b, dx, dy) => {
-      const r = b.getBoundingClientRect();
-      const mx = Math.max(-16, Math.min(16, dx));
-      const my = Math.max(-14, Math.min(14, dy));
-      gsap.to(b, {
-        x: mx * 0.55,
-        y: my * 0.55,
-        scaleX: 1 + (Math.abs(mx) / r.width) * 0.5 + 0.01,
-        scaleY: 1 - (Math.abs(mx) / r.width) * 0.35 - 0.04 + (Math.abs(my) / r.height) * 0.2,
-        duration: 0.25,
-        ease: 'power2.out',
-        overwrite: 'auto',
-      });
-    };
-
-    const rel = (b) =>
-      gsap.to(b, {
-        x: 0,
-        y: 0,
-        scaleX: 1,
-        scaleY: 1,
-        duration: 1.1,
-        ease: 'elastic.out(1.1, 0.35)',
-        overwrite: 'auto',
-      });
-
-    let sx = 0;
-    let sy = 0;
-
-    const dn = (e) => {
-      const b = e.target.closest('.mfoot button');
-      if (!b) return;
-      cur = b;
-      sx = e.clientX;
-      sy = e.clientY;
-      pull(b, 0, 0);
-    };
-
-    const mv = (e) => {
-      if (cur) pull(cur, e.clientX - sx, e.clientY - sy);
-    };
-
-    const up = () => {
-      if (cur) {
-        rel(cur);
-        cur = null;
-      }
-    };
-
-    host.addEventListener('pointerdown', dn);
-    window.addEventListener('pointermove', mv);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-
-    window.__nxPull = (sel, dx, dy) => {
-      cur = host.querySelector(sel);
-      if (cur) pull(cur, dx, dy);
-    };
-    window.__nxRel = () => up();
-
     return () => {
       host.remove();
-      window.removeEventListener('pointermove', mv);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
     };
   }, []);
 
@@ -152,7 +98,7 @@ export default function MobileMenu({ open, onClose }) {
       gsap.fromTo(el, { xPercent: 100 }, { xPercent: 0, duration: 0.55, ease: 'power3.out' });
       gsap.fromTo(scrim.current, { opacity: 0 }, { opacity: 1, duration: 0.4 });
       gsap.fromTo(
-        el.querySelectorAll('.mi, .mfoot > *'),
+        el.querySelectorAll('.mi'),
         { y: 22, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.55, ease: 'power3.out', stagger: 0.055, delay: 0.08 }
       );
@@ -204,13 +150,13 @@ export default function MobileMenu({ open, onClose }) {
         navigate('/privacy');
         break;
       case 'Cookies Policy':
-        soon('Cookies Policy');
+        navigate('/cookies');
         break;
       case 'Student Reviews':
         soon('Student Reviews');
         break;
       case 'Contact Support':
-        soon('Contact Support');
+        navigate('/contact');
         break;
       default:
         soon(subName);
@@ -254,8 +200,6 @@ export default function MobileMenu({ open, onClose }) {
   const items = [
     { k: 'home', t: 'Home' },
     { k: 'int', t: 'Internships', sub: config?.subs?.Internships || ['Apply Now', 'Internship certificate verification', 'Download Offer Letter'] },
-    { k: 'skill', t: 'Skill Course', sub: ['Dashboard', 'Browse Courses', 'My Certificates', 'Skill Certificate verification'] },
-    { k: 'career', t: 'Career Tools', sub: ['Check ATS Score', 'Job Email Builder', 'Interview Preparation'] },
     { k: 'svc', t: 'Services' },
     { k: 'more', t: 'More', sub: config?.subs?.More || ['Terms & Conditions', 'Privacy Policy', 'Cookies Policy', 'Student Reviews', 'Contact Support'] },
   ];
@@ -299,60 +243,6 @@ export default function MobileMenu({ open, onClose }) {
             </div>
           ))}
         </nav>
-
-        {/* Real student auth state in drawer */}
-        {student ? (
-          <div className="mfoot in">
-            <div className="prof">
-              <span className="av">{(student.name || 'S').trim().charAt(0).toUpperCase()}</span>
-              <span className="pn">{student.name}</span>
-              <button
-                type="button"
-                className="lo"
-                onClick={async () => {
-                  onClose();
-                  await logout();
-                  navigate('/');
-                }}
-              >
-                Logout
-              </button>
-            </div>
-            <button
-              type="button"
-              className="dash"
-              onClick={() => {
-                onClose();
-                navigate('/account');
-              }}
-            >
-              My account
-            </button>
-          </div>
-        ) : (
-          <div className="mfoot">
-            <button
-              type="button"
-              className="dash"
-              onClick={() => {
-                onClose();
-                navigate('/signup');
-              }}
-            >
-              Sign up
-            </button>
-            <button
-              type="button"
-              className="ghostb"
-              onClick={() => {
-                onClose();
-                navigate('/login');
-              }}
-            >
-              Login
-            </button>
-          </div>
-        )}
       </div>
     </>,
     hostRef.current

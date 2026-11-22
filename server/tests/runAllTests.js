@@ -1,6 +1,7 @@
 process.env.NODE_ENV = 'test';
 const assert = require('assert');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const Admin = require('../src/models/Admin');
 const Participant = require('../src/models/Participant');
@@ -42,9 +43,8 @@ const { generateApplicationsCsv } = require('../src/utils/csvExport');
 const { getPublicPrograms, getPublicProgramByCode } = require('../src/routes/programRoutes');
 const { adminGetPrograms, adminCreateProgram, adminUpdateProgram } = require('../src/routes/adminProgramRoutes');
 const { CATALOGUE_PROGRAMS, PROGRAM_CATEGORIES, seedProgramCatalogue } = require('../src/config/programsCatalogue');
-const { requireRole } = require('../src/middleware/auth');
+const { requireAuth, requireRole } = require('../src/middleware/auth');
 const { statusRateLimiter } = require('../src/middleware/rateLimiter');
-const runStudentAuthTests = require('./studentAuth.test');
 
 // Helper to mock express req, res, next for controller integration testing
 function mockReqRes(options = {}) {
@@ -53,6 +53,7 @@ function mockReqRes(options = {}) {
     params: options.params || {},
     query: options.query || {},
     headers: options.headers || {},
+    cookies: options.cookies || {},
     ip: options.ip || '127.0.0.1',
     admin: options.admin || { _id: new mongoose.Types.ObjectId(), name: 'Test Admin', role: 'SUPER_ADMIN' },
     file: options.file || null,
@@ -4383,8 +4384,52 @@ async function runTestSuite() {
     assert.strictEqual(String(legacySuccessor.participantId), String(pLegacy._id), 'Legacy successor bound to same participant');
   });
 
-  // Student Auth Acceptance Tests
-  await runStudentAuthTests(test);
+  // --- Launch Scope Regression & Security Tests ---
+  // Note: Dedicated student auth tests deferred to hidden-not-in-use/server/tests/studentAuth.test.js
+  await test('Launch Scope: /api/v1/student/auth is unmounted and returns 404', async () => {
+    const { app } = require('../src/index');
+    const studentRouteMounted = app._router && app._router.stack.some(layer => {
+      return layer.name === 'router' && layer.regexp && !layer.regexp.fast_slash && layer.regexp.test('/api/v1/student/auth');
+    });
+    assert.strictEqual(studentRouteMounted, false, '/api/v1/student/auth must not be mounted in express app');
+
+    // Live ephemeral server dispatch test
+    const testServer = await new Promise((resolve) => {
+      const s = app.listen(0, () => resolve(s));
+    });
+    try {
+      const port = testServer.address().port;
+      const testEndpoints = [
+        '/api/v1/student/auth/signup',
+        '/api/v1/student/auth/login',
+        '/api/v1/student/auth/me',
+        '/api/v1/student/auth/forgot-password'
+      ];
+      for (const ep of testEndpoints) {
+        const res = await fetch(`http://127.0.0.1:${port}${ep}`, { method: 'POST' });
+        assert.strictEqual(res.status, 404, `Endpoint ${ep} must return 404`);
+      }
+    } finally {
+      await new Promise((resolve) => testServer.close(resolve));
+    }
+  });
+
+  await test('Launch Scope: Admin auth middleware strictly rejects student tokens (typ: student)', async () => {
+    const studentToken = jwt.sign(
+      { id: new mongoose.Types.ObjectId(), typ: 'student' },
+      env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    let nextCalled = false;
+    const mockStudentReq = mockReqRes({
+      cookies: { token: studentToken }
+    });
+    const nextFn = () => { nextCalled = true; };
+    await requireAuth(mockStudentReq.req, mockStudentReq.res, nextFn);
+    assert.strictEqual(nextCalled, false, 'Student token must NOT authenticate as admin');
+    assert.strictEqual(mockStudentReq.getStatus(), 401, 'Student token must receive 401');
+    assert.strictEqual(mockStudentReq.getData().message, 'Invalid administrator session.');
+  });
 
   // Cleanup
   await mongoose.disconnect();
