@@ -221,7 +221,7 @@ test('MODULE 10: policy pages (Terms/Privacy/Refund/Review) wired with grounded 
   }
 
   // Owner-decided rules present (6 Nov 2026 decisions)
-  assert.ok(pageContent.includes('one-time \u20B9149'), 'Fee is Rs 149 one-time (owner confirmed 22 Nov)');
+  assert.ok(pageContent.includes('one-time ₹149'), 'Fee is Rs 149 one-time (owner confirmed 22 Nov)');
   assert.ok(pageContent.includes('non-refundable'), 'Refund rule: non-refundable');
   assert.ok(pageContent.includes('Our services are intended for users above 15 years of age'), 'Privacy: owner-supplied 15+ children wording (22 Nov content PDF)');
   assert.ok(pageContent.includes('not legal advice'), 'Draft pages must disclaim legal conclusions');
