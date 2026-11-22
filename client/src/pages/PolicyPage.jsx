@@ -30,7 +30,7 @@ const POLICIES = {
       { heading: 'Eligibility', body: 'Users must meet the eligibility requirements of the internship program. All information provided during application must be accurate, complete and up to date. Applicants must not use false identities or submit misleading qualifications or documents.' },
       { heading: 'User Responsibilities', body: 'To maintain a fair and safe environment, users must:', list: ['Avoid plagiarism or cheating in any submitted tasks', 'Use all services legally and ethically', 'Not misuse or redistribute platform content', 'Not attempt hacking, copying, or reverse-engineering'], after: 'Violation of these responsibilities may lead to immediate suspension or termination of services.' },
       { heading: 'Internship Fees & Payments', body: 'Internship participation requires a small task submission fee to cover administrative costs:', fee: { label: 'Internship Task Submission Fee', plan: '1 MONTH INTERNSHIP', price: '\u20B9149' }, quote: '"These are task review charges, not hidden fees, and help maintain platform operations, servers, and mentorship support."', after: 'These charges help support servers, mentors, and platform operations. They are charged only for managing and reviewing tasks. No personal profit or unnecessary fees are collected.' },
-      { heading: 'Refund Policy', body: 'All payments are non-refundable unless NOXIRA TECHNOLOGIES cancels the program itself.', after: 'Please ensure you are committed to the program before making any payment. Refunds are issued only in the rare event that NOXIRA TECHNOLOGIES cancels the specific program you enrolled in.' },
+      { heading: 'Refund Policy', body: 'All payments are non-refundable unless NOXIRA TECHNOLOGIES cancels the program itself.', after: 'Please ensure you are committed to the program before making any payment. Refunds are issued only in the rare event that NOXIRA TECHNOLOGIES cancels the specific program you enrolled in, or when a duplicate or accidental double payment is made for the same program.' },
       { heading: 'Certificates & Deliverables', body: 'Certificates are issued only after successful completion of tasks and a positive performance evaluation by our mentors.' },
       { heading: 'Intellectual Property', body: 'All content, code, branding, and materials belong to NOXIRA TECHNOLOGIES and cannot be copied, resold, or redistributed without explicit written permission.' },
       { heading: 'Confidentiality', body: 'Any project data shared with NOXIRA TECHNOLOGIES is treated with strict confidentiality and is protected by our internal security protocols.' },
@@ -75,7 +75,7 @@ const POLICIES = {
     sections: [
       {
         heading: 'Fee and payment method',
-        body: 'The fee is a one-time Rs. 99, paid at final project submission through the UPI QR shown in the submission form. You then enter your UTR/transaction ID in the form.',
+        body: 'The fee is a one-time \u20B9149, paid at final project submission through the UPI QR shown in the submission form. You then enter your UTR/transaction ID in the form.',
       },
       {
         heading: 'Manual verification',
