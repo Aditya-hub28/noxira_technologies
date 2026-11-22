@@ -8,6 +8,7 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { APPLICATION_UNAVAILABLE_MESSAGE, APPLICATION_NEUTRAL_MESSAGE } from '../config/siteConfig';
 import Hero from '../components/Heroes';
 import JourneyBoard from '../components/JourneyBoard';
+import ReviewMarquee from '../components/ReviewMarquee';
 import { soon } from '../utils/toast';
 import {
   ShieldCheck,
@@ -403,6 +404,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 05 - STUDENT REVIEWS: continuous right-to-left marquee (hidden until approved reviews exist; samples only in demo preview) */}
+      <ReviewMarquee />
 
       {/* End section */}
       <section className="end">

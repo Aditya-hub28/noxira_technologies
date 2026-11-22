@@ -11,6 +11,17 @@
 .rv-gridsec{padding-top:clamp(2rem,5vw,3.5rem)}
 .rv-state{margin:0 auto;max-width:640px;text-align:center;font-size:.9rem;line-height:1.6;color:#c9d4e5;border:1px dashed rgba(160,190,240,.35);border-radius:1rem;padding:1.5rem 1.75rem;background:rgba(20,30,50,.35)}
 html[data-theme="light"] .rv-state{color:#3f4c63;border-color:#b9c6dd;background:#f2f6fc}
+
+/* Homepage reviews marquee: continuous right-to-left auto-scroll */
+.rv-marquee-sec{padding-top:clamp(2rem,5vw,3.5rem)}
+.rv-marquee{overflow:hidden;margin-top:1.75rem;position:relative;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.rv-mtrack{display:flex;width:max-content;animation:rv-mscroll 40s linear infinite}
+.rv-mset{display:flex;gap:18px;padding-right:18px}
+.rv-mcard{width:min(340px,82vw);flex:none}
+.rv-marquee:hover .rv-mtrack{animation-play-state:paused}
+@keyframes rv-mscroll{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.rv-mtrack{animation:none}}
+.rv-mmore{margin-top:1.5rem}
 .rv-grid{columns:3;column-gap:18px}
 .rv-card{break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:18px;background:var(--card,#14161b);border:1px solid var(--line,rgba(255,255,255,.08));border-radius:18px;padding:24px 22px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .rv-quote{color:var(--cy,#38c8ff);opacity:.55}
