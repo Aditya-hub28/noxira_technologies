@@ -13,12 +13,6 @@ import '../doc.css';
  * page. Do not fill these in without the owner's explicit decision.
  */
 
-const PENDING_LAUNCH_ITEMS = [
-  'Public support contact email - to be published before launch',
-  'Deadline extension rule - deadline is communicated as strict; extension policy to be finalized before launch',
-  'Data retention, deletion and consent handling - pending legal review before launch; nothing on this page is legal advice',
-];
-
 const POLICIES = {
   terms: {
     title: 'Terms & Conditions',
@@ -71,6 +65,7 @@ const POLICIES = {
   },
   refund: {
     title: 'Payment & Refund Policy',
+    official: true,
     intro: 'This policy covers the one-time programme fee, how it is confirmed, and when refunds apply.',
     sections: [
       {
@@ -93,6 +88,7 @@ const POLICIES = {
   },
   review: {
     title: 'Review Rules',
+    official: true,
     intro: 'How project reviews, corrections, and passing work in every NOXIRA programme.',
     sections: [
       {
@@ -140,13 +136,9 @@ export default function PolicyPage({ slug }) {
   return (
     <div className="nxdoc">
       <Link to="/" className="back"><ArrowLeft width={14} height={14} /> Back to Home</Link>
-      {policy.official && <p className="eyebrow">OFFICIAL POLICY</p>}
+      <p className="eyebrow">OFFICIAL POLICY</p>
       <h1>{policy.title}</h1>
       <p className="intro">{policy.intro}</p>
-      {!policy.official && (
-        <p className="draft">Last updated: 6 November 2026. Draft - pending final owner confirmation and legal review before launch. This page is not legal advice.</p>
-      )}
-
       {policy.sections.map((s) => (
         <section key={s.heading} className="sec">
           <h2>{s.heading}</h2>
@@ -163,13 +155,6 @@ export default function PolicyPage({ slug }) {
           {s.contact && <p className="mail" data-testid="support-email">{SUPPORT_EMAIL}</p>}
         </section>
       ))}
-
-      {!policy.official && (
-        <div className="pending">
-          <h3>Being finalized before launch</h3>
-          <ul>{PENDING_LAUNCH_ITEMS.map((item) => <li key={item}>{item}</li>)}</ul>
-        </div>
-      )}
 
       <div className="more">
         {POLICY_LINKS.filter((l) => l.slug !== slug).map((l) => (

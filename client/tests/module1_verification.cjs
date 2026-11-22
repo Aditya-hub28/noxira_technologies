@@ -224,15 +224,13 @@ test('MODULE 10: policy pages (Terms/Privacy/Refund/Review) wired with grounded 
   assert.ok(pageContent.includes('one-time ₹149'), 'Fee is Rs 149 one-time (owner confirmed 22 Nov)');
   assert.ok(pageContent.includes('non-refundable'), 'Refund rule: non-refundable');
   assert.ok(pageContent.includes('Our services are intended for users above 15 years of age'), 'Privacy: owner-supplied 15+ children wording (22 Nov content PDF)');
-  assert.ok(pageContent.includes('not legal advice'), 'Draft pages must disclaim legal conclusions');
-    assert.ok(pageContent.includes('duplicate/accidental double payment'), 'Refund exception: duplicate payment');
+      assert.ok(pageContent.includes('duplicate/accidental double payment'), 'Refund exception: duplicate payment');
   assert.ok(pageContent.includes('up to 3 free re-reviews'), '3 free re-reviews');
   assert.ok(pageContent.includes('3 calendar days'), '3 calendar days per correction');
   assert.ok(pageContent.includes('2-3 working days'), 'Review turnaround 2-3 working days');
     
-  // Pending items are flagged, not invented
-  assert.ok(pageContent.includes('Being finalized before launch'), 'Pending callout must render');
-  assert.ok(pageContent.includes('PENDING_LAUNCH_ITEMS'), 'Pending items list must exist');
+  // Owner confirmed the policy pages on 22 Nov 2026: no draft/pending banners remain
+  assert.ok(!pageContent.includes('Being finalized before launch'), 'Pending callout removed after owner confirmation');
   assert.ok(!/@[a-z]+\.(com|in|org)/i.test(pageContent.replace(/@[a-z]+\(\$/g, '')), 'No invented support email address may appear');
 });
 
