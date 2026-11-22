@@ -153,7 +153,7 @@ export default function MobileMenu({ open, onClose }) {
         navigate('/cookies');
         break;
       case 'Student Reviews':
-        soon('Student Reviews');
+        navigate('/reviews');
         break;
       case 'Contact Support':
         navigate('/contact');

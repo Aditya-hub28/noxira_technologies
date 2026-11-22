@@ -209,7 +209,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Student Reviews':
-        soon('Student Reviews');
+        navigate('/reviews');
         break;
 
       case 'Contact Support':

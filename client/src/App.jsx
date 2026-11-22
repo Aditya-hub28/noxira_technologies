@@ -20,6 +20,7 @@ import {
 import PublicLayout from './components/PublicLayout';
 import PolicyPage from './pages/PolicyPage';
 import ContactSupportPage from './pages/ContactSupportPage';
+import ReviewsPage from './pages/ReviewsPage';
 import HomePage from './pages/HomePage';
 import ProgramsPage from './pages/ProgramsPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
@@ -234,6 +235,7 @@ function AppContent() {
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/cookies" element={<PolicyPage slug="cookies" />} />
         <Route path="/contact" element={<ContactSupportPage />} />
+        <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
         <Route path="/review-rules" element={<PolicyPage slug="review" />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
