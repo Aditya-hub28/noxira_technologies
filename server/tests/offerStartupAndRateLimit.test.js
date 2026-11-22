@@ -178,32 +178,47 @@ function cleanupManifestArtifacts() {
     const qs = `email=${encodeURIComponent('aarav.sharma@example.com')}&id=NOX-2026-FSD-1001`;
     const get = (suffix, headers) => fetch(base + suffix, { headers });
 
-    // Twelve full candidate flows: lookup + full PDF fetch + a byte-range fetch.
-    // Under the old shared 10-requests/15-min limiter this failed partway through
-    // the third candidate; every request here must now succeed.
+    // Twelve full candidate flows: lookup + full PDF fetch. Under the old
+    // shared 10-requests/15-min limiter (which also counted pdf.js range
+    // requests) this failed partway through the third candidate; every
+    // request here must now succeed.
     for (let i = 0; i < 12; i += 1) {
       const lookup = await get(`/offer-letter?${qs}`);
       assert.strictEqual(lookup.status, 200, `lookup #${i + 1} should succeed`);
       const full = await get(`/offer-letter/pdf?${qs}`);
       assert.strictEqual(full.status, 200, `full PDF fetch #${i + 1} should succeed`);
       await full.arrayBuffer();
-      const ranged = await get(`/offer-letter/pdf?${qs}`, { range: 'bytes=0-1023' });
-      assert.strictEqual(ranged.status, 206, `range fetch #${i + 1} should be a partial response`);
-      await ranged.arrayBuffer();
     }
     console.log('PASS 2a: 12 full lookup/preview/download flows succeed (old limiter failed during the third)');
 
-    // Byte-range fetches (how pdf.js streams a preview) must not consume budget.
-    for (let i = 0; i < 50; i += 1) {
-      const ranged = await get(`/offer-letter/pdf?${qs}`, { range: `bytes=${1024 * (i + 1)}-${1024 * (i + 2) - 1}` });
-      assert.strictEqual(ranged.status, 206, `range fetch ${i + 1} should not be rate limited`);
-      await ranged.arrayBuffer();
-    }
-    const stillOk = await get(`/offer-letter?${qs}`);
-    assert.strictEqual(stillOk.status, 200, 'range-heavy previewing must not consume the lookup budget');
-    console.log('PASS 2b: 50 byte-range fetches are not counted against the budget');
+    // Range support is disabled on the endpoint: a Range header gets the whole
+    // letter in one counted request, never a 206 and never a limiter bypass.
+    const ranged = await get(`/offer-letter/pdf?${qs}`, { range: 'bytes=0-1023' });
+    assert.strictEqual(ranged.status, 200, 'range header must be ignored, not honoured');
+    assert.notStrictEqual(ranged.headers.get('accept-ranges'), 'bytes', 'endpoint must not advertise ranges');
+    assert.strictEqual(ranged.headers.get('content-range'), null, 'no partial-content response');
+    const wholeBody = await ranged.arrayBuffer();
+    assert(wholeBody.byteLength > 1024, 'range header must not truncate the response');
 
-    // The limiter still bites on genuinely excessive non-range traffic.
+    let pdfOk = 1; // the range-header request above was counted
+    let pdf429 = false;
+    for (let i = 0; i < 80; i += 1) {
+      const res = await get(`/offer-letter/pdf?${qs}`, { range: `bytes=${1024 * i}-${1024 * i + 1023}` });
+      if (res.status === 429) {
+        pdf429 = true;
+        const body = await res.json();
+        assert.match(body.message, /Too many offer letter requests/, '429 must carry the offer-letter message');
+        break;
+      }
+      assert.strictEqual(res.status, 200);
+      await res.arrayBuffer();
+      pdfOk += 1;
+    }
+    assert(pdf429, 'PDF limiter must engage even when every request carries a Range header');
+    assert.strictEqual(pdfOk, 48, `PDF budget should be exactly 60 counted requests (12 flows + range probe + ${pdfOk}); got ${pdfOk}`);
+    console.log('PASS 2b: Range headers are ignored (full 200, no 206) and counted - no header-based bypass, budget enforced at 60');
+
+    // The lookup limiter has its own budget and still bites on excessive traffic.
     let saw429 = false;
     let okCount = 0;
     for (let i = 0; i < 80; i += 1) {
@@ -218,8 +233,8 @@ function cleanupManifestArtifacts() {
       okCount += 1;
     }
     assert(saw429, 'lookup limiter must still engage under excessive traffic');
-    assert(okCount >= 40, `limiter should allow a realistic number of lookups first (got ${okCount})`);
-    console.log(`PASS 2c: limiter still engages after ${okCount} further lookups (60/15min budget)`);
+    assert.strictEqual(okCount, 48, `lookup budget should be exactly 60 (12 flows + ${okCount}); got ${okCount}`);
+    console.log(`PASS 2c: lookup limiter still engages after ${okCount} further lookups (60/15min budget, independent of PDF budget)`);
 
     console.log('ALL OFFER STARTUP + RATE LIMIT CHECKS PASSED. Isolated database only. Dummy data. No external emails.');
   } finally {

@@ -74,16 +74,15 @@ const offerLetterLookupRateLimiter = rateLimit({
   }
 });
 
-// Public offer-letter PDF rate limiter: max 60 full requests per 15 minutes per IP.
-// Browsers and pdf.js fetch one letter with many HTTP byte-range requests; those
-// partial fetches are not counted, so previewing a single letter cannot drain
-// the budget. The PDF route still requires a valid email + application ID pair.
+// Public offer-letter PDF rate limiter: max 60 requests per 15 minutes per IP.
+// The PDF endpoint disables range support, so every fetch - with or without a
+// Range header - is one full, counted request. There is no header-based bypass,
+// and no range-request exhaustion either: one preview costs exactly one request.
 const offerLetterPdfRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => typeof req.headers.range === 'string' && req.headers.range.startsWith('bytes='),
   message: {
     success: false,
     message: 'Too many offer letter requests from this IP. Please try again after 15 minutes.'

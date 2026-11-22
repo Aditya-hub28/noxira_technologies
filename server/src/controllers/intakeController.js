@@ -627,6 +627,10 @@ exports.downloadOfferLetterPdf = async (req, res, next) => {
     const found = await findOfferForLookup(req.query.email, req.query.id);
     if (!found) return res.status(404).json({ success: false, message: GENERIC_OFFER_404 });
     const { application, offer } = found;
-    return res.download(offer.pdfPath, `NOXIRA-Offer-Letter-${application.applicationId}.pdf`);
+    // Ranges are disabled on purpose: every fetch of the letter is one full,
+    // counted request. This keeps the rate limiter's protection intact (a
+    // caller cannot bypass it by adding a Range header) while pdf.js simply
+    // downloads the whole letter once instead of streaming byte ranges.
+    return res.download(offer.pdfPath, `NOXIRA-Offer-Letter-${application.applicationId}.pdf`, { acceptRanges: false });
   } catch (error) { next(error); }
 };
