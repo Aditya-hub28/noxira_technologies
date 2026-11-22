@@ -1,0 +1,37 @@
+.program-showcase{border-top:1px solid var(--line);scroll-margin-top:85px}
+.program-card h3 a::after{content:"";position:absolute;inset:0;border-radius:inherit}
+.program-card:has(a:focus-visible){outline:2px solid var(--cy,#32c5eb);outline-offset:4px}
+.program-heading{text-align:left;max-width:690px;margin:0 0 36px}
+.program-heading h2{font-size:clamp(30px,4vw,50px);font-weight:700;line-height:1.12;letter-spacing:-.03em;margin-bottom:20px}
+.program-heading h2>span{color:var(--cy)}
+.program-heading>p:last-child{font-size:15px;line-height:1.75;color:#a9b1bd;max-width:56ch;margin:0}
+.program-demo{display:flex;align-items:flex-start;gap:10px;padding:14px 18px;border:1px solid rgba(56,200,255,.2);background:rgba(56,200,255,.04);border-radius:12px;font-size:12px;line-height:1.7;color:#9bbaca;margin-bottom:24px}
+.program-demo svg{flex:none;color:var(--cy);margin-top:3px}
+.program-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.program-card{min-width:0;position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px;isolation:isolate;overflow:hidden}
+.program-card:before{content:'';position:absolute;z-index:-1;right:0;top:0;width:110px;height:110px;border-radius:0 0 0 100%;background:linear-gradient(140deg,hsla(var(--program-hue),80%,65%,.08),transparent)}
+.program-card-top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:27px}
+.program-icon{height:48px;width:48px;border:1px solid hsla(var(--program-hue),90%,65%,.2);background:hsla(var(--program-hue),75%,55%,.13);color:hsl(var(--program-hue),80%,70%);display:grid;place-items:center;border-radius:14px;flex:none}
+.program-category{font-size:10px;line-height:1.5;color:#929ba9;text-align:right;max-width:60%}
+.program-card h3{font-size:19px;line-height:1.35;font-weight:600;letter-spacing:-.02em;overflow-wrap:anywhere;margin:0 0 12px}
+.program-card>p{font-size:13px;line-height:1.75;color:#929ba9;margin:0 0 24px;overflow-wrap:anywhere}
+.program-card-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:auto;align-items:center;padding-top:16px;border-top:1px solid var(--line)}
+.program-card-actions a{color:var(--cy);font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:7px;max-width:100%;line-height:1.5}
+.program-card-actions a svg{flex:none}
+.program-card-actions a:hover{text-decoration:underline;text-underline-offset:4px}
+.program-card-actions .program-apply{color:inherit}
+.program-directory{text-align:center;margin-top:32px}
+.program-directory p{font-size:12px;line-height:1.7;color:#929ba9;margin-bottom:18px}
+.program-directory .gb{font-size:13px;min-height:44px;padding:12px 22px}
+.program-status{border:1px solid var(--line);background:var(--card);padding:32px;border-radius:18px;text-align:center}
+.program-status>svg{margin:0 auto 12px;color:var(--cy)}
+.program-status h3{font-weight:600;font-size:18px;margin-bottom:10px}
+.program-status p{font-size:13px;color:#929ba9;line-height:1.7;margin-bottom:18px}
+.program-skeleton{min-height:230px;gap:24px}
+.program-skeleton>div{height:18px;background:var(--line);border-radius:6px}
+.program-skeleton>div:first-child{height:48px;width:48px}
+html[data-theme="light"] .program-heading>p:last-child,html[data-theme="light"] .program-category,html[data-theme="light"] .program-card>p,html[data-theme="light"] .program-directory p,html[data-theme="light"] .program-status p{color:#4a5568}
+html[data-theme="light"] .program-demo{color:#31576d}
+html[data-theme="light"] .program-icon{color:hsl(var(--program-hue),70%,35%)}
+@media(max-width:900px){.program-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.program-card{padding:23px}}
+@media(max-width:560px){.program-card-grid{grid-template-columns:minmax(0,1fr);gap:16px}.program-heading{text-align:left}.program-heading>p:last-child{font-size:14px}.program-card{padding:24px}.program-card-top{margin-bottom:23px}.program-card h3{font-size:20px}.program-card>p{font-size:13px}.program-demo{padding:14px;font-size:11px}.program-card-actions a{min-height:32px}.program-directory .gb{width:100%}}

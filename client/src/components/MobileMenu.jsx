@@ -134,6 +134,9 @@ export default function MobileMenu({ open, onClose }) {
   const handleSubItemNavigation = (subName) => {
     onClose();
     switch (subName) {
+      case 'All Programmes':
+        navigate('/apply');
+        break;
       case 'Apply Now':
         navigate('/apply');
         break;

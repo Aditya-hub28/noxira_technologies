@@ -147,6 +147,14 @@ main > section > .wrap > h2,
   font-size: 24px;
 }
 
+.home-copyright {
+  padding-bottom: 48px;
+}
+
+.home-copyright .foot {
+  margin-top: 0;
+}
+
 .end {
   padding-bottom: 120px;
 }
