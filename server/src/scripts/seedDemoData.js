@@ -2,7 +2,9 @@ const { connectDB, disconnectDB } = require('../config/db');
 const Program = require('../models/Program');
 const Template = require('../models/Template');
 const Participant = require('../models/Participant');
+const Review = require('../models/Review');
 const { seedProgramCatalogue } = require('../config/programsCatalogue');
+const { seedSampleReviews } = require('../config/sampleReviews');
 
 async function seedDemoData() {
   await connectDB();
@@ -108,6 +110,12 @@ async function seedDemoData() {
       console.log(`✅ Seeded Participant: ${s.fullName} [${s.completionStatus}]`);
     }
   }
+
+  // 4. Pre-launch sample reviews, seeded as APPROVED so the homepage and
+  // Student Reviews page stay populated until real feedback exists
+  // (approved by the owner 22 Nov 2026; remove at hosting time).
+  const insertedReviews = await seedSampleReviews(Review);
+  console.log(`✅ Seeded ${insertedReviews} approved sample reviews`);
 
   console.log('✨ Demo seeding completed successfully!');
   await disconnectDB();

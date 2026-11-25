@@ -8,10 +8,11 @@ import './reviews.css';
 /*
  * Student Reviews page.
  * Approved reviews come from the backend (submissions stay hidden until an
- * admin approves them). The normal page shows honest loading / empty / error
- * states - never sample data. The 15 SAMPLE_REVIEWS render ONLY in the
- * explicit demo preview (?demo=1) when there is no approved data to show,
- * always behind the visible demo badge. Samples are never sent to the server.
+ * admin approves them). Until launch, the approved 15-review sample set
+ * shows whenever no live approved reviews exist yet, so the page never sits
+ * empty (his call, 22 Nov: mock reviews stay until hosting, then get
+ * removed). The explicit ?demo=1 preview additionally labels the samples as
+ * demo data. Samples are never sent to the server.
  */
 
 function RatingInput({ value, onChange }) {
@@ -45,8 +46,8 @@ export default function ReviewsPage() {
   // 'loading' | 'live' | 'empty' | 'error'
   const [feedState, setFeedState] = useState('loading');
   const [apiReviews, setApiReviews] = useState(null);
-  // Sample reviews render ONLY in the explicit demo preview (?demo=1), never
-  // on the normal page: production shows honest loading/empty/error states.
+  // The approved sample set shows whenever no live reviews exist yet;
+  // ?demo=1 additionally labels the samples as demo data.
   const [demoMode] = useState(() => new URLSearchParams(window.location.search).get('demo') === '1');
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -68,9 +69,10 @@ export default function ReviewsPage() {
     return () => { alive = false; };
   }, []);
 
-  const sampleMode = demoMode && (feedState === 'empty' || feedState === 'error');
+  const showSamples = feedState === 'empty' || feedState === 'error';
+  const sampleMode = showSamples && demoMode;
   const reviews = useMemo(() => {
-    const source = feedState === 'live' ? apiReviews : (sampleMode ? SAMPLE_REVIEWS : []);
+    const source = feedState === 'live' ? apiReviews : (showSamples ? SAMPLE_REVIEWS : []);
     return (source || []).map((r, i) => ({
       key: r._id || r.name,
       name: r.name,
@@ -79,7 +81,7 @@ export default function ReviewsPage() {
       rating: r.rating,
       hue: AVATAR_HUES[i % AVATAR_HUES.length]
     }));
-  }, [apiReviews, feedState, sampleMode]);
+  }, [apiReviews, feedState, showSamples]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -137,13 +139,13 @@ export default function ReviewsPage() {
 
       <section className="rv-gridsec">
         <div className="wrap">
-          {feedState === 'loading' && !sampleMode && (
+          {feedState === 'loading' && !showSamples && (
             <p className="rv-state" role="status">Loading reviews...</p>
           )}
-          {feedState === 'empty' && !sampleMode && (
+          {feedState === 'empty' && !showSamples && (
             <p className="rv-state">No reviews yet. Feedback from interns appears here after it is reviewed and approved. Yours could be the first - share your story below.</p>
           )}
-          {feedState === 'error' && !sampleMode && (
+          {feedState === 'error' && !showSamples && (
             <p className="rv-state">Reviews could not be loaded right now. Please try again later.</p>
           )}
           <div className="rv-grid">
