@@ -170,16 +170,7 @@ export default function MobileMenu({ open, onClose }) {
   const handleTopNavigation = (k) => {
     if (k === 'svc') {
       onClose();
-      if (location.pathname === '/') {
-        setTimeout(() => {
-          const t = document.getElementById('services');
-          const sm = ScrollSmoother.get();
-          if (sm && t) sm.scrollTo(t, true, 'top 90px');
-          else if (t) t.scrollIntoView({ behavior: 'smooth' });
-        }, 300);
-      } else {
-        navigate('/#services');
-      }
+      navigate('/services');
       return;
     }
 
