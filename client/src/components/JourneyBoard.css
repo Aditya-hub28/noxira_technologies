@@ -36,3 +36,56 @@
 .jb-sound[aria-pressed="true"] { background:#22d3ee; border-color:#22d3ee; color:#06121a; }
 
 #journey { scroll-margin-top: 96px; }
+
+/* Step rail + detail panel (restored 22 Nov preview layout) */
+.jb-main{grid-template-columns:320px minmax(0,1fr);align-items:start;gap:28px;width:min(1060px,100%);margin-top:10px;display:grid}
+.jb-rail{flex-direction:column;gap:4px;margin:0;padding:0;list-style:none;display:flex;position:relative}
+.jb-rail:before{content:"";background:var(--line);width:2px;position:absolute;top:18px;bottom:18px;left:18px}
+.jb-rail li{position:relative}
+.jb-stop{text-align:left;cursor:pointer;width:100%;font:inherit;color:inherit;background:0 0;border:1px solid #0000;border-radius:14px;align-items:center;gap:14px;padding:9px 12px 9px 0;display:flex}
+.jb-stop-num{z-index:1;background:var(--card);border:1px solid var(--line);width:37px;height:37px;color:var(--cy);letter-spacing:.06em;border-radius:50%;flex:none;justify-content:center;align-items:center;font-size:12px;font-weight:700;transition:background .25s,color .25s,box-shadow .25s;display:flex;position:relative}
+.jb-stop-txt{flex-direction:column;gap:2px;min-width:0;display:flex}
+.jb-stop-word{letter-spacing:.18em;color:var(--cy);font-size:11px;font-weight:700}
+.jb-stop-title{opacity:.68;font-size:13.5px;font-weight:600;line-height:1.3;transition:opacity .25s}
+.jb-stop:hover .jb-stop-title{opacity:1}
+.jb-stop.on{background:var(--card);border-color:var(--line)}
+.jb-stop.on .jb-stop-num{color:#06121a;background:#22d3ee;border-color:#22d3ee;box-shadow:0 0 16px #22d3ee59}
+.jb-stop.on .jb-stop-title{opacity:1}
+.jb-panel{background:var(--card);border:1px solid var(--line);border-radius:22px;min-width:0;padding:26px 28px;animation:.35s both jb-in}
+.jb-panel-head{align-items:center;gap:16px;margin-bottom:14px;display:flex}
+.jb-panel-head small{color:var(--cy);letter-spacing:.2em;flex:none;font-size:12px;font-weight:600}
+.jb-progress{flex:1;gap:5px;display:flex}
+.jb-progress i{background:var(--line);border-radius:2px;flex:1;height:3px;transition:background .3s}
+.jb-progress i.on{background:var(--cy)}
+.jb-panel h3{margin:0 0 8px;font-size:clamp(20px,2.6vw,26px);font-weight:700}
+.jb-panel-desc{opacity:.7;max-width:62ch;margin:0 0 18px;font-size:14.5px;line-height:1.6}
+.jb-panel-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;display:grid}
+.jb-col{border:1px solid var(--line);box-sizing:border-box;border-radius:16px;padding:18px 20px}
+.jb-col h4{color:var(--cy);letter-spacing:.2em;text-transform:uppercase;margin:0 0 12px;font-size:12px;font-weight:600}
+.jb-col ul{flex-direction:column;gap:10px;margin:0;padding:0;list-style:none;display:flex}
+.jb-col li{color:#c3cad6;overflow-wrap:break-word;padding-left:22px;font-size:14.5px;line-height:1.6;position:relative}
+.jb-col li:before{content:"";background:var(--cy);border-radius:50%;width:7px;height:7px;position:absolute;top:.55em;left:2px}
+.jb-act{background:#22d3ee0f;border-color:#22d3ee59;flex-direction:column;display:flex}
+.jb-act p{margin:0;font-size:15px;font-weight:600;line-height:1.55}
+.jb-link{margin-top:auto;padding-top:14px;font-size:13px;font-weight:700;color:var(--cy)!important;text-decoration:none!important}
+.jb-link:hover{text-decoration:underline!important}
+@keyframes jb-in{0%{opacity:0;transform:translateY(6px)}
+to{opacity:1;transform:none}
+}
+html[data-theme=light] .jb-col li{color:#4a5568}
+html[data-theme=light] .jb-act{background:#0a8fd612;border-color:#0a8fd64d}
+@media (width<=900px){.jb-main{grid-template-columns:1fr;gap:18px}
+.jb-rail{scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-direction:row;gap:8px;padding-bottom:6px;overflow-x:auto}
+.jb-rail::-webkit-scrollbar{display:none}
+.jb-rail:before{display:none}
+.jb-stop{background:var(--card);border-color:var(--line);scroll-snap-align:start;flex:none;width:auto;padding:7px 14px 7px 7px}
+.jb-stop-num{width:28px;height:28px;font-size:11px}
+.jb-stop-title{display:none}
+.jb-panel{border-radius:18px;padding:20px 18px}
+.jb-panel-grid{grid-template-columns:1fr}
+.jb-col{border-radius:14px;padding:16px}
+}
+@media (prefers-reduced-motion:reduce){.jb-panel{animation:none}
+.jb-stop-num,.jb-stop-title,.jb-progress i{transition:none}
+}
+

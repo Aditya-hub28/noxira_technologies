@@ -104,11 +104,16 @@ test('LAUNCH SCOPE: HomePage excludes career-tools section with clean renumbered
   assert.strictEqual(homeContent.includes('Browse Courses'), false, 'HomePage must not contain Browse Courses');
   assert.strictEqual(homeContent.includes('Check ATS Score'), false, 'HomePage must not contain Check ATS Score');
 
-  // Sequential numbering: 01 - INTERNSHIPS, 02 - JOURNEY, 03 - SERVICES, 04 - CONTACT
+  // Sequential numbering: 01 - INTERNSHIPS, 02 - JOURNEY, 03 - SERVICES.
+  // The homepage Contact section was removed on the owner's instruction
+  // (22 Nov 2026: "Contact section hi hata de"); the separate Contact
+  // Support page stays. Student Reviews follows as 04.
   assert.ok(homeContent.includes('01 - INTERNSHIPS'), 'Must have 01 - INTERNSHIPS');
   assert.ok(homeContent.includes('02 - JOURNEY'), 'Must renumber journey to 02 - JOURNEY');
   assert.ok(homeContent.includes('03 - SERVICES'), 'Must renumber services to 03 - SERVICES');
-  assert.ok(homeContent.includes('04 - CONTACT'), 'Must renumber contact to 04 - CONTACT');
+  assert.strictEqual(homeContent.includes('id="contact"'), false, 'HomePage must not contain a Contact section (removed 22 Nov)');
+  const marqueeContent = fs.readFileSync(path.join(clientSrcDir, 'components/ReviewMarquee.jsx'), 'utf8');
+  assert.ok(marqueeContent.includes('04 - STUDENT REVIEWS'), 'Must renumber student reviews to 04 - STUDENT REVIEWS');
 });
 
 // TEST 6: Heroes excludes deferred words from conveyor wordPool and allRows

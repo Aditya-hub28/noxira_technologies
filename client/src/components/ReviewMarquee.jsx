@@ -8,10 +8,11 @@ import '../pages/reviews.css';
 /*
  * Homepage Student Reviews marquee: the final content section, a continuous
  * right-to-left auto-scrolling strip of review cards (pauses on hover).
- * Same data rules as the reviews page: live approved reviews always win;
- * the 15 samples render ONLY behind the explicit ?demo=1 preview gate when
- * there is no approved data; the normal homepage renders no section at all
- * rather than fabricating testimonials or showing a broken strip.
+ * Live approved reviews from the backend always win. Until launch, the
+ * approved 15-review sample set shows whenever no live reviews exist yet, so
+ * the section stays visible (his call, 22 Nov: mock reviews stay until
+ * hosting, then get removed). The explicit ?demo=1 preview additionally
+ * labels the samples as demo data. Samples are never sent to the server.
  */
 export default function ReviewMarquee() {
   // 'loading' | 'live' | 'empty' | 'error'
@@ -37,9 +38,10 @@ export default function ReviewMarquee() {
     return () => { alive = false; };
   }, []);
 
-  const sampleMode = demoMode && (feedState === 'empty' || feedState === 'error');
+  const showSamples = feedState === 'empty' || feedState === 'error';
+  const sampleMode = showSamples && demoMode;
   const reviews = useMemo(() => {
-    const source = feedState === 'live' ? apiReviews : (sampleMode ? SAMPLE_REVIEWS : []);
+    const source = feedState === 'live' ? apiReviews : (showSamples ? SAMPLE_REVIEWS : []);
     return (source || []).map((r, i) => ({
       key: r._id || r.name,
       name: r.name,
@@ -48,7 +50,7 @@ export default function ReviewMarquee() {
       rating: r.rating,
       hue: AVATAR_HUES[i % AVATAR_HUES.length]
     }));
-  }, [apiReviews, feedState, sampleMode]);
+  }, [apiReviews, feedState, showSamples]);
 
   if (reviews.length === 0) return null;
 
@@ -63,7 +65,7 @@ export default function ReviewMarquee() {
   return (
     <section id="reviews" className="rv-marquee-sec">
       <div className="wrap">
-        <p className="kick rv">05 - STUDENT REVIEWS</p>
+        <p className="kick rv">04 - STUDENT REVIEWS</p>
         <h2 className="rv">What our interns say.</h2>
         {sampleMode && (
           <p className="rv-demo rv">

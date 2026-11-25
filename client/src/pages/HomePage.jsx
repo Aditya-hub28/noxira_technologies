@@ -10,10 +10,13 @@ import JourneyBoard from '../components/JourneyBoard';
 import ReviewMarquee from '../components/ReviewMarquee';
 import CertificateShowcase from '../components/CertificateShowcase';
 import ProgramShowcase from '../components/ProgramShowcase';
-import { soon } from '../utils/toast';
 import {
   ShieldCheck,
   ArrowRight,
+  Globe,
+  Smartphone,
+  Bot,
+  GraduationCap,
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
@@ -24,51 +27,159 @@ const JOURNEY_STEPS = [
     step: '01',
     title: 'Apply via Google Form 1',
     desc: 'Select your preferred engineering track and submit your candidate application through official Google Form 1. Applying is completely free.',
+    happens: [
+      'Choose the engineering track you want to join.',
+      'Fill in the official Google Form 1 with your details and submit it.',
+      'Applying is completely free.'
+    ],
+    action: 'Complete and submit Google Form 1.'
   },
   {
     word: 'REVIEW',
     step: '02',
     title: 'Administrative Review',
     desc: 'NOXIRA administration reviews applicant background, track selection, and eligibility for cohort intake.',
+    happens: [
+      'NOXIRA administration looks at your background and the track you picked.',
+      'Eligibility for the cohort intake is checked.',
+      'Only approved candidates move on to the offer letter.'
+    ],
+    action: 'Nothing to do. Wait for the decision.'
   },
   {
     word: 'OFFER',
     step: '03',
     title: 'Official Offer Letter',
     desc: 'Approved candidates receive a personalized, administrative offer letter delivered directly to their registered email address.',
+    happens: [
+      'After approval, a personalized offer letter is sent to the email address you registered with.',
+      'You can also find it on the Download Offer Letter page with your application details.'
+    ],
+    action: 'Check your registered email, or open Download Offer Letter.',
+    link: {
+      to: '/offer-letter',
+      label: 'Download Offer Letter'
+    }
   },
   {
     word: 'TASKS',
     step: '04',
     title: 'Tasks & Cohort Guidance',
     desc: 'Interns receive practical technical task deliverables, project requirements, and guidance through the dedicated WhatsApp cohort group.',
+    happens: [
+      'You receive practical technical tasks and the project requirements.',
+      'Guidance and updates for your cohort come through the dedicated WhatsApp group.'
+    ],
+    action: 'Join the cohort WhatsApp group and read the task requirements.'
   },
   {
     word: 'CODE',
     step: '05',
     title: 'Build the Project',
     desc: 'Work through your assigned tasks and build your project, keeping your code in a project repository you can share.',
+    happens: [
+      'You work through your assigned tasks and build your project.',
+      'Your code lives in a project repository that you can share.'
+    ],
+    action: 'Build the project and keep the code in your repository.'
   },
   {
     word: 'SUBMIT',
     step: '06',
     title: 'Final Project Submission (Form 2)',
     desc: 'Submit your completed project repository link, Task Submission & Review Fee, and payment transaction ID through Google Form 2.',
+    happens: [
+      'You send the link to your completed project repository.',
+      'You pay the Task Submission & Review Fee and enter the payment transaction ID.',
+      'All of this goes through Google Form 2.'
+    ],
+    action: 'Submit Google Form 2 with your repository link and transaction ID.'
   },
   {
     word: 'EVALUATE',
     step: '07',
     title: 'Technical Review',
     desc: 'Your submission goes through technical review. Technical review approval and manual payment verification are both required before a certificate can be released.',
+    happens: [
+      'Every final submission gets an initial review plus up to 3 free re-reviews.',
+      'Each review is completed within 2-3 working days (Monday to Friday, excluding public holidays).',
+      'If changes are requested, you get 3 calendar days after each feedback to fix and resubmit.',
+      'A submission passes only when the task requirements are complete and the project works properly.',
+      'Your payment is verified manually. Both the passed review and the verified payment are needed.'
+    ],
+    action: 'Fix anything the reviewers ask for and resubmit within 3 calendar days.',
+    link: {
+      to: '/review-rules',
+      label: 'Read the Review Rules'
+    }
   },
   {
     word: 'CERTIFY',
     step: '08',
     title: 'Verified Certificate Issuance',
     desc: 'Once payment is verified and technical review is approved, your official Certificate of Achievement is explicitly released and publicly verifiable on the registry.',
-  },
+    happens: [
+      'Once payment is verified and the review has passed, our team explicitly releases your Certificate of Achievement.',
+      'The target is 2-3 working days after you pass.',
+      'Every certificate can be checked on the public verification registry.'
+    ],
+    action: 'Download your certificate. Anyone can verify it on the registry.',
+    link: {
+      to: '/verify',
+      label: 'Open the verification registry'
+    }
+  }
 ];
 
+
+const SERVICES = [
+  {
+    Icon: Globe,
+    tag: 'ENGINEERING',
+    title: 'Web Application Development',
+    text: 'Full-stack web applications tailored to business operations. Responsive React frontends, backed by secure, scalable Node.js and Python APIs and robust database architectures.',
+    chips: [
+      'React',
+      'Node.js',
+      'Python',
+      'Databases'
+    ]
+  },
+  {
+    Icon: Smartphone,
+    tag: 'MOBILE',
+    title: 'Mobile Application Development',
+    text: 'Native and cross-platform mobile applications engineered for performance and fluid user experience. Reliable Android and iOS software with clean UI/UX implementation.',
+    chips: [
+      'Android',
+      'iOS',
+      'Cross-platform',
+      'UI/UX'
+    ]
+  },
+  {
+    Icon: Bot,
+    tag: 'INTELLIGENCE',
+    title: 'AI Automation',
+    text: 'Repeat work handed to intelligent automations, custom workflow pipelines, and data-driven systems.',
+    chips: [
+      'Automations',
+      'Workflow pipelines',
+      'Data-driven systems'
+    ]
+  },
+  {
+    Icon: GraduationCap,
+    tag: 'ACADEMY',
+    title: 'Training & Internships',
+    text: 'Learn by building production-ready projects, receive structured milestone reviews, and leave with verifiable proof.',
+    chips: [
+      'Real projects',
+      'Milestone reviews',
+      'Verifiable proof'
+    ]
+  }
+];
 
 export default function HomePage() {
   const { programs, loading, configured } = useProgrammeCatalogue();
@@ -206,59 +317,22 @@ export default function HomePage() {
         <div className="wrap">
           <p className="kick rv">03 - SERVICES</p>
           <h2 className="rv">What we build.</h2>
-          <div className="grid g2">
-            <div className="card big rv">
-              <small>ENGINEERING</small>
-              <b>Web Application Development</b>
-              <span>
-                Full-stack web applications tailored to business operations. Responsive frontends with React and
-                modern UI frameworks, backed by secure, scalable Node.js and Python APIs and robust database architectures.
-              </span>
-            </div>
-            <div className="card big rv">
-              <small>MOBILE</small>
-              <b>Mobile Application Development</b>
-              <span>
-                Native and cross-platform mobile applications engineered for performance and fluid user experience. Reliable Android and iOS software with clean UI/UX implementation.
-              </span>
-            </div>
-            <div className="card big rv">
-              <small>INTELLIGENCE</small>
-              <b>AI Automation</b>
-              <span>
-                Repeat work handed to intelligent automations, custom workflow pipelines, and data-driven systems.
-              </span>
-            </div>
-            <div className="card big rv">
-              <small>ACADEMY</small>
-              <b>Training &amp; Internships</b>
-              <span>
-                Learn by building production-ready projects, receive structured milestone reviews, and leave with verifiable proof.
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 04 - CONTACT PLACEHOLDER */}
-      <section id="contact">
-        <div className="wrap">
-          <p className="kick rv">04 - CONTACT</p>
-          <h2 className="rv">Get in Touch</h2>
-          <div className="card rv text-center p-8 space-y-3">
-            <b>Inquiries &amp; Partnerships</b>
-            <span className="max-w-md mx-auto block">
-              Contact channels and support desk are being finalized for launch.
-            </span>
-            <div>
-              <button
-                type="button"
-                className="gb text-xs font-semibold"
-                onClick={() => soon('Contact Support')}
-              >
-                Contact Support
-              </button>
-            </div>
+          <div className="svc-grid">
+            {SERVICES.map(({ Icon, tag, title, text, chips }) => (
+              <article className="svc-card rv" key={tag}>
+                <div className="svc-top">
+                  <span className="svc-ico" aria-hidden="true"><Icon strokeWidth={1.75} /></span>
+                  <small>{tag}</small>
+                </div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+                <ul className="svc-chips" aria-label={`${title} focus areas`}>
+                  {chips.map((chip) => (
+                    <li key={chip}>{chip}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -267,7 +341,7 @@ export default function HomePage() {
 
       <CertificateShowcase />
 
-      {/* 05 - STUDENT REVIEWS: continuous right-to-left marquee (hidden until approved reviews exist; samples only in demo preview) */}
+      {/* 04 - STUDENT REVIEWS: continuous right-to-left marquee (live approved reviews win; the approved sample set shows until launch) */}
       <ReviewMarquee />
 
       {/* Copyright footer, directly after feedback. */}
