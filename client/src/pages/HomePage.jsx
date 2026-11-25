@@ -24,48 +24,97 @@ const JOURNEY_STEPS = [
     step: '01',
     title: 'Apply via Google Form 1',
     desc: 'Select your preferred engineering track and submit your candidate application through official Google Form 1. Applying is completely free.',
+    happens:
+      'You pick a track from 31 internship programmes and fill Google Form 1 with your basic details - name, email, phone, education, and your chosen track. Applying is completely free and takes about two minutes.',
+    youDo: [
+      'Browse the programmes and pick the track that fits you',
+      'Fill and submit Google Form 1',
+      'Apply with an email you check - everything is sent there',
+    ],
   },
   {
     word: 'REVIEW',
     step: '02',
     title: 'Administrative Review',
     desc: 'NOXIRA administration reviews applicant background, track selection, and eligibility for cohort intake.',
+    happens:
+      'NOXIRA administration checks your background, track selection, and eligibility for the upcoming cohort intake. No documents and no payment are needed at this stage.',
+    youDo: [
+      'Nothing - keep an eye on your registered email',
+      'Shortlisted candidates move straight to the offer stage',
+    ],
   },
   {
     word: 'OFFER',
     step: '03',
     title: 'Official Offer Letter',
     desc: 'Approved candidates receive a personalized, administrative offer letter delivered directly to their registered email address.',
+    happens:
+      'Approved candidates receive a personalized offer letter on their registered email, confirming their track, batch, and internship duration.',
+    youDo: [
+      'Check your registered email for the offer',
+      'Download your letter anytime from the Offer Letter page with your application details',
+    ],
   },
   {
     word: 'TASKS',
     step: '04',
     title: 'Tasks & Cohort Guidance',
     desc: 'Interns receive practical technical task deliverables, project requirements, and guidance through the dedicated WhatsApp cohort group.',
+    happens:
+      'You receive practical, project-based task deliverables with clear requirements, plus guidance from the team through your dedicated WhatsApp cohort group.',
+    youDo: [
+      'Join your cohort WhatsApp group',
+      'Read the task brief carefully and plan your weeks',
+    ],
   },
   {
     word: 'CODE',
     step: '05',
     title: 'Build the Project',
     desc: 'Work through your assigned tasks and build your project, keeping your code in a project repository you can share.',
+    happens:
+      'You work through the assigned tasks and build a real, working project - the kind of deliverable an actual company would expect from an intern.',
+    youDo: [
+      'Keep all your code in a project repository you can share',
+      'Ask doubts in the cohort group instead of getting stuck',
+    ],
   },
   {
     word: 'SUBMIT',
     step: '06',
     title: 'Final Project Submission (Form 2)',
     desc: 'Submit your completed project repository link, Task Submission & Review Fee, and payment transaction ID through Google Form 2.',
+    happens:
+      'When your project is complete, you submit it for evaluation through Google Form 2, along with the Task Submission & Review Fee and its payment transaction ID.',
+    youDo: [
+      'Submit your project repository link in Google Form 2',
+      'Pay the Task Submission & Review Fee and add the transaction ID',
+    ],
   },
   {
     word: 'EVALUATE',
     step: '07',
     title: 'Technical Review',
     desc: 'Your submission goes through technical review. Technical review approval and manual payment verification are both required before a certificate can be released.',
+    happens:
+      'Your project goes through a genuine technical review of the code and deliverables. A certificate is released only after technical approval and manual payment verification - both are required.',
+    youDo: [
+      'Make sure your repository stays accessible and complete',
+      'Respond if the review team asks for a fix or clarification',
+    ],
   },
   {
     word: 'CERTIFY',
     step: '08',
     title: 'Verified Certificate Issuance',
     desc: 'Once payment is verified and technical review is approved, your official Certificate of Achievement is explicitly released and publicly verifiable on the registry.',
+    happens:
+      'Once payment is verified and the technical review is approved, your official Certificate of Achievement is released with a unique credential ID, publicly verifiable on the NOXIRA registry.',
+    youDo: [
+      'Download your Certificate of Achievement',
+      'Share your credential ID - anyone can verify it on the Verify page',
+    ],
   },
 ];
 

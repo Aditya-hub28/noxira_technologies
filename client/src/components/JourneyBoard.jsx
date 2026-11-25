@@ -324,6 +324,60 @@ export default function JourneyBoard({ steps }) {
           </button>
         ))}
       </div>
+      {/* Detailed step explorer: numbered steps + synced detail panel on
+          desktop, swipeable cards on mobile. Follows the drum board. */}
+      <div className="jb-details">
+        <div className="jb-dlist" role="tablist" aria-label="Journey steps in detail">
+          {steps.map((s, i) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              key={s.step}
+              className={`jb-ditem${i === active ? ' on' : ''}`}
+              onClick={() => ctl.current.go(i)}
+            >
+              <small>{s.step}</small>
+              <span className="jb-dword">{s.word}</span>
+              <span className="jb-dtitle">{s.title}</span>
+            </button>
+          ))}
+        </div>
+        <div className="jb-dpanel" role="tabpanel">
+          <small>STEP {cur.step} OF {steps.length}</small>
+          <b>{cur.title}</b>
+          <p>{cur.happens}</p>
+          {Array.isArray(cur.youDo) && cur.youDo.length > 0 && (
+            <div className="jb-dyou">
+              <span>WHAT YOU DO</span>
+              <ul>
+                {cur.youDo.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="jb-dswipe" aria-label="Journey steps in detail, swipe to browse">
+        {steps.map((s) => (
+          <div className="jb-dcard" key={s.step}>
+            <small>STEP {s.step} OF {steps.length} · {s.word}</small>
+            <b>{s.title}</b>
+            <p>{s.happens}</p>
+            {Array.isArray(s.youDo) && s.youDo.length > 0 && (
+              <div className="jb-dyou">
+                <span>WHAT YOU DO</span>
+                <ul>
+                  {s.youDo.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
       {soundOk && (
         <button type="button" className="jb-sound" aria-pressed={soundOn} onClick={() => ctl.current.sound()}>
           {soundOn ? 'SOUND ON' : 'SOUND OFF'}
