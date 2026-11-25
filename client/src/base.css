@@ -256,3 +256,29 @@ main > section > .wrap > h2,
     padding: 0 16px;
   }
 }
+
+/* Services cards with focus-area chips (restored 22 Nov preview layout) */
+.svc-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;width:100%;display:grid}
+.svc-card{background:var(--card);border:1px solid var(--line);box-sizing:border-box;border-radius:20px;flex-direction:column;gap:12px;padding:30px 28px;transition:transform .25s,border-color .25s,box-shadow .25s;display:flex;position:relative;overflow:hidden}
+.svc-card:before{content:"";background:linear-gradient(90deg,var(--cy),transparent);border-radius:0 0 2px 2px;height:2px;position:absolute;top:0;left:28px;right:28px}
+.svc-card:hover{border-color:#38c8ff59;transform:translateY(-3px);box-shadow:0 14px 34px #00000040}
+.svc-top{align-items:center;gap:14px;margin-bottom:4px;display:flex}
+.svc-ico{width:44px;height:44px;color:var(--cy);background:#38c8ff1a;border:1px solid #38c8ff47;border-radius:12px;flex:none;justify-content:center;align-items:center;display:inline-flex}
+.svc-ico svg{width:22px;height:22px}
+.svc-top small{color:var(--cy);letter-spacing:.2em;font-size:12px;font-weight:600}
+.svc-card h3{overflow-wrap:break-word;margin:0;font-size:clamp(19px,1.6vw,24px);font-weight:700;line-height:1.25}
+.svc-card p{color:#aab3c0;overflow-wrap:break-word;margin:0;font-size:15px;line-height:1.65}
+.svc-chips{flex-wrap:wrap;gap:8px;margin:auto 0 0;padding:14px 0 0;list-style:none;display:flex}
+.svc-chips li{letter-spacing:.02em;color:#cfe9f7;border:1px solid var(--line);background:#ffffff0a;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600}
+html[data-theme=light] .svc-card p{color:#4a5568}
+html[data-theme=light] .svc-chips li{color:#0b5c86;background:#0a8fd614;border-color:#0a8fd640}
+html[data-theme=light] .svc-card:hover{box-shadow:0 14px 30px #14233c24}
+@media (width<=900px){.svc-grid{grid-template-columns:1fr;gap:14px}
+}
+@media (width<=800px){.svc-card{border-radius:16px;padding:22px 18px}
+.svc-card:before{left:18px;right:18px}
+.svc-card p{font-size:14.5px}
+}
+@media (prefers-reduced-motion:reduce){.svc-card{transition:none}
+.svc-card:hover{transform:none}
+}

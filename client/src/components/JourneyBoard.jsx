@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import iconUrl from '../assets/noxira-icon-roller.svg';
@@ -28,7 +29,9 @@ function padded(word) {
 export default function JourneyBoard({ steps }) {
   const housingRef = useRef(null);
   const stageRef = useRef(null);
-  const ctl = useRef({ go: () => {}, sound: () => {} });
+  const railRef = useRef(null);
+  const lastTouch = useRef(0);
+  const ctl = useRef({ go: () => {}, sound: () => {}, pause: () => {} });
   const [active, setActive] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
   const [soundOk, setSoundOk] = useState(true);
@@ -186,6 +189,8 @@ export default function JourneyBoard({ steps }) {
     };
 
     let t0 = performance.now(), prev = 0, raf = 0, visible = false;
+    // Hover/focus on the detail panel holds the board so the text can be read.
+    let held = false, heldAt = 0, userPicked = false, holdTimer = 0;
     const soundFrame = (p, ms) => {
       if (!on || !ctx || ctx.state !== 'running' || ms < p || ms - p > 120) return;
       drums.forEach((d, slot) => {
@@ -201,7 +206,7 @@ export default function JourneyBoard({ steps }) {
     };
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      if (!visible) return;
+      if (!visible || held) return;
       if (introOn) {
         const e = now - t0;
         if (e < INTRO) { seekIntro(e); introSound(e); return; }
@@ -217,10 +222,17 @@ export default function JourneyBoard({ steps }) {
     ctl.current.go = (i) => {
       if (reduce) { showWord(i); lastIdx = i; setActive(i); return; }
       introOn = false;
+      userPicked = true; clearTimeout(holdTimer); held = false;
       const start = i === 0 ? T0 + (total - 1) * PER : T0 + (i - 1) * PER;
       t0 = performance.now() - start;
       prev = start;
       seek(start);
+      holdTimer = setTimeout(() => { held = true; heldAt = performance.now(); }, 2400);
+    };
+    ctl.current.pause = (on_) => {
+      if (reduce) return;
+      if (on_) { if (!held) { held = true; heldAt = performance.now(); } }
+      else if (!userPicked && held) { t0 += performance.now() - heldAt; held = false; }
     };
     ctl.current.sound = async () => {
       if (!on) {
@@ -262,12 +274,22 @@ export default function JourneyBoard({ steps }) {
 
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(holdTimer);
       st.kill();
       window.removeEventListener('resize', fit);
       unlockEvents.forEach((e) => window.removeEventListener(e, unlock));
       if (ctx) ctx.close().catch(() => {});
     };
   }, [steps]);
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail || rail.scrollWidth <= rail.clientWidth || Date.now() - lastTouch.current < 1500) return;
+    const on = rail.querySelector('.jb-stop.on');
+    if (!on) return;
+    const li = on.closest('li');
+    rail.scrollTo({ left: li.offsetLeft - rail.clientWidth / 2 + li.clientWidth / 2, behavior: 'smooth' });
+  }, [active]);
 
   const cur = steps[active] || steps[0];
   const drumEls = [];
@@ -307,76 +329,68 @@ export default function JourneyBoard({ steps }) {
           <div className="jb-nx"><img src={iconUrl} alt="" /></div>
         </div>
       </div>
-      <div className="jb-cap" aria-live="polite">
-        <small>STEP {cur.step} OF {steps.length}</small>
-        <b>{cur.title}</b>
-        <span>{cur.desc}</span>
-      </div>
-      <div className="jb-pills">
-        {steps.map((s, i) => (
-          <button
-            type="button"
-            key={s.step}
-            className={`jb-pill${i === active ? ' on' : ''}`}
-            onClick={() => ctl.current.go(i)}
-          >
-            {s.word}
-          </button>
-        ))}
-      </div>
-      {/* Detailed step explorer: numbered steps + synced detail panel on
-          desktop, swipeable cards on mobile. Follows the drum board. */}
-      <div className="jb-details">
-        <div className="jb-dlist" role="tablist" aria-label="Journey steps in detail">
+      <div
+        className="jb-main"
+        onMouseEnter={() => ctl.current.pause(true)}
+        onMouseLeave={() => ctl.current.pause(false)}
+        onFocus={() => ctl.current.pause(true)}
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) ctl.current.pause(false); }}
+      >
+        <ol
+          className="jb-rail"
+          ref={railRef}
+          onPointerDown={() => { lastTouch.current = Date.now(); }}
+          onWheel={() => { lastTouch.current = Date.now(); }}
+          onTouchStart={() => { lastTouch.current = Date.now(); }}
+        >
           {steps.map((s, i) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={i === active}
-              key={s.step}
-              className={`jb-ditem${i === active ? ' on' : ''}`}
-              onClick={() => ctl.current.go(i)}
-            >
-              <small>{s.step}</small>
-              <span className="jb-dword">{s.word}</span>
-              <span className="jb-dtitle">{s.title}</span>
-            </button>
+            <li key={s.step}>
+              <button
+                type="button"
+                className={`jb-stop${i === active ? ' on' : ''}`}
+                aria-current={i === active ? 'step' : undefined}
+                onClick={() => { lastTouch.current = 0; ctl.current.go(i); }}
+              >
+                <span className="jb-stop-num">{s.step}</span>
+                <span className="jb-stop-txt">
+                  <span className="jb-stop-word">{s.word}</span>
+                  <span className="jb-stop-title">{s.title}</span>
+                </span>
+              </button>
+            </li>
           ))}
-        </div>
-        <div className="jb-dpanel" role="tabpanel">
-          <small>STEP {cur.step} OF {steps.length}</small>
-          <b>{cur.title}</b>
-          <p>{cur.happens}</p>
-          {Array.isArray(cur.youDo) && cur.youDo.length > 0 && (
-            <div className="jb-dyou">
-              <span>WHAT YOU DO</span>
-              <ul>
-                {cur.youDo.map((point) => (
-                  <li key={point}>{point}</li>
-                ))}
-              </ul>
+        </ol>
+        <article className="jb-panel" key={cur.step}>
+          <header className="jb-panel-head">
+            <small>STEP {cur.step} OF {steps.length}</small>
+            <div className="jb-progress" aria-hidden="true">
+              {steps.map((s, i) => (
+                <i key={s.step} className={i <= active ? 'on' : ''} />
+              ))}
             </div>
-          )}
-        </div>
-      </div>
-      <div className="jb-dswipe" aria-label="Journey steps in detail, swipe to browse">
-        {steps.map((s) => (
-          <div className="jb-dcard" key={s.step}>
-            <small>STEP {s.step} OF {steps.length} · {s.word}</small>
-            <b>{s.title}</b>
-            <p>{s.happens}</p>
-            {Array.isArray(s.youDo) && s.youDo.length > 0 && (
-              <div className="jb-dyou">
-                <span>WHAT YOU DO</span>
+          </header>
+          <h3 aria-live="polite">{cur.title}</h3>
+          <p className="jb-panel-desc">{cur.desc}</p>
+          {cur.happens && (
+            <div className="jb-panel-grid">
+              <div className="jb-col">
+                <h4>What happens here</h4>
                 <ul>
-                  {s.youDo.map((point) => (
+                  {cur.happens.map((point) => (
                     <li key={point}>{point}</li>
                   ))}
                 </ul>
               </div>
-            )}
-          </div>
-        ))}
+              <div className="jb-col jb-act">
+                <h4>Your action</h4>
+                <p>{cur.action}</p>
+                {cur.link && (
+                  <Link to={cur.link.to} className="jb-link">{cur.link.label} &rarr;</Link>
+                )}
+              </div>
+            </div>
+          )}
+        </article>
       </div>
       {soundOk && (
         <button type="button" className="jb-sound" aria-pressed={soundOn} onClick={() => ctl.current.sound()}>

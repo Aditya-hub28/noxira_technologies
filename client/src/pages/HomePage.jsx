@@ -13,6 +13,10 @@ import ProgramShowcase from '../components/ProgramShowcase';
 import {
   ShieldCheck,
   ArrowRight,
+  Globe,
+  Smartphone,
+  Bot,
+  GraduationCap,
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
@@ -23,100 +27,159 @@ const JOURNEY_STEPS = [
     step: '01',
     title: 'Apply via Google Form 1',
     desc: 'Select your preferred engineering track and submit your candidate application through official Google Form 1. Applying is completely free.',
-    happens:
-      'You pick a track from 31 internship programmes and fill Google Form 1 with your basic details - name, email, phone, education, and your chosen track. Applying is completely free and takes about two minutes.',
-    youDo: [
-      'Browse the programmes and pick the track that fits you',
-      'Fill and submit Google Form 1',
-      'Apply with an email you check - everything is sent there',
+    happens: [
+      'Choose the engineering track you want to join.',
+      'Fill in the official Google Form 1 with your details and submit it.',
+      'Applying is completely free.'
     ],
+    action: 'Complete and submit Google Form 1.'
   },
   {
     word: 'REVIEW',
     step: '02',
     title: 'Administrative Review',
     desc: 'NOXIRA administration reviews applicant background, track selection, and eligibility for cohort intake.',
-    happens:
-      'NOXIRA administration checks your background, track selection, and eligibility for the upcoming cohort intake. No documents and no payment are needed at this stage.',
-    youDo: [
-      'Nothing - keep an eye on your registered email',
-      'Shortlisted candidates move straight to the offer stage',
+    happens: [
+      'NOXIRA administration looks at your background and the track you picked.',
+      'Eligibility for the cohort intake is checked.',
+      'Only approved candidates move on to the offer letter.'
     ],
+    action: 'Nothing to do. Wait for the decision.'
   },
   {
     word: 'OFFER',
     step: '03',
     title: 'Official Offer Letter',
     desc: 'Approved candidates receive a personalized, administrative offer letter delivered directly to their registered email address.',
-    happens:
-      'Approved candidates receive a personalized offer letter on their registered email, confirming their track, batch, and internship duration.',
-    youDo: [
-      'Check your registered email for the offer',
-      'Download your letter anytime from the Offer Letter page with your application details',
+    happens: [
+      'After approval, a personalized offer letter is sent to the email address you registered with.',
+      'You can also find it on the Download Offer Letter page with your application details.'
     ],
+    action: 'Check your registered email, or open Download Offer Letter.',
+    link: {
+      to: '/offer-letter',
+      label: 'Download Offer Letter'
+    }
   },
   {
     word: 'TASKS',
     step: '04',
     title: 'Tasks & Cohort Guidance',
     desc: 'Interns receive practical technical task deliverables, project requirements, and guidance through the dedicated WhatsApp cohort group.',
-    happens:
-      'You receive practical, project-based task deliverables with clear requirements, plus guidance from the team through your dedicated WhatsApp cohort group.',
-    youDo: [
-      'Join your cohort WhatsApp group',
-      'Read the task brief carefully and plan your weeks',
+    happens: [
+      'You receive practical technical tasks and the project requirements.',
+      'Guidance and updates for your cohort come through the dedicated WhatsApp group.'
     ],
+    action: 'Join the cohort WhatsApp group and read the task requirements.'
   },
   {
     word: 'CODE',
     step: '05',
     title: 'Build the Project',
     desc: 'Work through your assigned tasks and build your project, keeping your code in a project repository you can share.',
-    happens:
-      'You work through the assigned tasks and build a real, working project - the kind of deliverable an actual company would expect from an intern.',
-    youDo: [
-      'Keep all your code in a project repository you can share',
-      'Ask doubts in the cohort group instead of getting stuck',
+    happens: [
+      'You work through your assigned tasks and build your project.',
+      'Your code lives in a project repository that you can share.'
     ],
+    action: 'Build the project and keep the code in your repository.'
   },
   {
     word: 'SUBMIT',
     step: '06',
     title: 'Final Project Submission (Form 2)',
     desc: 'Submit your completed project repository link, Task Submission & Review Fee, and payment transaction ID through Google Form 2.',
-    happens:
-      'When your project is complete, you submit it for evaluation through Google Form 2, along with the Task Submission & Review Fee and its payment transaction ID.',
-    youDo: [
-      'Submit your project repository link in Google Form 2',
-      'Pay the Task Submission & Review Fee and add the transaction ID',
+    happens: [
+      'You send the link to your completed project repository.',
+      'You pay the Task Submission & Review Fee and enter the payment transaction ID.',
+      'All of this goes through Google Form 2.'
     ],
+    action: 'Submit Google Form 2 with your repository link and transaction ID.'
   },
   {
     word: 'EVALUATE',
     step: '07',
     title: 'Technical Review',
     desc: 'Your submission goes through technical review. Technical review approval and manual payment verification are both required before a certificate can be released.',
-    happens:
-      'Your project goes through a genuine technical review of the code and deliverables. A certificate is released only after technical approval and manual payment verification - both are required.',
-    youDo: [
-      'Make sure your repository stays accessible and complete',
-      'Respond if the review team asks for a fix or clarification',
+    happens: [
+      'Every final submission gets an initial review plus up to 3 free re-reviews.',
+      'Each review is completed within 2-3 working days (Monday to Friday, excluding public holidays).',
+      'If changes are requested, you get 3 calendar days after each feedback to fix and resubmit.',
+      'A submission passes only when the task requirements are complete and the project works properly.',
+      'Your payment is verified manually. Both the passed review and the verified payment are needed.'
     ],
+    action: 'Fix anything the reviewers ask for and resubmit within 3 calendar days.',
+    link: {
+      to: '/review-rules',
+      label: 'Read the Review Rules'
+    }
   },
   {
     word: 'CERTIFY',
     step: '08',
     title: 'Verified Certificate Issuance',
     desc: 'Once payment is verified and technical review is approved, your official Certificate of Achievement is explicitly released and publicly verifiable on the registry.',
-    happens:
-      'Once payment is verified and the technical review is approved, your official Certificate of Achievement is released with a unique credential ID, publicly verifiable on the NOXIRA registry.',
-    youDo: [
-      'Download your Certificate of Achievement',
-      'Share your credential ID - anyone can verify it on the Verify page',
+    happens: [
+      'Once payment is verified and the review has passed, our team explicitly releases your Certificate of Achievement.',
+      'The target is 2-3 working days after you pass.',
+      'Every certificate can be checked on the public verification registry.'
     ],
-  },
+    action: 'Download your certificate. Anyone can verify it on the registry.',
+    link: {
+      to: '/verify',
+      label: 'Open the verification registry'
+    }
+  }
 ];
 
+
+const SERVICES = [
+  {
+    Icon: Globe,
+    tag: 'ENGINEERING',
+    title: 'Web Application Development',
+    text: 'Full-stack web applications tailored to business operations. Responsive React frontends, backed by secure, scalable Node.js and Python APIs and robust database architectures.',
+    chips: [
+      'React',
+      'Node.js',
+      'Python',
+      'Databases'
+    ]
+  },
+  {
+    Icon: Smartphone,
+    tag: 'MOBILE',
+    title: 'Mobile Application Development',
+    text: 'Native and cross-platform mobile applications engineered for performance and fluid user experience. Reliable Android and iOS software with clean UI/UX implementation.',
+    chips: [
+      'Android',
+      'iOS',
+      'Cross-platform',
+      'UI/UX'
+    ]
+  },
+  {
+    Icon: Bot,
+    tag: 'INTELLIGENCE',
+    title: 'AI Automation',
+    text: 'Repeat work handed to intelligent automations, custom workflow pipelines, and data-driven systems.',
+    chips: [
+      'Automations',
+      'Workflow pipelines',
+      'Data-driven systems'
+    ]
+  },
+  {
+    Icon: GraduationCap,
+    tag: 'ACADEMY',
+    title: 'Training & Internships',
+    text: 'Learn by building production-ready projects, receive structured milestone reviews, and leave with verifiable proof.',
+    chips: [
+      'Real projects',
+      'Milestone reviews',
+      'Verifiable proof'
+    ]
+  }
+];
 
 export default function HomePage() {
   const { programs, loading, configured } = useProgrammeCatalogue();
@@ -254,56 +317,22 @@ export default function HomePage() {
         <div className="wrap">
           <p className="kick rv">03 - SERVICES</p>
           <h2 className="rv">What we build.</h2>
-          <div className="grid g2">
-            <div className="card big rv">
-              <small>ENGINEERING</small>
-              <b>Web Application Development</b>
-              <span>
-                Full-stack web applications tailored to how your business actually runs - from marketing sites to
-                internal tools and customer portals.
-              </span>
-              <ul className="svc-list">
-                <li>Responsive frontends with React and modern UI frameworks</li>
-                <li>Secure, scalable Node.js and Python APIs</li>
-                <li>Robust database architecture and deployment</li>
-              </ul>
-            </div>
-            <div className="card big rv">
-              <small>MOBILE</small>
-              <b>Mobile Application Development</b>
-              <span>
-                Native and cross-platform mobile applications engineered for performance and a fluid user experience.
-              </span>
-              <ul className="svc-list">
-                <li>Reliable Android and iOS software</li>
-                <li>Clean UI/UX implementation</li>
-                <li>Store-ready release builds</li>
-              </ul>
-            </div>
-            <div className="card big rv">
-              <small>INTELLIGENCE</small>
-              <b>AI Automation</b>
-              <span>
-                Repeat work handed to intelligent automations, so your team spends time on work that matters.
-              </span>
-              <ul className="svc-list">
-                <li>Custom workflow pipelines</li>
-                <li>Data-driven systems and reporting</li>
-                <li>Integrations with the tools you already use</li>
-              </ul>
-            </div>
-            <div className="card big rv">
-              <small>ACADEMY</small>
-              <b>Training &amp; Internships</b>
-              <span>
-                Learn by building production-ready projects instead of watching tutorials.
-              </span>
-              <ul className="svc-list">
-                <li>Real project tasks with structured milestone reviews</li>
-                <li>Guidance from a dedicated cohort group</li>
-                <li>A verifiable certificate when you finish</li>
-              </ul>
-            </div>
+          <div className="svc-grid">
+            {SERVICES.map(({ Icon, tag, title, text, chips }) => (
+              <article className="svc-card rv" key={tag}>
+                <div className="svc-top">
+                  <span className="svc-ico" aria-hidden="true"><Icon strokeWidth={1.75} /></span>
+                  <small>{tag}</small>
+                </div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+                <ul className="svc-chips" aria-label={`${title} focus areas`}>
+                  {chips.map((chip) => (
+                    <li key={chip}>{chip}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
         </div>
       </section>
