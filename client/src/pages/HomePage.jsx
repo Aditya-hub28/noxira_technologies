@@ -10,7 +10,6 @@ import JourneyBoard from '../components/JourneyBoard';
 import ReviewMarquee from '../components/ReviewMarquee';
 import CertificateShowcase from '../components/CertificateShowcase';
 import ProgramShowcase from '../components/ProgramShowcase';
-import { soon } from '../utils/toast';
 import {
   ShieldCheck,
   ArrowRight,
@@ -260,53 +259,50 @@ export default function HomePage() {
               <small>ENGINEERING</small>
               <b>Web Application Development</b>
               <span>
-                Full-stack web applications tailored to business operations. Responsive frontends with React and
-                modern UI frameworks, backed by secure, scalable Node.js and Python APIs and robust database architectures.
+                Full-stack web applications tailored to how your business actually runs - from marketing sites to
+                internal tools and customer portals.
               </span>
+              <ul className="svc-list">
+                <li>Responsive frontends with React and modern UI frameworks</li>
+                <li>Secure, scalable Node.js and Python APIs</li>
+                <li>Robust database architecture and deployment</li>
+              </ul>
             </div>
             <div className="card big rv">
               <small>MOBILE</small>
               <b>Mobile Application Development</b>
               <span>
-                Native and cross-platform mobile applications engineered for performance and fluid user experience. Reliable Android and iOS software with clean UI/UX implementation.
+                Native and cross-platform mobile applications engineered for performance and a fluid user experience.
               </span>
+              <ul className="svc-list">
+                <li>Reliable Android and iOS software</li>
+                <li>Clean UI/UX implementation</li>
+                <li>Store-ready release builds</li>
+              </ul>
             </div>
             <div className="card big rv">
               <small>INTELLIGENCE</small>
               <b>AI Automation</b>
               <span>
-                Repeat work handed to intelligent automations, custom workflow pipelines, and data-driven systems.
+                Repeat work handed to intelligent automations, so your team spends time on work that matters.
               </span>
+              <ul className="svc-list">
+                <li>Custom workflow pipelines</li>
+                <li>Data-driven systems and reporting</li>
+                <li>Integrations with the tools you already use</li>
+              </ul>
             </div>
             <div className="card big rv">
               <small>ACADEMY</small>
               <b>Training &amp; Internships</b>
               <span>
-                Learn by building production-ready projects, receive structured milestone reviews, and leave with verifiable proof.
+                Learn by building production-ready projects instead of watching tutorials.
               </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 04 - CONTACT PLACEHOLDER */}
-      <section id="contact">
-        <div className="wrap">
-          <p className="kick rv">04 - CONTACT</p>
-          <h2 className="rv">Get in Touch</h2>
-          <div className="card rv text-center p-8 space-y-3">
-            <b>Inquiries &amp; Partnerships</b>
-            <span className="max-w-md mx-auto block">
-              Contact channels and support desk are being finalized for launch.
-            </span>
-            <div>
-              <button
-                type="button"
-                className="gb text-xs font-semibold"
-                onClick={() => soon('Contact Support')}
-              >
-                Contact Support
-              </button>
+              <ul className="svc-list">
+                <li>Real project tasks with structured milestone reviews</li>
+                <li>Guidance from a dedicated cohort group</li>
+                <li>A verifiable certificate when you finish</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -316,7 +312,7 @@ export default function HomePage() {
 
       <CertificateShowcase />
 
-      {/* 05 - STUDENT REVIEWS: continuous right-to-left marquee (hidden until approved reviews exist; samples only in demo preview) */}
+      {/* 04 - STUDENT REVIEWS: continuous right-to-left marquee (live approved reviews win; the approved sample set shows until launch) */}
       <ReviewMarquee />
 
       {/* Copyright footer, directly after feedback. */}

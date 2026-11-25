@@ -147,6 +147,37 @@ main > section > .wrap > h2,
   font-size: 24px;
 }
 
+/* "What we build" service cards: what each service delivers */
+.svc-list {
+  list-style: none;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.svc-list li {
+  position: relative;
+  padding-left: 20px;
+  color: #c8cfd9;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.svc-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--cy);
+  box-shadow: 0 0 10px rgba(56, 200, 255, 0.4);
+}
+
 .home-copyright {
   padding-bottom: 48px;
 }
