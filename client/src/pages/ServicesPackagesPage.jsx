@@ -202,7 +202,6 @@ export default function PackagesPage() {
           <div className="pkg-jump">
             <a href="#website-packages">Website packages</a>
             <a href="#app-packages">Android app packages</a>
-            <a href="#terms">Payment terms</a>
           </div>
         </div>
       </section>
@@ -223,14 +222,8 @@ export default function PackagesPage() {
         </div>
       </section>
 
-      <section id="terms">
+      <section id="pricing-note">
         <div className="wrap">
-          <p className="kick">03 - TERMS</p>
-          <div className="pk-terms">
-            <div><h5>Payment</h5><p>50% advance to start. 50% before launch.</p></div>
-            <div><h5>Charged separately</h5><p>Play Store account, DLT and SMS, server hosting, paid APIs and iOS.</p></div>
-            <div><h5>Quoted separately</h5><p>E-commerce, payment gateway and complex CRM.</p></div>
-          </div>
           <p className="pk-note">Prices are one-time project prices in Indian rupees. Tap "Get a quote for this" to message us on WhatsApp.</p>
         </div>
       </section>
