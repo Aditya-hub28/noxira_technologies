@@ -8,7 +8,7 @@ import './services-packages.css';
    internship policies in PolicyPage.jsx). Draft wording for the owner to review.
    Items in [SQUARE BRACKETS] are placeholders the owner must fill in before launch. */
 
-const ADDRESS = '[BUSINESS ADDRESS], Boisar, Maharashtra, India';
+const ADDRESS = '[BUSINESS ADDRESS], Maharashtra, India';
 const UPDATED = '26 November 2026';
 
 const PAGES = {
@@ -17,7 +17,7 @@ const PAGES = {
     title: 'Services Terms',
     intro: 'These terms apply when you hire NOXIRA to build a website or an Android app. They sit alongside the package details on the Services page. The internship programme has its own Terms & Conditions.',
     sections: [
-      { h: 'Who we are', p: ['NOXIRA TECHNOLOGIES is a sole proprietorship run from Boisar, Maharashtra, India. "We" and "us" mean NOXIRA. "You" and "the client" mean the person or business that orders a package or custom work.'] },
+      { h: 'Who we are', p: ['NOXIRA TECHNOLOGIES is a sole proprietorship run from Maharashtra, India. "We" and "us" mean NOXIRA. "You" and "the client" mean the person or business that orders a package or custom work.'] },
       { h: 'Accepting these terms', p: ['By paying the advance, accepting a quote, or confirming a project with us on WhatsApp or email, you agree to these terms. If you do not agree, please do not place an order. Package details on the Services page are part of these terms.'] },
       { h: 'How a project starts', p: ['A project moves through these steps:'], list: ['You pick a package or send your custom requirement.', 'We confirm the scope, price and expected delivery time in writing (WhatsApp or email counts).', 'You pay the 50% advance.', 'You send the content and access we need and we start work.', 'We share progress for your review, make the included revisions, and you pay the remaining 50%.', 'We launch or hand over the finished work.'] },
       { h: 'Scope of work', p: ['The work we do is what the chosen package lists as included, plus anything we agree in writing on WhatsApp or email before work starts. Anything listed as "not included" is outside the price.', 'A request that goes beyond the agreed scope is quoted separately. We start it only after you accept the quote.'] },
@@ -55,7 +55,7 @@ const PAGES = {
     title: 'Services Privacy',
     intro: 'This explains what we collect when you contact NOXIRA about a website or app, and what we do with it. The internship programme has its own Privacy Policy.',
     sections: [
-      { h: 'Who is responsible', p: ['NOXIRA TECHNOLOGIES, a sole proprietorship run from Boisar, Maharashtra, India, decides how the information described here is used.'] },
+      { h: 'Who is responsible', p: ['NOXIRA TECHNOLOGIES, a sole proprietorship run from Maharashtra, India, decides how the information described here is used.'] },
       { h: 'About this policy', p: ['This policy covers the website and Android app services pages of NOXIRA: the Services page, its enquiry form and WhatsApp buttons, and the conversations that follow. It is written with India\'s Digital Personal Data Protection Act, 2023 and the Information Technology Act, 2000 in mind.'] },
       { h: 'What we collect', p: ['When you use the custom requirement form or WhatsApp buttons on our Services page, we receive what you choose to send:'], list: ['Your name, email address and phone number (these fields are optional)', 'The description of your project requirement', 'Anything else you tell us in the WhatsApp or email conversation, such as business details, files or deadlines'] },
       { h: 'Information collected automatically', p: ['Like most websites, the site and its hosting provider may record basic technical data when you visit, such as browser type, device type, pages viewed, approximate location from your IP address, and the date and time. We use this to keep the site working, find faults and understand how pages are used.'] },
