@@ -1,6 +1,7 @@
 import '../programme-cards.css';
 import React, { useState, useMemo } from 'react';
 import { INTERNSHIP_EMAIL } from '../config/supportContact';
+import '../components/email-link.css';
 import { PROGRAMME_IMAGES } from '../config/programmeImages';
 import { useProgrammeCatalogue } from '../utils/useProgrammeCatalogue';
 import { resolveProgramDescription } from '../utils/programUtils';
@@ -213,7 +214,7 @@ export default function ApplyPage() {
           ))}
         </div>
       )}
-      <p className="text-center text-xs text-slate-500 mt-8">Questions about applying? Email <a className="underline" href={`mailto:${INTERNSHIP_EMAIL}`}>{INTERNSHIP_EMAIL}</a></p>
+      <p className="text-center text-xs text-slate-500 mt-8">Questions about applying? Email <a className="eg-link" href={`mailto:${INTERNSHIP_EMAIL}`}>{INTERNSHIP_EMAIL}</a></p>
     </div>
   );
 }
