@@ -120,7 +120,7 @@ export default function AdminProgramsPage() {
 
   const handleNormalizeProgram = async (p) => {
     try {
-      const res = await api.adminUpdateProgram(p.code, { durationWeeks: 4, feeInr: 99 });
+      const res = await api.adminUpdateProgram(p.code, { durationWeeks: 4, feeInr: 149 });
       setPrograms(prev => prev.map(item => item.code === p.code ? res.program : item));
     } catch (err) {
       alert(`Failed to normalize program: ${err.message}`);
@@ -138,7 +138,7 @@ export default function AdminProgramsPage() {
         category: formData.category,
         description: formData.description.trim(),
         durationWeeks: 4,
-        feeInr: 99,
+        feeInr: 149,
         seats: formData.seats !== '' ? Number(formData.seats) : null,
         startDate: formData.startDate ? formData.startDate : null,
         endDate: formData.endDate ? formData.endDate : null,
@@ -335,7 +335,7 @@ export default function AdminProgramsPage() {
                             type="button"
                             onClick={() => handleNormalizeProgram(p)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition mr-2 shadow-2xs"
-                            title="Normalize to 1 Month (4 weeks) / Rs. 99"
+                            title="Normalize to 1 Month (4 weeks) / Rs. 149"
                           >
                             Normalize
                           </button>
@@ -471,10 +471,10 @@ export default function AdminProgramsPage() {
                     type="text"
                     disabled
                     readOnly
-                    value="₹99"
+                    value="₹149"
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 font-semibold text-xs cursor-not-allowed"
                   />
-                  <span className="text-[10px] text-slate-400">Fixed Rs. 99 review fee.</span>
+                  <span className="text-[10px] text-slate-400">Fixed Rs. 149 review fee.</span>
                 </div>
 
                 <div>

@@ -28,7 +28,7 @@ assert.ok(!home.includes('Layout sample'));
 console.log('PASS: six home cards and View All share full catalogue destination, with honest status');
 assert.match(render({}),/No programmes published yet/);
 assert.match(render({loading:true}),/aria-busy="true"/);
-const live=render({programs:[{code:'OWNER',title:'Owner Programme',description:'Owner content',category:'Engineering',feeInr:99}]});
+const live=render({programs:[{code:'OWNER',title:'Owner Programme',description:'Owner content',category:'Engineering',feeInr:149}]});
 assert.match(live,/Owner content/);assert.ok(!live.includes('99'));assert.ok(!live.includes('configured programmes'));
 console.log('PASS: loading, successful empty, live owner content and fee hiding preserved');
 const source=fs.readFileSync(path.join(client,'src/pages/HomePage.jsx'),'utf8');

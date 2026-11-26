@@ -519,7 +519,7 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
               const current = domainMapping.find((m) => m.value === domainVal);
               const selectedCode = current?.programCode || '__UNMAPPED__';
               const matchedProgram = programs.find((p) => p.code === selectedCode);
-              const isCurrentOffering = matchedProgram ? (matchedProgram.durationWeeks === 4 && matchedProgram.feeInr === 99) : false;
+              const isCurrentOffering = matchedProgram ? (matchedProgram.durationWeeks === 4 && matchedProgram.feeInr === 149) : false;
 
               return (
                 <div key={domainVal} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition">
@@ -545,10 +545,10 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
                       <option value="__UNMAPPED__">-- Choose Programme (Unmapped) --</option>
                       <option value="__SKIP__">Skip rows with this domain</option>
                       {programs.map((p) => {
-                        const isNormalized = p.durationWeeks === 4 && p.feeInr === 99;
+                        const isNormalized = p.durationWeeks === 4 && p.feeInr === 149;
                         return (
                           <option key={p.code} value={p.code}>
-                            {p.code} - {p.title} {isNormalized ? '(4w / ₹99)' : '(Needs Normalization)'}
+                            {p.code} - {p.title} {isNormalized ? '(4w / ₹149)' : '(Needs Normalization)'}
                           </option>
                         );
                       })}
@@ -558,7 +558,7 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
                       <div className="text-[10px]">
                         {isCurrentOffering ? (
                           <span className="text-emerald-700 font-medium flex items-center gap-1">
-                            <Check className="w-3 h-3" /> Current offering (4 weeks · ₹99)
+                            <Check className="w-3 h-3" /> Current offering (4 weeks · ₹149)
                           </span>
                         ) : (
                           <span className="text-amber-700 font-semibold flex items-center gap-1">
@@ -884,7 +884,7 @@ export default function Form1ImportPage({ onNavigateToApplications }) {
                   Needs Programme Normalization ({commitResult.details.needsNormalization.length})
                 </h3>
                 <p className="text-[11px] text-orange-700">
-                  These rows were not imported. Normalize the programme to 4 weeks / Rs.99 in the programme manager, then re-import the file.
+                  These rows were not imported. Normalize the programme to 4 weeks / Rs.149 in the programme manager, then re-import the file.
                 </p>
                 <div className="max-h-48 overflow-y-auto border border-orange-200 rounded-xl divide-y divide-orange-100 bg-orange-50/30">
                   {commitResult.details.needsNormalization.map((row) => (

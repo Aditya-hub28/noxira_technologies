@@ -68,7 +68,7 @@ const PROGRAM_CATEGORIES = [
  */
 async function seedProgramCatalogue(ProgramModel = require('../models/Program')) {
   for (const prog of CATALOGUE_PROGRAMS) {
-    // 1. Insert if code does not exist (default 1-month / Rs.99 model, isActive: true)
+    // 1. Insert if code does not exist (default 1-month / Rs.149 model, isActive: true)
     await ProgramModel.updateOne(
       { code: prog.code },
       {
@@ -77,7 +77,7 @@ async function seedProgramCatalogue(ProgramModel = require('../models/Program'))
           title: prog.title,
           category: prog.category,
           durationWeeks: 4,
-          feeInr: 99,
+          feeInr: 149,
           isActive: true
         }
       },
@@ -100,7 +100,7 @@ async function seedProgramCatalogue(ProgramModel = require('../models/Program'))
     );
   }
 
-  // 3. Additive backfill for unset durationWeeks (4) and feeInr (99)
+  // 3. Additive backfill for unset durationWeeks (4) and feeInr (149)
   await ProgramModel.updateMany(
     {
       $or: [
@@ -118,7 +118,7 @@ async function seedProgramCatalogue(ProgramModel = require('../models/Program'))
         { feeInr: null }
       ]
     },
-    { $set: { feeInr: 99 } }
+    { $set: { feeInr: 149 } }
   );
 
   // 4. Scan and log any conflicting legacy programmes without overwriting them
@@ -126,7 +126,7 @@ async function seedProgramCatalogue(ProgramModel = require('../models/Program'))
     const conflicting = await ProgramModel.find({
       $or: [
         { durationWeeks: { $ne: 4 } },
-        { feeInr: { $ne: 99 } }
+        { feeInr: { $ne: 149 } }
       ]
     }).select('code title durationWeeks feeInr').lean();
 

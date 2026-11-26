@@ -286,7 +286,7 @@ exports.previewForm1 = async (req, res, next) => {
           title: p.title,
           durationWeeks: p.durationWeeks,
           feeInr: p.feeInr,
-          isCurrentOffering: p.durationWeeks === 4 && p.feeInr === 99
+          isCurrentOffering: p.durationWeeks === 4 && p.feeInr === 149
         }))
       });
     }
@@ -370,8 +370,8 @@ exports.previewForm1 = async (req, res, next) => {
           mappedProgramCode = progCode;
           const prog = programMap.get(progCode);
 
-          if (!prog || !prog.isActive || prog.durationWeeks !== 4 || prog.feeInr !== 99) {
-            errors.push(`Programme ${progCode} requires normalization (must be 4 weeks & ₹99)`);
+          if (!prog || !prog.isActive || prog.durationWeeks !== 4 || prog.feeInr !== 149) {
+            errors.push(`Programme ${progCode} requires normalization (must be 4 weeks & ₹149)`);
             status = 'NEEDS_NORMALIZATION';
             needsNormalizationCount++;
           } else {
@@ -727,12 +727,12 @@ exports.commitForm1 = async (req, res, next) => {
 
       // Re-verify programme fresh; non-normalized rows are classified explicitly, never created
       const program = programMap.get(progCode);
-      if (!program || !program.isActive || program.durationWeeks !== 4 || program.feeInr !== 99) {
+      if (!program || !program.isActive || program.durationWeeks !== 4 || program.feeInr !== 149) {
         needsNormalizationList.push({
           rowIndex,
           email: rawEmail,
           programCode: progCode,
-          reason: `Programme ${progCode} requires normalization (must be 4 weeks & ₹99). Normalize it in the programme manager, then re-import.`
+          reason: `Programme ${progCode} requires normalization (must be 4 weeks & ₹149). Normalize it in the programme manager, then re-import.`
         });
         continue;
       }

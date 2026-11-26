@@ -127,7 +127,7 @@ async function autoSeedIfEmpty() {
           defaultEndDate: new Date('2026-10-31'),
           category: 'Development',
           durationWeeks: 4,
-          feeInr: 99,
+          feeInr: 149,
           isActive: true
         }
       },
@@ -145,7 +145,7 @@ async function autoSeedIfEmpty() {
           defaultEndDate: new Date('2026-11-01'),
           category: 'AI & Data Science',
           durationWeeks: 4,
-          feeInr: 99,
+          feeInr: 149,
           isActive: true
         }
       },
@@ -521,7 +521,7 @@ async function autoSeedIfEmpty() {
         programTitle: 'Full Stack Web Development',
         batchId: 'BATCH-2026-DEV',
         status: 'APPROVED',
-        feeLocked: 99,
+        feeLocked: 149,
         feeAcknowledged: true
       });
       await generateOfferForApplication('NOX-2026-FSD-1001', { forceRegenerate: true });

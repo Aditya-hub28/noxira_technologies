@@ -197,7 +197,7 @@ async function runTestSuite() {
       title: 'Full Stack Web Development',
       defaultBatch: 'BATCH-2026-Q4',
       durationWeeks: 4,
-      feeInr: 99
+      feeInr: 149
     });
 
     const p1 = new Participant({
@@ -425,7 +425,7 @@ async function runTestSuite() {
       title: 'Artificial Intelligence Engineering',
       defaultBatch: 'BATCH-2026-Q4',
       durationWeeks: 4,
-      feeInr: 99
+      feeInr: 149
     });
 
     const admin = await Admin.findOne({ email: 'root@noxira.com' });
@@ -1320,7 +1320,7 @@ async function runTestSuite() {
     assert.ok(program, 'Program data must be present');
     assert.strictEqual(program.code, 'FE-DEV');
     assert.strictEqual(program.durationWeeks, 4);
-    assert.strictEqual(program.feeInr, 99);
+    assert.strictEqual(program.feeInr, 149);
     assert.strictEqual(program.defaultBatch, undefined, 'Must not leak defaultBatch in detail');
     assert.strictEqual(program._id, undefined, 'Must not leak _id in detail');
 
@@ -1407,7 +1407,7 @@ async function runTestSuite() {
         category: 'Business',
         description: 'Mathematical modeling and algorithmic execution.',
         durationWeeks: 4,
-        feeInr: 99,
+        feeInr: 149,
         seats: 25,
         startDate: '2026-11-15',
         endDate: '2027-01-15',
@@ -2936,16 +2936,16 @@ async function runTestSuite() {
     assert.strictEqual(mockPub2.getData().googleForm1Url, '');
   });
 
-  // TEST 31: Module 2 - 1-Month / Rs.99 Programme Model & Conflicting Legacy Handling
-  await test('Module 2: Enforces 1-month / Rs.99 model, excludes conflicting legacy from public, and supports admin normalization', async () => {
-    // 1. adminCreateProgram rejects non-4 weeks or non-99 INR
+  // TEST 31: Module 2 - 1-Month / Rs.149 Programme Model & Conflicting Legacy Handling
+  await test('Module 2: Enforces 1-month / Rs.149 model, excludes conflicting legacy from public, and supports admin normalization', async () => {
+    // 1. adminCreateProgram rejects non-4 weeks or non-149 INR
     const mockCreateBadDur = mockReqRes({
       body: {
         code: 'TEST-DUR-BAD',
         title: 'Bad Duration Track',
         category: 'Development',
         durationWeeks: 12,
-        feeInr: 99
+        feeInr: 149
       }
     });
     await adminCreateProgram(mockCreateBadDur.req, mockCreateBadDur.res, () => {});
@@ -2961,7 +2961,7 @@ async function runTestSuite() {
       }
     });
     await adminCreateProgram(mockCreateBadFee.req, mockCreateBadFee.res, () => {});
-    assert.strictEqual(mockCreateBadFee.getStatus(), 400, 'Must reject feeInr !== 99');
+    assert.strictEqual(mockCreateBadFee.getStatus(), 400, 'Must reject feeInr !== 149');
 
     // 2. Create a conflicting legacy program directly in DB (simulating legacy data)
     await Program.deleteMany({ code: { $in: ['LEGACY-CONFLICT', 'NORMAL-M2'] } });
@@ -2981,7 +2981,7 @@ async function runTestSuite() {
       title: 'Normal 1-Month Track',
       category: 'Development',
       durationWeeks: 4,
-      feeInr: 99,
+      feeInr: 149,
       isActive: true,
       startDate: new Date('2026-01-01'),
       endDate: new Date('2026-02-01')
@@ -3022,12 +3022,12 @@ async function runTestSuite() {
     assert.strictEqual(mockPubDetailNormal.getData().program.startDate, undefined);
     assert.strictEqual(mockPubDetailNormal.getData().program.endDate, undefined);
     assert.strictEqual(mockPubDetailNormal.getData().program.durationWeeks, 4);
-    assert.strictEqual(mockPubDetailNormal.getData().program.feeInr, 99);
+    assert.strictEqual(mockPubDetailNormal.getData().program.feeInr, 149);
 
-    // 6. Admin updates / normalizes the legacy track to 4 weeks / Rs. 99
+    // 6. Admin updates / normalizes the legacy track to 4 weeks / Rs. 149
     const mockNormUpdate = mockReqRes({
       params: { code: 'LEGACY-CONFLICT' },
-      body: { durationWeeks: 4, feeInr: 99 }
+      body: { durationWeeks: 4, feeInr: 149 }
     });
     await adminUpdateProgram(mockNormUpdate.req, mockNormUpdate.res, () => {});
     assert.strictEqual(mockNormUpdate.getStatus(), 200);
@@ -3045,7 +3045,7 @@ async function runTestSuite() {
   });
 
   // TEST 32: Module 3 - Google Form 1 CSV Import Acceptance Suite
-  await test('Module 3: Google Form 1 Import parses UTF-8 BOM, auto-suggests columns, detects duplicates, enforces linkable recovery & 4w/Rs.99 model with zero email side effects', async () => {
+  await test('Module 3: Google Form 1 Import parses UTF-8 BOM, auto-suggests columns, detects duplicates, enforces linkable recovery & 4w/Rs.149 model with zero email side effects', async () => {
     const adminUser = await Admin.findOne({ role: 'SUPER_ADMIN' }) || await Admin.create({
       fullName: 'Super Admin',
       email: 'admin_test_m3@example.com',
@@ -3053,9 +3053,9 @@ async function runTestSuite() {
       role: 'SUPER_ADMIN'
     });
 
-    // Ensure test programmes are active & normalized (4 weeks / Rs.99)
-    await Program.updateOne({ code: 'FS-DEV' }, { $set: { durationWeeks: 4, feeInr: 99, isActive: true } });
-    await Program.updateOne({ code: 'AI-ENG' }, { $set: { durationWeeks: 4, feeInr: 99, isActive: true } });
+    // Ensure test programmes are active & normalized (4 weeks / Rs.149)
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { durationWeeks: 4, feeInr: 149, isActive: true } });
+    await Program.updateOne({ code: 'AI-ENG' }, { $set: { durationWeeks: 4, feeInr: 149, isActive: true } });
 
     // 1. Prepare Google-Forms-style fixture CSV with UTF-8 BOM on first column
     const bomHeader = '\uFEFFTimestamp';
@@ -3239,7 +3239,7 @@ async function runTestSuite() {
     assert.ok(app1.applicationId.startsWith('NOX-'), 'Application ID must start with NOX-');
     assert.strictEqual(app1.status, 'APPLIED');
     assert.strictEqual(app1.intakeSource, 'FORM1_IMPORT');
-    assert.strictEqual(app1.feeLocked, 99);
+    assert.strictEqual(app1.feeLocked, 149);
 
     // Verify ImportBatch was persisted with kind 'FORM1_RESPONSES'
     const importBatchRecord = await ImportBatch.findById(p1.sourceImportBatchId);
@@ -3562,9 +3562,9 @@ async function runTestSuite() {
 
   await test('Module 3 Fix Pass: raced participant LINKABLE reclassification, explicit NEEDS_NORMALIZATION & admin-only Form 1 detail', async () => {
     const adminUser = await Admin.findOne({ role: 'SUPER_ADMIN' });
-    await Program.updateOne({ code: 'FS-DEV' }, { $set: { durationWeeks: 4, feeInr: 99, isActive: true } });
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { durationWeeks: 4, feeInr: 149, isActive: true } });
 
-    // A. NEEDS_NORMALIZATION: active programme NOT on the current 4-week / Rs.99 offering
+    // A. NEEDS_NORMALIZATION: active programme NOT on the current 4-week / Rs.149 offering
     await Program.create({
       code: 'LEGACY-NN',
       title: 'Legacy Non Normalized Track',
@@ -3733,7 +3733,7 @@ async function runTestSuite() {
         title: 'Module Five Verification Track',
         category: 'Development',
         durationWeeks: 4,
-        feeInr: 99,
+        feeInr: 149,
         syllabus: 'Week 1: Basics',
         tasks: 'Task 1: Schema design\nTask 2: API endpoints',
         learningMaterials: 'Reading: REST design guide\nhttps://example.com/practice-dataset'
@@ -3782,7 +3782,7 @@ async function runTestSuite() {
 
     // 5. Approved application whose programme has empty tasks/materials
     const mockEmptyProgram = mockReqRes({
-      body: { code: 'M5-EMPTY', title: 'Empty Track', category: 'Design', feeInr: 99 }
+      body: { code: 'M5-EMPTY', title: 'Empty Track', category: 'Design', feeInr: 149 }
     });
     await adminCreateProgram(mockEmptyProgram.req, mockEmptyProgram.res, mockEmptyProgram.next);
     assert.strictEqual(mockEmptyProgram.getStatus(), 201);
@@ -3794,7 +3794,7 @@ async function runTestSuite() {
 
   await test('Module 6: Form 2 final-submission import bridges responses into Submission records with application crosschecks, untrusted UTR, idempotent re-import', async () => {
     process.env.WEBSITE_INTAKE_BATCH_ID = 'BATCH-M6-ACCEPTANCE';
-    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 99, durationWeeks: 4 } });
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 149, durationWeeks: 4 } });
 
     // Seed an approved application to match against
     const mockApplyM6 = mockReqRes({
@@ -3950,7 +3950,7 @@ async function runTestSuite() {
 
   await test('Module 7: Manual payment verification - explicit admin attestation, MATCHED-only verify, terminal VERIFIED, audit trail', async () => {
     // Seed: one matched + one unmatched submission via the Module 6 bridge
-    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 99, durationWeeks: 4 } });
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 149, durationWeeks: 4 } });
     const mockApplyM7 = mockReqRes({
       body: { fullName: 'Sana Iqbal', email: 'sana.m7@example.com', programCode: 'FS-DEV', feeAcknowledged: true }
     });
@@ -3993,14 +3993,14 @@ async function runTestSuite() {
     assert.strictEqual(mockNotFound.getData().submission.paymentState, 'NOT_FOUND');
 
     // 3. Matched submission: VERIFIED succeeds, records who/when, audit written
-    const mockVerify = mockReqRes({ params: { submissionId: matchedSub.submissionId }, body: { state: 'VERIFIED', note: 'Rs.99 credit confirmed in bank statement' } });
+    const mockVerify = mockReqRes({ params: { submissionId: matchedSub.submissionId }, body: { state: 'VERIFIED', note: 'Rs.149 credit confirmed in bank statement' } });
     await form2ImportController.markPayment(mockVerify.req, mockVerify.res, mockVerify.next);
     assert.strictEqual(mockVerify.getStatus(), 200);
     assert.strictEqual(mockVerify.getData().submission.paymentState, 'VERIFIED');
     const verifiedDoc = await Submission.findById(matchedSub._id);
     assert.ok(verifiedDoc.paymentMarkedBy, 'Marking admin recorded');
     assert.ok(verifiedDoc.paymentMarkedAt, 'Marking time recorded');
-    assert.strictEqual(verifiedDoc.paymentNote, 'Rs.99 credit confirmed in bank statement');
+    assert.strictEqual(verifiedDoc.paymentNote, 'Rs.149 credit confirmed in bank statement');
     const payAudit = await AuditLog.findOne({ action: 'PAYMENT_MARKED', targetId: matchedSub._id });
     assert.ok(payAudit, 'PAYMENT_MARKED audit log must exist');
     assert.strictEqual(payAudit.metadata.claimedTransactionId, 'UTR-M7-111');
@@ -4080,7 +4080,7 @@ async function runTestSuite() {
   });
 
   await test('Module 8: Review workflow - initial + 3 free re-reviews, 3 calendar day IST deadlines, explicit pass criteria, terminal exhaustion, race-safe', async () => {
-    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 99, durationWeeks: 4 } });
+    await Program.updateOne({ code: 'FS-DEV' }, { $set: { isActive: true, feeInr: 149, durationWeeks: 4 } });
     const m8ColMap = [
       { target: 'email', header: 'Email' }, { target: 'programme', header: 'Internship Domain' },
       { target: 'projectLink', header: 'Project Link' }, { target: 'transactionId', header: 'UTR Number' },

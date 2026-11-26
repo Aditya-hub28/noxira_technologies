@@ -4,7 +4,7 @@ const Program = require('../models/Program');
 
 /**
  * Public Programs Listing
- * Returns only active, current-offering-consistent programs (1 month / 4 weeks, Rs. 99).
+ * Returns only active, current-offering-consistent programs (1 month / 4 weeks, Rs. 149).
  * Conflicting legacy programs are excluded until normalized.
  * Excludes internal batch and dates (startDate/endDate) from public view.
  * Sorted by category, then title.
@@ -14,7 +14,7 @@ async function getPublicPrograms(req, res, next) {
     const programs = await Program.find({
       isActive: true,
       durationWeeks: 4,
-      feeInr: 99
+      feeInr: 149
     })
       .select('code title description category durationWeeks feeInr seats syllabus tasks -_id')
       .sort({ category: 1, title: 1 })
@@ -32,7 +32,7 @@ async function getPublicPrograms(req, res, next) {
 /**
  * Public Program Detail
  * Returns a single active program by its code with public-safe attributes.
- * Only serves current-offering-consistent programs (4 weeks, Rs. 99).
+ * Only serves current-offering-consistent programs (4 weeks, Rs. 149).
  * Returns 404 if code is unknown, inactive, or unnormalized legacy offering.
  */
 async function getPublicProgramByCode(req, res, next) {
@@ -42,7 +42,7 @@ async function getPublicProgramByCode(req, res, next) {
       code: cleanCode,
       isActive: true,
       durationWeeks: 4,
-      feeInr: 99
+      feeInr: 149
     })
       .select('code title description category durationWeeks feeInr seats syllabus tasks -_id')
       .lean();
