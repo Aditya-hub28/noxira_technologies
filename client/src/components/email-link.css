@@ -1,4 +1,4 @@
 /* Blue mailto link, same blue as the "Which email is for what" card. Doubled class beats page-level link rules. */
 a.eg-link.eg-link{color:#38c8ff;font-weight:600;text-decoration:none;word-break:break-all}
 a.eg-link.eg-link:hover{text-decoration:underline}
-html[data-theme="light"] a.eg-link.eg-link{color:#0a8fd6}
+html[data-theme="light"] a.eg-link.eg-link{color:#0668a3}

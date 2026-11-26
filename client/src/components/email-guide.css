@@ -8,6 +8,6 @@
 .eg.eg a:hover{text-decoration:underline}
 .eg.eg .eg-use{color:#a9b2c0;margin:0;font-size:.9rem;line-height:1.5}
 html[data-theme="light"] .eg.eg h2{color:#101724}
-html[data-theme="light"] .eg.eg a{color:#0a8fd6}
+html[data-theme="light"] .eg.eg a{color:#0668a3}
 html[data-theme="light"] .eg.eg .eg-use{color:#4a5568}
 @media (max-width:560px){.eg.eg li{flex-direction:column;gap:.05rem}.eg.eg .eg-addr,.eg.eg a{min-width:0}}

@@ -61,7 +61,8 @@ export default function PublicLayout({ admin, onLogout, onOpenAdminLogin }) {
                 {/* Col 1: Organization Branding */}
                 <div className="space-y-3 md:col-span-2">
                   <div className="flex items-center gap-2">
-                    <img src="/noxira-wordmark-white.png" alt="NOXIRA Technologies" className="h-7 w-auto" />
+                    <img src="/noxira-wordmark-white.png" alt="NOXIRA Technologies" className="h-7 w-auto nx-logo-dark" />
+                    <img src="/noxira-wordmark.png" alt="NOXIRA Technologies" className="h-7 w-auto nx-logo-light" />
                   </div>
                   <p className="text-slate-400 text-xs leading-relaxed max-w-md">
                     NOXIRA Technologies designs and develops modern web and mobile software solutions, alongside practical engineering internship tracks with transparent credential verification.
