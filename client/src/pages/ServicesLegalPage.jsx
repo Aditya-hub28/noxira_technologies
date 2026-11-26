@@ -1,14 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { SUPPORT_EMAIL } from '../config/supportContact';
+import { CONTACT_EMAIL } from '../config/supportContact';
+import EmailGuide from '../components/EmailGuide';
 import './services-packages.css';
 
 /* Legal pages for NOXIRA's website and Android app services (separate from the
    internship policies in PolicyPage.jsx). Draft wording for the owner to review.
    Items in [SQUARE BRACKETS] are placeholders the owner must fill in before launch. */
 
-const ADDRESS = '[BUSINESS ADDRESS], Maharashtra, India';
+const ADDRESS = 'Maharashtra, India';
 const UPDATED = '26 November 2026';
 
 const PAGES = {
@@ -38,14 +39,13 @@ const PAGES = {
       { h: 'Website performance, SEO and results', p: ['Basic SEO setup helps search engines understand your pages. It does not guarantee any ranking, traffic or number of enquiries. Results depend on your content, competition, search engine changes and time.'] },
       { h: 'Warranty disclaimer', p: ['Apart from what these terms and your package state, we provide the work "as is". We do not give any other promise that it will suit a particular purpose or work without interruption on every device, browser or operating system version.'] },
       { h: 'Third-party services', p: ['Your project may depend on hosting providers, app stores, payment providers and APIs. We do not control them and are not responsible for their downtime, policy changes, approvals or fees.'] },
-      { h: 'Cancellation and refunds', p: ['If you cancel after work has started, the advance covers the work done up to that point and is not refunded. If we cannot deliver the agreed work, we will refund the part of the advance that covers undelivered work. Both sides should raise cancellation in writing, which includes WhatsApp or email.'] },
+      { h: 'Cancellation and refunds', p: ['Payments for services are not refundable. A refund is given in only two cases: (1) NOXIRA cancels the project or cannot deliver the agreed work, or (2) you are charged twice for the same payment. Both sides should raise cancellation or a double payment in writing, which includes WhatsApp or email.'] },
       { h: 'Acceptable use', p: ['We will not build, and you agree not to use our work for, anything illegal, misleading, abusive or that infringes others\' rights. We may refuse or stop a project that falls into these groups, and the advance is handled as described under cancellation.'] },
       { h: 'Limitation of liability', p: ['We build in good faith and test our work, but we cannot promise that a website or app will be free of every error or that it will bring a particular amount of traffic, sales or ranking. To the extent the law allows, our liability for any claim is limited to the amount you paid us for the work in question. We are not liable for indirect losses such as lost profit or lost data.'] },
       { h: 'Confidentiality', p: ['We keep your business information, credentials and project material private and use them only to deliver your project.'] },
       { h: 'Delays outside our control', p: ['We are not responsible for a delay or failure caused by things outside our reasonable control, such as illness, power or internet failure, natural events, government action, or a third-party provider being unavailable. We will tell you as soon as we can and agree a new timeline.'] },
       { h: 'Communication', p: ['We mainly work over WhatsApp, phone and email. Messages sent there count as written communication for scope changes, approvals and cancellation. Please keep your contact details up to date. We usually reply on working days.'] },
       { h: 'Complete agreement', p: ['These terms, your package details and the written scope we agree make up the whole agreement for the project. If a part of these terms is found to be unenforceable, the rest stays in force. You may not transfer your order to someone else without our written agreement.'] },
-      { h: 'Governing law', p: ['These terms follow the laws of India. Any dispute is subject to the courts at [JURISDICTION CITY], Maharashtra. We would like to settle any problem by talking first.'] },
       { h: 'Changes to these terms', p: ['We may update these terms. The version on this page when you place your order applies to that order.'] },
       { h: 'Contact', p: ['Questions about these terms:'], contact: true },
     ],
@@ -101,13 +101,14 @@ export default function ServicesLegalPage({ slug }) {
                 {s.p2 && <p>{s.p2}</p>}
                 {s.contact && (
                   <p className="pk-doc-contact">
-                    Email: {SUPPORT_EMAIL}<br />
+                    Email: {CONTACT_EMAIL}<br />
                     Address: {ADDRESS}
                   </p>
                 )}
               </section>
             ))}
           </div>
+          <EmailGuide />
           <p className="pk-doc-more">See also: <Link to={other.to}>{other.label}</Link> · <Link to="/terms">Internship Terms</Link> · <Link to="/privacy">Internship Privacy</Link></p>
         </div>
       </section>

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { api } from '../services/api';
+import { INTERNSHIP_EMAIL } from '../config/supportContact';
+import '../components/email-link.css';
 import './verify.css';
 
 if (pdfjsLib.GlobalWorkerOptions) {
@@ -410,6 +412,7 @@ export default function DownloadOfferLetterPage() {
       <div className="vfy-notice">
         Offer letters are issued only to selected candidates after review. Lookup requires the exact email address and application ID from your selection email.
       </div>
+      <p className="vfy-help">Need help? Email <a className="eg-link" href={`mailto:${INTERNSHIP_EMAIL}`}>{INTERNSHIP_EMAIL}</a></p>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { SUPPORT_EMAIL } from '../config/supportContact';
+import EmailGuide from '../components/EmailGuide';
 import '../doc.css';
 
 /**
@@ -155,6 +156,8 @@ export default function PolicyPage({ slug }) {
           {s.contact && <p className="mail" data-testid="support-email">{SUPPORT_EMAIL}</p>}
         </section>
       ))}
+
+      <EmailGuide />
 
       <div className="more">
         {POLICY_LINKS.filter((l) => l.slug !== slug).map((l) => (
