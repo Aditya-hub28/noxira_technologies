@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { SUPPORT_EMAIL } from '../config/supportContact';
+import { CONTACT_EMAIL } from '../config/supportContact';
 import './services-packages.css';
 
 /* Legal pages for NOXIRA's website and Android app services (separate from the
@@ -38,7 +38,7 @@ const PAGES = {
       { h: 'Website performance, SEO and results', p: ['Basic SEO setup helps search engines understand your pages. It does not guarantee any ranking, traffic or number of enquiries. Results depend on your content, competition, search engine changes and time.'] },
       { h: 'Warranty disclaimer', p: ['Apart from what these terms and your package state, we provide the work "as is". We do not give any other promise that it will suit a particular purpose or work without interruption on every device, browser or operating system version.'] },
       { h: 'Third-party services', p: ['Your project may depend on hosting providers, app stores, payment providers and APIs. We do not control them and are not responsible for their downtime, policy changes, approvals or fees.'] },
-      { h: 'Cancellation and refunds', p: ['If you cancel after work has started, the advance covers the work done up to that point and is not refunded. If we cannot deliver the agreed work, we will refund the part of the advance that covers undelivered work. Both sides should raise cancellation in writing, which includes WhatsApp or email.'] },
+      { h: 'Cancellation and refunds', p: ['Payments for services are not refundable. A refund is given in only two cases: (1) NOXIRA cancels the project or cannot deliver the agreed work, or (2) you are charged twice for the same payment. Both sides should raise cancellation or a double payment in writing, which includes WhatsApp or email.'] },
       { h: 'Acceptable use', p: ['We will not build, and you agree not to use our work for, anything illegal, misleading, abusive or that infringes others\' rights. We may refuse or stop a project that falls into these groups, and the advance is handled as described under cancellation.'] },
       { h: 'Limitation of liability', p: ['We build in good faith and test our work, but we cannot promise that a website or app will be free of every error or that it will bring a particular amount of traffic, sales or ranking. To the extent the law allows, our liability for any claim is limited to the amount you paid us for the work in question. We are not liable for indirect losses such as lost profit or lost data.'] },
       { h: 'Confidentiality', p: ['We keep your business information, credentials and project material private and use them only to deliver your project.'] },
@@ -101,7 +101,7 @@ export default function ServicesLegalPage({ slug }) {
                 {s.p2 && <p>{s.p2}</p>}
                 {s.contact && (
                   <p className="pk-doc-contact">
-                    Email: {SUPPORT_EMAIL}<br />
+                    Email: {CONTACT_EMAIL}<br />
                     Address: {ADDRESS}
                   </p>
                 )}
