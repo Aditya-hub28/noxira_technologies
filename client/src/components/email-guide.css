@@ -1,0 +1,9 @@
+.eg{max-width:46rem;margin:2rem auto 0;padding:1.25rem 1.4rem;border:1px solid rgba(128,140,160,.28);border-radius:1rem;background:rgba(128,140,160,.07);font-family:'Inter',system-ui,sans-serif;color:inherit;text-align:left}
+.eg h2{font-family:'Space Grotesk',system-ui,sans-serif;font-size:1.05rem;font-weight:700;margin:0 0 .75rem;color:inherit}
+.eg ul{list-style:none;margin:0;padding:0;display:grid;gap:.6rem}
+.eg li{display:flex;flex-wrap:wrap;gap:.15rem .9rem;align-items:baseline;font-size:.9rem;line-height:1.5}
+.eg .eg-addr,.eg a{font-weight:600;min-width:15rem;word-break:break-all}
+.eg a{color:#38c8ff;text-decoration:none}
+.eg a:hover{text-decoration:underline}
+.eg .eg-use{opacity:.85}
+@media (max-width:560px){.eg li{flex-direction:column;gap:.05rem}.eg .eg-addr,.eg a{min-width:0}}

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { api } from '../services/api';
+import { INTERNSHIP_EMAIL } from '../config/supportContact';
 import './verify.css';
 
 if (pdfjsLib.GlobalWorkerOptions) {
@@ -441,6 +442,7 @@ export default function VerifyPage() {
       <div className="vfy-notice">
         This registry check confirms that the certificate record exists and verifies its current status (VALID, REVOKED, or REPLACED). Zero personally identifiable information is exposed publicly on this portal.
       </div>
+      <p className="vfy-help">Need help? Email <a href={`mailto:${INTERNSHIP_EMAIL}`}>{INTERNSHIP_EMAIL}</a></p>
     </div>
   );
 }

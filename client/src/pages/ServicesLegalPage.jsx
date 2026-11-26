@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { CONTACT_EMAIL } from '../config/supportContact';
+import EmailGuide from '../components/EmailGuide';
 import './services-packages.css';
 
 /* Legal pages for NOXIRA's website and Android app services (separate from the
@@ -108,6 +109,7 @@ export default function ServicesLegalPage({ slug }) {
               </section>
             ))}
           </div>
+          <EmailGuide />
           <p className="pk-doc-more">See also: <Link to={other.to}>{other.label}</Link> · <Link to="/terms">Internship Terms</Link> · <Link to="/privacy">Internship Privacy</Link></p>
         </div>
       </section>
