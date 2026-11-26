@@ -104,4 +104,25 @@
 .sx-tab2,.sx-nav svg:nth-of-type(n+3){display:none}
 .sx-cert h3{padding-right:56px}
 }
+/* desktop: phone is the tall column, browser + certificate stack to the same height */
+@media (min-width:901px){
+.sx-grid{grid-template-columns:minmax(0,1fr) 392px;grid-template-rows:auto auto;gap:22px;align-items:stretch}
+.sx-phone{align-self:stretch;justify-self:end;width:392px;max-width:392px;display:flex;flex-direction:column}
+.sx-phone .sx-screen{flex:1;min-height:0}
+.sx-web .sx-body{padding:16px 6px 14px 26px;gap:6px}
+.sx-web h3,.sx-cert h3{font-size:21px;margin-top:2px}
+.sx-web p,.sx-cert p{font-size:14px;line-height:1.5}
+.sx-web .sx-chips,.sx-cert .sx-chips{padding-top:8px}
+.sx-web-in{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)}
+.sx-mock{margin:12px 20px 12px 0;padding:10px;gap:8px}
+.sx-bars{height:50px}
+.sx-tabs{padding-top:8px}.sx-nav{padding:6px 14px}
+.sx-cert .sx-body{padding:26px 40px 18px;gap:4px}
+.sx-sigs{margin-top:2px;padding-top:0}
+.sx-sig b{height:20px;line-height:20px;font-size:17px}
+.sx-seal{top:20px;right:34px;transform:scale(.8);transform-origin:top right}
+.sx-corner{width:18px;height:18px}
+.sx-c1,.sx-c2{top:16px}.sx-c3,.sx-c4{bottom:16px}.sx-c1,.sx-c3{left:16px}.sx-c2,.sx-c4{right:16px}
+}
+@media (min-width:901px) and (max-width:1100px){.sx-mock{display:none}.sx-web-in{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.sx-card{transition:none}.sx-card:hover{transform:none}}
