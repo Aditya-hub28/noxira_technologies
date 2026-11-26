@@ -46,7 +46,6 @@ const PAGES = {
       { h: 'Delays outside our control', p: ['We are not responsible for a delay or failure caused by things outside our reasonable control, such as illness, power or internet failure, natural events, government action, or a third-party provider being unavailable. We will tell you as soon as we can and agree a new timeline.'] },
       { h: 'Communication', p: ['We mainly work over WhatsApp, phone and email. Messages sent there count as written communication for scope changes, approvals and cancellation. Please keep your contact details up to date. We usually reply on working days.'] },
       { h: 'Complete agreement', p: ['These terms, your package details and the written scope we agree make up the whole agreement for the project. If a part of these terms is found to be unenforceable, the rest stays in force. You may not transfer your order to someone else without our written agreement.'] },
-      { h: 'Governing law', p: ['These terms follow the laws of India. Any dispute is subject to the courts at [JURISDICTION CITY], Maharashtra. We would like to settle any problem by talking first.'] },
       { h: 'Changes to these terms', p: ['We may update these terms. The version on this page when you place your order applies to that order.'] },
       { h: 'Contact', p: ['Questions about these terms:'], contact: true },
     ],
