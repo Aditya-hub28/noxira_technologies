@@ -36,15 +36,30 @@
 .pk-terms h5{font:500 11px ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--cy);margin-bottom:8px}
 .pk-terms p{font-size:15px;line-height:1.6;color:#c4cbd6}
 .pk-note{margin-top:16px;font-size:13px;color:#8f98a6}
-.pk-custom{display:flex;align-items:center;justify-content:space-between;gap:32px;background:linear-gradient(135deg,rgba(56,200,255,.08),var(--card) 55%);border:1px solid rgba(56,200,255,.35);border-radius:22px;padding:40px 36px}
-.pk-custom h2{margin:10px 0 0;font-size:clamp(22px,3vw,34px)}
-.pk-custom-text{margin-top:14px;max-width:56ch;font-size:15px;line-height:1.7;color:#aab3c0}
-.pk-form{flex:0 0 min(420px,42%);display:flex;flex-direction:column;gap:10px}
-.pk-form label{font:500 11px ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--cy)}
-.pk-form textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:120px;background:#0e1014;color:#eaf0f7;border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:14px;font:400 15px/1.5 'Space Grotesk',sans-serif}
-.pk-form textarea:focus{outline:none;border-color:var(--cy);box-shadow:0 0 0 3px rgba(56,200,255,.18)}
-.pk-form textarea::placeholder{color:#6b7482}
-.pk-form .pk-btn{margin-top:4px;cursor:pointer}
+.pk-custom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:48px;align-items:center;padding:8px 0}
+.pk-pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#cfe9f7;border:1px solid rgba(56,200,255,.3);background:rgba(56,200,255,.08);border-radius:999px;padding:.45rem 1rem}
+.pk-pill i{width:7px;height:7px;border-radius:50%;background:var(--cy)}
+.pk-custom h2{margin:20px 0 0;font-size:clamp(30px,4vw,52px);line-height:1.1}
+.pk-custom h2 em{font-style:normal;color:var(--cy)}
+.pk-custom-text{margin:18px 0 0;max-width:46ch;font-size:16px;line-height:1.7;color:#aab3c0}
+.pk-wa-btn{display:inline-flex;align-items:center;gap:10px;margin-top:28px;padding:.9rem 1.5rem;border-radius:999px;background:rgba(56,200,255,.14);border:1px solid rgba(56,200,255,.45);color:#e4f6ff;font:600 15px 'Space Grotesk',sans-serif;text-decoration:none}
+.pk-wa-btn svg{width:18px;height:18px}
+.pk-wa-btn:hover{background:rgba(56,200,255,.24)}
+.pk-glass{display:flex;flex-direction:column;gap:16px;background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.14);border-radius:26px;padding:32px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 24px 70px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08)}
+.pk-glass h3{margin:0;font-size:24px;font-weight:700;color:#f3f5f8}
+.pk-glass-sub{margin:-6px 0 4px;font-size:14px;line-height:1.6;color:#aab3c0}
+.pk-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pk-field{display:flex;flex-direction:column;gap:8px}
+.pk-field label{font-size:13.5px;font-weight:600;color:#c4cbd6}
+.pk-field label span{font-weight:400;color:#8f98a6}
+.pk-field label b{color:var(--cy)}
+.pk-field input,.pk-field textarea{width:100%;box-sizing:border-box;background:#0e1014;color:#eaf0f7;border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:14px;font:400 15px/1.5 'Space Grotesk',sans-serif}
+.pk-field textarea{resize:vertical;min-height:150px}
+.pk-field input:focus,.pk-field textarea:focus{outline:none;border-color:var(--cy);box-shadow:0 0 0 3px rgba(56,200,255,.18)}
+.pk-field input::placeholder,.pk-field textarea::placeholder{color:#6b7482}
+.pk-submit{display:flex;align-items:center;justify-content:center;gap:.5rem;cursor:pointer;border:0;border-radius:999px;padding:1rem 1.2rem;background:var(--cy);color:#03212e;font:700 15px 'Space Grotesk',sans-serif;box-shadow:0 10px 30px rgba(56,200,255,.22)}
+.pk-submit svg{width:16px;height:16px}
+.pk-submit:hover{filter:brightness(1.08)}
 .pk-form-note{font-size:12.5px;color:#8f98a6}
-@media (width<=1000px){.pk-custom{flex-direction:column;align-items:stretch;padding:28px 22px}.pk-form{flex:none;width:100%}.pk-grid{grid-template-columns:1fr;max-width:560px}.pk-terms{grid-template-columns:1fr}}
+@media (width<=1000px){.pk-custom{grid-template-columns:1fr;gap:32px}.pk-row{grid-template-columns:1fr}.pk-glass{padding:24px 20px}.pk-grid{grid-template-columns:1fr;max-width:560px}.pk-terms{grid-template-columns:1fr}}
 @media (width<=800px){.pkg section{padding:44px 0}.pk{padding:26px 20px 22px;border-radius:18px}.pk-flag{left:18px}}

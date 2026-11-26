@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './services-packages.css';
-import { Check, Minus, ArrowRight } from 'lucide-react';
+import { Check, Minus, ArrowRight, MessageCircle } from 'lucide-react';
 
 /* Placeholder: put the NOXIRA business WhatsApp number here (digits only, with country code).
    While empty, the button opens WhatsApp with the message pre-filled and lets the visitor pick a chat. */
@@ -170,11 +170,16 @@ function Card({ p, kind }) {
 
 export default function PackagesPage() {
   const [need, setNeed] = useState('');
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
   const sendNeed = (e) => {
     e.preventDefault();
     const text = need.trim();
     if (!text) return;
-    window.open(wa('Hi NOXIRA, I have a custom requirement:\n' + text), '_blank', 'noopener,noreferrer');
+    const lines = ['Hi NOXIRA, I have a custom requirement:', text];
+    if (name.trim()) lines.push('Name: ' + name.trim());
+    if (contact.trim()) lines.push('Email or phone: ' + contact.trim());
+    window.open(wa(lines.join('\n')), '_blank', 'noopener,noreferrer');
   };
   return (
     <div className="pkg">
@@ -224,15 +229,30 @@ export default function PackagesPage() {
       <section id="custom">
         <div className="wrap">
           <div className="pk-custom">
-            <div>
-              <p className="kick">04 - CUSTOM REQUIREMENTS</p>
-              <h2>Need something that does not fit these packages?</h2>
-              <p className="pk-custom-text">Type what you need below: your idea, the features you want and your timeline. It opens WhatsApp with your message ready, and we reply with a custom quote.</p>
+            <div className="pk-custom-left">
+              <span className="pk-pill"><i /> Custom requirements</span>
+              <h2>Need something different?<br /><em>Let's build it.</em></h2>
+              <p className="pk-custom-text">If your idea does not fit the six packages above, tell us what you need. Describe it in your own words and we will come back with a custom quote.</p>
+              <a className="pk-wa-btn" href={wa('Hi NOXIRA, I have a custom requirement.')} target="_blank" rel="noopener noreferrer"><MessageCircle aria-hidden="true" /> Chat on WhatsApp</a>
             </div>
-            <form className="pk-form" onSubmit={sendNeed}>
-              <label htmlFor="pk-need">Your requirement</label>
-              <textarea id="pk-need" rows={5} value={need} onChange={(e) => setNeed(e.target.value)} placeholder="Example: I need a booking website with an admin panel for my clinic, ready in 3 weeks." required />
-              <button type="submit" className="pk-btn pk-btn-solid">Send on WhatsApp <ArrowRight aria-hidden="true" /></button>
+            <form className="pk-glass" onSubmit={sendNeed}>
+              <h3>Tell us about your requirement</h3>
+              <p className="pk-glass-sub">A new idea, a change to a package, or something unusual. Share it here.</p>
+              <div className="pk-row">
+                <div className="pk-field">
+                  <label htmlFor="pk-name">Your name <span>(optional)</span></label>
+                  <input id="pk-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="name" />
+                </div>
+                <div className="pk-field">
+                  <label htmlFor="pk-contact">Email or phone <span>(optional)</span></label>
+                  <input id="pk-contact" type="text" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="you@example.com" autoComplete="email" />
+                </div>
+              </div>
+              <div className="pk-field">
+                <label htmlFor="pk-need">Your requirement <b>*</b></label>
+                <textarea id="pk-need" rows={5} value={need} onChange={(e) => setNeed(e.target.value)} placeholder="What should it do? Who is it for? Any deadline in mind?" required />
+              </div>
+              <button type="submit" className="pk-submit">Send on WhatsApp <ArrowRight aria-hidden="true" /></button>
               <span className="pk-form-note">Opens WhatsApp with your message ready to send.</span>
             </form>
           </div>
