@@ -240,7 +240,7 @@ export default function PackagesPage() {
           <div className="pk-custom">
             <div className="pk-custom-left">
               <span className="pk-pill"><i /> Custom requirements</span>
-              <h2>Custom requirement?<br /><em>Let's build it together.</em></h2>
+              <h2>Contact NOXIRA.<br /><em>Let's talk ideas.</em></h2>
               <p className="pk-custom-text">NOXIRA builds websites and Android apps for small businesses. If your idea does not fit the six packages above, tell us what you want to build or change, and let's work out the right scope and a custom quote together.</p>
               <div className="pk-custom-btns">
                 <a className="pk-wa-btn pk-wa-fill" href={wa('Hi NOXIRA, I have a custom requirement.')} target="_blank" rel="noopener noreferrer"><MessageCircle aria-hidden="true" /> Chat on WhatsApp</a>
