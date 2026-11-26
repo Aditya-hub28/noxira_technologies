@@ -19,7 +19,7 @@ async function adminGetPrograms(req, res, next) {
 
     const normalizedPrograms = programs.map(p => ({
       ...p,
-      needsNormalization: p.durationWeeks !== 4 || p.feeInr !== 99
+      needsNormalization: p.durationWeeks !== 4 || p.feeInr !== 149
     }));
 
     res.json({
@@ -87,7 +87,7 @@ async function adminCreateProgram(req, res, next) {
       });
     }
 
-    // 4. Numeric Validations (1-Month / Rs. 99 Model strictly enforced)
+    // 4. Numeric Validations (1-Month / Rs. 149 Model strictly enforced)
     if (durationWeeks !== undefined && durationWeeks !== null && durationWeeks !== '') {
       const num = Number(durationWeeks);
       if (num !== 4) {
@@ -100,10 +100,10 @@ async function adminCreateProgram(req, res, next) {
 
     if (feeInr !== undefined && feeInr !== null && feeInr !== '') {
       const num = Number(feeInr);
-      if (num !== 99) {
+      if (num !== 149) {
         return res.status(400).json({
           success: false,
-          message: 'Task Submission & Review Fee must be 99 INR.'
+          message: 'Task Submission & Review Fee must be 149 INR.'
         });
       }
     }
@@ -159,7 +159,7 @@ async function adminCreateProgram(req, res, next) {
       category: category ? category.trim() : undefined,
       description: description ? description.trim() : '',
       durationWeeks: 4,
-      feeInr: 99,
+      feeInr: 149,
       seats: seats !== undefined && seats !== null && seats !== '' ? Number(seats) : undefined,
       startDate: parsedStartDate || undefined,
       endDate: parsedEndDate || undefined,
@@ -240,7 +240,7 @@ async function adminUpdateProgram(req, res, next) {
       program.description = typeof description === 'string' ? description.trim() : '';
     }
 
-    // 4. Numeric Validations (1-Month / Rs. 99 Model strictly enforced)
+    // 4. Numeric Validations (1-Month / Rs. 149 Model strictly enforced)
     if (durationWeeks !== undefined) {
       if (durationWeeks === null || durationWeeks === '') {
         return res.status(400).json({
@@ -262,17 +262,17 @@ async function adminUpdateProgram(req, res, next) {
       if (feeInr === null || feeInr === '') {
         return res.status(400).json({
           success: false,
-          message: 'Task Submission & Review Fee must be 99 INR.'
+          message: 'Task Submission & Review Fee must be 149 INR.'
         });
       }
       const num = Number(feeInr);
-      if (num !== 99) {
+      if (num !== 149) {
         return res.status(400).json({
           success: false,
-          message: 'Task Submission & Review Fee must be 99 INR.'
+          message: 'Task Submission & Review Fee must be 149 INR.'
         });
       }
-      program.feeInr = 99;
+      program.feeInr = 149;
     }
 
     if (seats !== undefined) {
@@ -359,7 +359,7 @@ async function adminUpdateProgram(req, res, next) {
     await program.save();
 
     const returnedProgram = program.toObject();
-    returnedProgram.needsNormalization = returnedProgram.durationWeeks !== 4 || returnedProgram.feeInr !== 99;
+    returnedProgram.needsNormalization = returnedProgram.durationWeeks !== 4 || returnedProgram.feeInr !== 149;
 
     res.json({
       success: true,

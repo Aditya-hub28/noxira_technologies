@@ -292,7 +292,7 @@ exports.previewTemplate = async (req, res, next) => {
       code: 'FS-DEV',
       batchId: 'BATCH-2026-Q1',
       durationWeeks: 4,
-      feeLocked: 99,
+      feeLocked: 149,
       startDate: new Date('2026-12-10T12:00:00+05:30'),
       endDate: new Date('2027-01-06T12:00:00+05:30'),
       applicationId: 'NOX-SAMPLE',

@@ -129,10 +129,10 @@ test('OFFER LETTER: StatusPage.jsx is removed and DownloadOfferLetterPage.jsx is
 });
 
 // TEST 11: AdminProgramsPage locks duration/fee and handles normalization
-test('MODULE 2: AdminProgramsPage locks duration to 1 Month and fee to Rs.99, supports normalization flag', () => {
+test('MODULE 2: AdminProgramsPage locks duration to 1 Month and fee to Rs.149, supports normalization flag', () => {
   const adminProgContent = fs.readFileSync(path.join(clientSrcDir, 'pages/AdminProgramsPage.jsx'), 'utf8');
   assert.ok(adminProgContent.includes('1 Month (4 weeks)'), 'Duration field must be locked to 1 Month (4 weeks)');
-  assert.ok(adminProgContent.includes('₹99'), 'Fee field must be locked to ₹99');
+  assert.ok(adminProgContent.includes('₹149'), 'Fee field must be locked to ₹149');
   assert.ok(adminProgContent.includes('Needs normalization'), 'Must show Needs normalization badge');
   assert.ok(adminProgContent.includes('handleNormalizeProgram'), 'Must provide normalization handler');
 });
