@@ -23,6 +23,8 @@ import PolicyPage from './pages/PolicyPage';
 import ContactSupportPage from './pages/ContactSupportPage';
 import ReviewsPage from './pages/ReviewsPage';
 import HomePage from './pages/HomePage';
+import ServicesPackagesPage from './pages/ServicesPackagesPage';
+import ServicesLegalPage from './pages/ServicesLegalPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
 import ApplyPage from './pages/ApplyPage';
 import DownloadOfferLetterPage from './pages/DownloadOfferLetterPage';
@@ -245,6 +247,9 @@ function AppContent() {
         <Route path="/privacy" element={<PolicyPage slug="privacy" />} />
         <Route path="/cookies" element={<PolicyPage slug="cookies" />} />
         <Route path="/contact" element={<ContactSupportPage />} />
+        <Route path="/services" element={<ServicesPackagesPage />} />
+        <Route path="/services-terms" element={<ServicesLegalPage slug="terms" />} />
+        <Route path="/services-privacy" element={<ServicesLegalPage slug="privacy" />} />
         <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/payment-refund" element={<PolicyPage slug="refund" />} />
         <Route path="/review-rules" element={<PolicyPage slug="review" />} />

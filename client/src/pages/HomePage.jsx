@@ -15,7 +15,6 @@ import {
   ArrowRight,
   Globe,
   Smartphone,
-  Bot,
   GraduationCap,
 } from 'lucide-react';
 
@@ -155,17 +154,6 @@ const SERVICES = [
       'iOS',
       'Cross-platform',
       'UI/UX'
-    ]
-  },
-  {
-    Icon: Bot,
-    tag: 'INTELLIGENCE',
-    title: 'AI Automation',
-    text: 'Repeat work handed to intelligent automations, custom workflow pipelines, and data-driven systems.',
-    chips: [
-      'Automations',
-      'Workflow pipelines',
-      'Data-driven systems'
     ]
   },
   {

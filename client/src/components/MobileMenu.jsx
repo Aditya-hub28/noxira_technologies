@@ -152,6 +152,14 @@ export default function MobileMenu({ open, onClose }) {
       case 'Privacy Policy':
         navigate('/privacy');
         break;
+      case 'Services Terms':
+        navigate('/services-terms');
+        break;
+
+      case 'Services Privacy':
+        navigate('/services-privacy');
+        break;
+
       case 'Cookies Policy':
         navigate('/cookies');
         break;
@@ -170,16 +178,7 @@ export default function MobileMenu({ open, onClose }) {
   const handleTopNavigation = (k) => {
     if (k === 'svc') {
       onClose();
-      if (location.pathname === '/') {
-        setTimeout(() => {
-          const t = document.getElementById('services');
-          const sm = ScrollSmoother.get();
-          if (sm && t) sm.scrollTo(t, true, 'top 90px');
-          else if (t) t.scrollIntoView({ behavior: 'smooth' });
-        }, 300);
-      } else {
-        navigate('/#services');
-      }
+      navigate('/services');
       return;
     }
 
@@ -204,7 +203,7 @@ export default function MobileMenu({ open, onClose }) {
     { k: 'home', t: 'Home' },
     { k: 'int', t: 'Internships', sub: config?.subs?.Internships || ['Apply Now', 'Internship certificate verification', 'Download Offer Letter'] },
     { k: 'svc', t: 'Services' },
-    { k: 'more', t: 'More', sub: config?.subs?.More || ['Terms & Conditions', 'Privacy Policy', 'Cookies Policy', 'Student Reviews', 'Contact Support'] },
+    { k: 'more', t: 'More', sub: config?.subs?.More || ['Terms & Conditions', 'Privacy Policy', 'Services Terms', 'Services Privacy', 'Cookies Policy', 'Student Reviews', 'Contact Support'] },
   ];
 
   if (!hostRef.current) return null;

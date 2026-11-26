@@ -174,14 +174,7 @@ export default function SiteShell({ onToggleMobileMenu }) {
         break;
 
       case 'Services':
-        if (location.pathname === '/') {
-          const target = document.getElementById('services');
-          const sm = ScrollSmoother.get();
-          if (sm && target) sm.scrollTo(target, true, 'top 90px');
-          else if (target) target.scrollIntoView({ behavior: 'smooth' });
-        } else {
-          navigate('/#services');
-        }
+        navigate('/services');
         break;
 
       case 'All Programmes':
@@ -205,6 +198,14 @@ export default function SiteShell({ onToggleMobileMenu }) {
 
       case 'Privacy Policy':
         navigate('/privacy');
+        break;
+
+      case 'Services Terms':
+        navigate('/services-terms');
+        break;
+
+      case 'Services Privacy':
+        navigate('/services-privacy');
         break;
 
       case 'Cookies Policy':
