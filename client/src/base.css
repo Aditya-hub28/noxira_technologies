@@ -282,3 +282,4 @@ html[data-theme=light] .svc-card:hover{box-shadow:0 14px 30px #14233c24}
 @media (prefers-reduced-motion:reduce){.svc-card{transition:none}
 .svc-card:hover{transform:none}
 }
+.svc-grid>.svc-card:last-child:nth-child(odd){grid-column:1/-1}
