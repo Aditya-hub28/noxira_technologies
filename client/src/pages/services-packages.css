@@ -81,7 +81,7 @@
 .pk-doc-sec h2{display:flex;align-items:baseline;gap:12px;font-size:clamp(18px,2.2vw,22px);margin:0 0 12px;letter-spacing:-.01em}
 .pk-doc-sec h2 span{font:500 11px ui-monospace,Menlo,monospace;letter-spacing:.16em;color:var(--cy)}
 .pk-doc-sec p{font-size:15px;line-height:1.7;color:#c4cbd6;margin:0 0 10px}
-.pk-doc-sec ul{margin:6px 0 4px;padding-left:20px;color:#c4cbd6;font-size:15px;line-height:1.7}
+.pk-doc-sec ul{list-style:disc outside;margin:6px 0 4px;padding-left:22px;color:#c4cbd6;font-size:15px;line-height:1.7}
 .pk-doc-sec li{margin-bottom:4px}
 .pk-doc-sec li::marker{color:var(--cy)}
 .pk-doc-contact{color:#f3f5f8 !important;font-weight:500}
