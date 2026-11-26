@@ -9,6 +9,7 @@ import Hero from '../components/Heroes';
 import JourneyBoard from '../components/JourneyBoard';
 import ReviewMarquee from '../components/ReviewMarquee';
 import CertificateShowcase from '../components/CertificateShowcase';
+import ServiceShapes from '../components/ServiceShapes';
 import ProgramShowcase from '../components/ProgramShowcase';
 import {
   ShieldCheck,
@@ -134,6 +135,7 @@ const JOURNEY_STEPS = [
 const SERVICES = [
   {
     Icon: Globe,
+    shape: 'browser',
     tag: 'ENGINEERING',
     title: 'Web Application Development',
     text: 'Full-stack web applications tailored to business operations. Responsive React frontends, backed by secure, scalable Node.js and Python APIs and robust database architectures.',
@@ -146,6 +148,7 @@ const SERVICES = [
   },
   {
     Icon: Smartphone,
+    shape: 'phone',
     tag: 'MOBILE',
     title: 'Mobile Application Development',
     text: 'Native and cross-platform mobile applications engineered for performance and fluid user experience. Reliable Android and iOS software with clean UI/UX implementation.',
@@ -158,6 +161,7 @@ const SERVICES = [
   },
   {
     Icon: GraduationCap,
+    shape: 'cert',
     tag: 'ACADEMY',
     title: 'Training & Internships',
     text: 'Learn by building production-ready projects, receive structured milestone reviews, and leave with verifiable proof.',
@@ -305,23 +309,7 @@ export default function HomePage() {
         <div className="wrap">
           <p className="kick rv">03 - SERVICES</p>
           <h2 className="rv">What we build.</h2>
-          <div className="svc-grid">
-            {SERVICES.map(({ Icon, tag, title, text, chips }) => (
-              <article className="svc-card rv" key={tag}>
-                <div className="svc-top">
-                  <span className="svc-ico" aria-hidden="true"><Icon strokeWidth={1.75} /></span>
-                  <small>{tag}</small>
-                </div>
-                <h3>{title}</h3>
-                <p>{text}</p>
-                <ul className="svc-chips" aria-label={`${title} focus areas`}>
-                  {chips.map((chip) => (
-                    <li key={chip}>{chip}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
+          <ServiceShapes items={SERVICES} />
         </div>
       </section>
 
