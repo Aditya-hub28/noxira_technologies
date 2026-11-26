@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './services-packages.css';
 import { Check, Minus, ArrowRight } from 'lucide-react';
 
@@ -169,6 +169,13 @@ function Card({ p, kind }) {
 }
 
 export default function PackagesPage() {
+  const [need, setNeed] = useState('');
+  const sendNeed = (e) => {
+    e.preventDefault();
+    const text = need.trim();
+    if (!text) return;
+    window.open(wa('Hi NOXIRA, I have a custom requirement:\n' + text), '_blank', 'noopener,noreferrer');
+  };
   return (
     <div className="pkg">
       <div className="glow" />
@@ -211,6 +218,24 @@ export default function PackagesPage() {
             <div><h5>Quoted separately</h5><p>E-commerce, payment gateway and complex CRM.</p></div>
           </div>
           <p className="pk-note">Prices are one-time project prices in Indian rupees. Tap "Get a quote for this" to message us on WhatsApp.</p>
+        </div>
+      </section>
+
+      <section id="custom">
+        <div className="wrap">
+          <div className="pk-custom">
+            <div>
+              <p className="kick">04 - CUSTOM REQUIREMENTS</p>
+              <h2>Need something that does not fit these packages?</h2>
+              <p className="pk-custom-text">Type what you need below: your idea, the features you want and your timeline. It opens WhatsApp with your message ready, and we reply with a custom quote.</p>
+            </div>
+            <form className="pk-form" onSubmit={sendNeed}>
+              <label htmlFor="pk-need">Your requirement</label>
+              <textarea id="pk-need" rows={5} value={need} onChange={(e) => setNeed(e.target.value)} placeholder="Example: I need a booking website with an admin panel for my clinic, ready in 3 weeks." required />
+              <button type="submit" className="pk-btn pk-btn-solid">Send on WhatsApp <ArrowRight aria-hidden="true" /></button>
+              <span className="pk-form-note">Opens WhatsApp with your message ready to send.</span>
+            </form>
+          </div>
         </div>
       </section>
     </div>
