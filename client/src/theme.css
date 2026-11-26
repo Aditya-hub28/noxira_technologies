@@ -161,3 +161,19 @@ html[data-theme="light"] footer .text-slate-300 {
 html[data-theme="light"] footer .text-white {
   color: #0f172a !important;
 }
+
+/* ---- Light mode visibility fixes (readable text on light backgrounds) ---- */
+.nx-logo-light{display:none}
+html[data-theme="light"] .nx-logo-dark{display:none}
+html[data-theme="light"] .nx-logo-light{display:block}
+html[data-theme="light"]{--cyt:#0668a3}
+html[data-theme="light"] .kick,html[data-theme="light"] .eyebrow,html[data-theme="light"] .eg-link,
+html[data-theme="light"] .doc a,html[data-theme="light"] main .prose a{color:var(--cyt)}
+html[data-theme="light"] .text-cyan-500{color:#0e7490}
+html[data-theme="light"] .text-slate-400{color:#566174}
+html[data-theme="light"] .text-slate-500{color:#475163}
+html[data-theme="light"] input::placeholder,html[data-theme="light"] textarea::placeholder{color:#5f6b7d}
+html[data-theme="light"] .nx-apply-off{background:#d5dae3;color:#4a5568;opacity:1}
+html[data-theme="light"] footer .text-slate-500{color:#566174}
+html[data-theme="light"] footer .text-cyan-400,html[data-theme="light"] footer .text-cyan-400\/80{color:var(--cyt)}
+html[data-theme="light"] .nxdoc a,html[data-theme="light"] .nxdoc .eyebrow,html[data-theme="light"] .nxdoc .more a,html[data-theme="light"] .nxdoc .mail{color:var(--cyt)}

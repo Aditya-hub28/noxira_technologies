@@ -88,3 +88,32 @@
 .pk-doc-more{margin-top:28px;font-size:14px;color:#8f98a6}
 .pk-doc-more a{color:var(--cy);text-decoration:none}
 @media (max-width:640px){.pk-doc-sec{padding:20px 18px !important}}
+
+/* ---- Light mode: this page hard-codes dark-theme text colours, so remap them ---- */
+html[data-theme="light"] .pkg-logo,html[data-theme="light"] .pkg h1,html[data-theme="light"] .pkg h2,html[data-theme="light"] .pk h4,
+html[data-theme="light"] .pk-price,html[data-theme="light"] .pk-best b,html[data-theme="light"] .pk-points b,
+html[data-theme="light"] .pk-glass h3,html[data-theme="light"] .pk-doc-contact{color:#101724!important}
+html[data-theme="light"] .pkg-lede,html[data-theme="light"] .pk-best,html[data-theme="light"] .pk-custom-text,
+html[data-theme="light"] .pk-glass-sub,html[data-theme="light"] .pk-back{color:#3c4655}
+html[data-theme="light"] .pk li,html[data-theme="light"] .pk-terms p,html[data-theme="light"] .pk-doc-sec p,
+html[data-theme="light"] .pk-doc-sec ul,html[data-theme="light"] .pk-field label{color:#2b3545}
+html[data-theme="light"] .pkg-logo-sub,html[data-theme="light"] .pk-from,html[data-theme="light"] .pk-nic,
+html[data-theme="light"] .pk-not li,html[data-theme="light"] .pk-note,html[data-theme="light"] .pk-points span,
+html[data-theme="light"] .pk-field label span,html[data-theme="light"] .pk-form-note,html[data-theme="light"] .pk-updated,
+html[data-theme="light"] .pk-doc-more{color:#566174}
+html[data-theme="light"] .pk-not svg{color:#7a8596}
+html[data-theme="light"] .pk-cap,html[data-theme="light"] .pk-terms h5,html[data-theme="light"] .pk-doc-sec h2 span,
+html[data-theme="light"] .pk-doc-more a,html[data-theme="light"] .pk-custom h2 em,html[data-theme="light"] .pk-field label b,
+html[data-theme="light"] .pk-back:hover,html[data-theme="light"] .pk-inc svg,html[data-theme="light"] .pk-points svg{color:#0668a3}
+html[data-theme="light"] .pk-doc-sec li::marker{color:#0668a3}
+html[data-theme="light"] .pkg-jump a,html[data-theme="light"] .pk-jump a,html[data-theme="light"] .pk-pill{color:#0b4f7c!important;border-color:rgba(6,104,163,.35);background:rgba(10,143,214,.1)}
+html[data-theme="light"] .pk-tag{color:#8a4b00;background:#fff3df;border-color:rgba(190,110,0,.4)}
+html[data-theme="light"] .pk-best,html[data-theme="light"] .pk-nic,html[data-theme="light"] .pk-points{border-color:rgba(13,20,32,.16)}
+html[data-theme="light"] .pk-btn{color:#0b4f7c;border:1px solid rgba(6,104,163,.4);background:rgba(10,143,214,.08)}
+html[data-theme="light"] .pk-btn-solid,html[data-theme="light"] .pk-wa-fill,html[data-theme="light"] .pk-submit{background:#0a8fd6;border-color:#0a8fd6;color:#fff}
+html[data-theme="light"] .pk-flag{background:#0a8fd6;color:#fff}
+html[data-theme="light"] .pk-wa-btn{color:#0b4f7c;background:rgba(10,143,214,.1);border-color:rgba(6,104,163,.4)}
+html[data-theme="light"] .pk-wa-fill{color:#fff}
+html[data-theme="light"] .pk-glass{background:#fff;border:1px solid rgba(13,20,32,.12);box-shadow:0 12px 34px rgba(20,35,60,.1)}
+html[data-theme="light"] .pk-field input,html[data-theme="light"] .pk-field textarea{background:#f7f9fc;color:#101724;border-color:rgba(13,20,32,.22)}
+html[data-theme="light"] .pk-field input::placeholder,html[data-theme="light"] .pk-field textarea::placeholder{color:#5f6b7d}

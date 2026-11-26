@@ -40,7 +40,7 @@
 html[data-theme="light"] .nxdoc{color:#455060}
 html[data-theme="light"] .nxdoc a.back{color:#68737f}
 html[data-theme="light"] .nxdoc a.back:hover{color:#101724}
-html[data-theme="light"] .nxdoc .eyebrow,html[data-theme="light"] .nxdoc .mail,html[data-theme="light"] .nxdoc .more a,html[data-theme="light"] .nxdoc .fee .price,html[data-theme="light"] .nxdoc .ways svg{color:#0a8fd6}
+html[data-theme="light"] .nxdoc .eyebrow,html[data-theme="light"] .nxdoc .mail,html[data-theme="light"] .nxdoc .more a,html[data-theme="light"] .nxdoc .fee .price,html[data-theme="light"] .nxdoc .ways svg{color:#0668a3}
 html[data-theme="light"] .nxdoc h1,html[data-theme="light"] .nxdoc h2,html[data-theme="light"] .nxdoc .ways b,html[data-theme="light"] .nxdoc .fee b{color:#101724}
 html[data-theme="light"] .nxdoc .sec{background:#fff;border-color:rgba(13,20,32,.10);box-shadow:0 8px 24px rgba(20,35,60,.07)}
 html[data-theme="light"] .nxdoc li::marker{color:#0a8fd6}
