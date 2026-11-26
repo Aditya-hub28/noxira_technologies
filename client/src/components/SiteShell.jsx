@@ -200,6 +200,14 @@ export default function SiteShell({ onToggleMobileMenu }) {
         navigate('/privacy');
         break;
 
+      case 'Services Terms':
+        navigate('/services-terms');
+        break;
+
+      case 'Services Privacy':
+        navigate('/services-privacy');
+        break;
+
       case 'Cookies Policy':
         navigate('/cookies');
         break;
