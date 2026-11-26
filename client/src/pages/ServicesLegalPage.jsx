@@ -9,7 +9,7 @@ import './services-packages.css';
    internship policies in PolicyPage.jsx). Draft wording for the owner to review.
    Items in [SQUARE BRACKETS] are placeholders the owner must fill in before launch. */
 
-const ADDRESS = '[BUSINESS ADDRESS], Maharashtra, India';
+const ADDRESS = 'Maharashtra, India';
 const UPDATED = '26 November 2026';
 
 const PAGES = {
