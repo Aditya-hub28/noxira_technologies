@@ -6,9 +6,11 @@ technical items are marked [BLOCKED].
 
 ## Owner decisions still pending [OWNER]
 - Public support contact email (referenced by all four policy pages).
-- Deadline extension rule (public wording currently says deadlines are strict;
-  the extension policy itself is intentionally undisclosed until decided).
-- Detailed data retention schedule (pending final legal review).
+- Deadline extension: decided 27 Nov 2026, at NOXIRA's discretion only, never
+  guaranteed (now on Review Rules page).
+- Data retention: decided 27 Nov 2026, certificate and payment records kept as
+  needed, other data deleted 1 year after the programme (now on Privacy page).
+  Legal check on deletion requests still pending.
 - Hosting provider and domain name.
 - First launch month / first batch date.
 - Programme content (owner writes each programme's tasks/material).

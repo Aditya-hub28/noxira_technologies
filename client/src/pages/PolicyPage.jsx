@@ -44,7 +44,7 @@ const POLICIES = {
       { heading: 'Data Protection', body: 'NOXIRA TECHNOLOGIES uses industry-standard security practices and restricted access protocols to protect your personal data from unauthorized access, alteration, or disclosure.' },
       { heading: 'Data Sharing', body: 'Your data is never sold to third parties. It may be shared only with trusted service providers like payment gateways or hosting partners strictly for the purpose of service delivery.' },
       { heading: 'User Rights', body: 'You have the right to request correction, deletion, or access to your personal data.' },
-      { heading: 'Data Retention', body: 'Data is stored only as long as needed for the fulfillment of our services and to comply with legal and regulatory requirements.' },
+      { heading: 'Data Retention', body: 'We keep your data only as long as it is needed, as set out below:', list: ['Certificate records (your name, NOX ID and certificate details) are kept as long as needed so that your certificate can be verified.', 'Payment records are kept as long as needed for our accounts and to meet legal and regulatory requirements.', 'All other application and submission data, such as task links, payment screenshots and other details you gave us, is kept for 1 year after your programme ends and is then deleted.'] },
       { heading: "Children's Privacy", body: 'Our services are intended for users above 15 years of age. We do not knowingly collect data from children under this age.' },
       { heading: 'Updates', body: 'This policy may change anytime to reflect changes in our data practices. Any updates will be posted on this page with a revised "Last Updated" date.' },
       { heading: 'Contact', body: 'If you have any questions regarding your privacy, please contact us at:', contact: true },
@@ -99,6 +99,10 @@ const POLICIES = {
       {
         heading: 'Corrections',
         body: 'If changes are requested, you get 3 calendar days - weekends included - after each feedback to correct and resubmit your project.',
+      },
+      {
+        heading: 'Deadline extensions',
+        body: 'Submission deadlines are fixed. NOXIRA may, at its own discretion, allow an extension in a particular case. An extension is not guaranteed and cannot be claimed as a right.',
       },
       {
         heading: 'Pass criteria',
