@@ -3,6 +3,7 @@ import { api } from '../services/api';
 
 const SiteSettingsContext = createContext({
   googleForm1Url: '',
+  whatsappNumber: '',
   isFormConfigured: false,
   loading: true,
   error: null,
@@ -11,6 +12,7 @@ const SiteSettingsContext = createContext({
 
 export function SiteSettingsProvider({ children }) {
   const [googleForm1Url, setGoogleForm1Url] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -21,10 +23,12 @@ export function SiteSettingsProvider({ children }) {
       const res = await api.getPublicSettings();
       const url = typeof res?.googleForm1Url === 'string' ? res.googleForm1Url.trim() : '';
       setGoogleForm1Url(url);
+      setWhatsappNumber(typeof res?.whatsappNumber === 'string' ? res.whatsappNumber.replace(/\D/g, '') : '');
     } catch (err) {
       console.error('Failed to load public site settings:', err);
       setError(err);
       setGoogleForm1Url('');
+      setWhatsappNumber('');
     } finally {
       setLoading(false);
     }
@@ -41,6 +45,7 @@ export function SiteSettingsProvider({ children }) {
     <SiteSettingsContext.Provider
       value={{
         googleForm1Url,
+        whatsappNumber,
         isFormConfigured,
         loading,
         error,

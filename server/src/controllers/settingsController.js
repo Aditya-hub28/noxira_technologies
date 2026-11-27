@@ -52,15 +52,38 @@ function validateGoogleFormUrl(rawUrl) {
 }
 
 /**
+ * Normalizes a WhatsApp number to digits only, with country code (e.g. 919876543210).
+ * Accepts input like "+91 98765 43210". Empty input clears the number.
+ * Valid length is 8 to 15 digits (E.164 maximum).
+ */
+function normalizeWhatsappNumber(raw) {
+  if (raw === undefined || raw === null) return { valid: true, number: '' };
+  if (typeof raw !== 'string') {
+    return { valid: false, message: 'WhatsApp number must be text.' };
+  }
+  const trimmed = raw.trim();
+  if (trimmed === '') return { valid: true, number: '' };
+  if (!/^\+?[\d\s\-()]+$/.test(trimmed)) {
+    return { valid: false, message: 'WhatsApp number can only contain digits, spaces, dashes, brackets and a leading +.' };
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) {
+    return { valid: false, message: 'Enter the full number with country code, for example +91 98765 43210.' };
+  }
+  return { valid: true, number: digits };
+}
+
+/**
  * Public route: GET /api/v1/settings/public
- * Returns only { success, googleForm1Url } - no other settings exposed.
+ * Returns only { success, googleForm1Url, whatsappNumber } - no other settings exposed.
  */
 async function getPublicSettings(req, res, next) {
   try {
     const setting = await Setting.findOne({ key: 'site' }).lean();
     res.json({
       success: true,
-      googleForm1Url: setting?.googleForm1Url || ''
+      googleForm1Url: setting?.googleForm1Url || '',
+      whatsappNumber: setting?.whatsappNumber || ''
     });
   } catch (error) {
     next(error);
@@ -129,7 +152,49 @@ async function updateGoogleForm1(req, res, next) {
   }
 }
 
+/**
+ * Admin route: GET /api/v1/admin/settings/whatsapp
+ */
+async function getAdminWhatsapp(req, res, next) {
+  try {
+    const setting = await Setting.findOne({ key: 'site' }).lean();
+    res.json({ success: true, whatsappNumber: setting?.whatsappNumber || '' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Admin route: PUT /api/v1/admin/settings/whatsapp
+ * Protected by requireAuth + requireRole(['SUPER_ADMIN'])
+ * Accepts { number }. Empty clears it.
+ */
+async function updateWhatsapp(req, res, next) {
+  try {
+    const { number } = req.body || {};
+    const result = normalizeWhatsappNumber(number);
+    if (!result.valid) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+    const setting = await Setting.findOneAndUpdate(
+      { key: 'site' },
+      { $set: { whatsappNumber: result.number } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    return res.json({
+      success: true,
+      message: result.number ? 'WhatsApp number updated successfully.' : 'WhatsApp number cleared successfully.',
+      whatsappNumber: setting.whatsappNumber
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
+  normalizeWhatsappNumber,
+  getAdminWhatsapp,
+  updateWhatsapp,
   validateGoogleFormUrl,
   getPublicSettings,
   getAdminGoogleForm1,

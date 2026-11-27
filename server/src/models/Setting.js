@@ -13,6 +13,11 @@ const SettingSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  whatsappNumber: {
+    type: String,
+    default: '',
+    trim: true
+  },
   form1ColumnMapping: [
     {
       header: { type: String, required: true },
