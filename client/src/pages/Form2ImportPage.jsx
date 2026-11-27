@@ -35,14 +35,82 @@ export default function Form2ImportPage() {
   const [submissions, setSubmissions] = useState([]);
   const [subsLoading, setSubsLoading] = useState(true);
 
+  // Approved Form 2 layout (owner-confirmed 27 Nov 2026): page 1 = typed
+  // Email I'd, Name (certificate), Registration No. (= NOX ID), Domain,
+  // LinkedIn + GitHub/Drive links per Task 1-3; page 2 = UPI QR (form-side),
+  // UTR, payment screenshot upload. projectLink stays the canonical Task 1
+  // GitHub/Drive link the review workflow uses.
   const TARGET_FIELDS = [
-    { key: 'email', label: 'Email Address', required: true },
-    { key: 'programme', label: 'Programme', required: true },
-    { key: 'projectLink', label: 'Project Link', required: true },
+    { key: 'email', label: "Email I'd (typed by student)", required: true },
+    { key: 'name', label: 'Name (for certificate)', required: false },
+    { key: 'applicationId', label: 'Registration No. / NOX ID', required: false },
+    { key: 'programme', label: 'Domain / Programme', required: true },
+    { key: 'linkedinTask1', label: 'LinkedIn Post (Task 1)', required: false },
+    { key: 'projectLink', label: 'GitHub/Drive Link (Task 1)', required: true },
+    { key: 'linkedinTask2', label: 'LinkedIn Post (Task 2)', required: false },
+    { key: 'repoTask2', label: 'GitHub/Drive Link (Task 2)', required: false },
+    { key: 'linkedinTask3', label: 'LinkedIn Post (Task 3)', required: false },
+    { key: 'repoTask3', label: 'GitHub/Drive Link (Task 3)', required: false },
     { key: 'transactionId', label: 'Transaction ID (UTR)', required: true },
-    { key: 'applicationId', label: 'Application ID (NOX-)', required: false },
+    { key: 'paymentScreenshot', label: 'Payment Screenshot', required: false },
     { key: 'timestamp', label: 'Form Timestamp', required: false }
   ];
+
+  // Minimal quoted-CSV line parser: Google exports quote cells that contain
+  // commas (e.g. several Drive links in the payment-screenshot answer), which
+  // a naive split(',') would corrupt.
+  const parseCsvLine = (line) => {
+    const cells = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false;
+        } else cur += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ',') { cells.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    cells.push(cur);
+    return cells;
+  };
+
+  // Compact link chips for the per-task links a submission carries. Works for
+  // preview rows and saved submissions; falls back to projectLink (Task 1).
+  const taskLinkChips = (r) => {
+    const tl = r.taskLinks || {};
+    const chips = [];
+    const push = (label, url) => { if (url) chips.push({ label, url }); };
+    push('T1 Repo', (tl.task1 && tl.task1.repo) || r.projectLink);
+    push('T1 LinkedIn', tl.task1 && tl.task1.linkedin);
+    push('T2 Repo', tl.task2 && tl.task2.repo);
+    push('T2 LinkedIn', tl.task2 && tl.task2.linkedin);
+    push('T3 Repo', tl.task3 && tl.task3.repo);
+    push('T3 LinkedIn', tl.task3 && tl.task3.linkedin);
+    if (chips.length === 0) return <span className="text-slate-400">-</span>;
+    return (
+      <div className="flex flex-wrap gap-1">
+        {chips.map((c) => (
+          <a key={c.label} href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-slate-200 text-[10px] font-semibold text-blue-600 hover:underline">
+            <Link2 className="w-3 h-3" />{c.label}
+          </a>
+        ))}
+      </div>
+    );
+  };
+
+  const screenshotLink = (raw) => {
+    if (!raw) return null;
+    const first = String(raw).split(',')[0].trim();
+    if (!/^https?:\/\//i.test(first)) return <span className="text-[10px] text-slate-400">attached</span>;
+    return (
+      <a href={first} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 hover:underline" title="Student-uploaded payment screenshot (untrusted claim, like the UTR)">
+        <Link2 className="w-3 h-3" />Shot
+      </a>
+    );
+  };
 
   const fetchSubmissions = useCallback(async () => {
     setSubsLoading(true);
@@ -82,9 +150,9 @@ export default function Form2ImportPage() {
         // Reconstruct raw rows for commit from the file itself
         const text = await file.text();
         const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
-        const hdrs = lines[0].split(',').map((h) => h.trim());
+        const hdrs = parseCsvLine(lines[0]).map((h) => h.trim());
         const rows = lines.slice(1).map((line) => {
-          const cells = line.split(',');
+          const cells = parseCsvLine(line);
           const obj = {};
           hdrs.forEach((h, i) => { obj[h] = (cells[i] || '').trim(); });
           return obj;
@@ -223,8 +291,8 @@ export default function Form2ImportPage() {
           <FileSpreadsheet className="w-5 h-5 text-amber-600" /> Form 2 Import - Final Submissions
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          Import Google Form 2 responses (project link + transaction ID). The transaction ID is an
-          unverified student claim, not proof of payment.
+          Import Google Form 2 responses (name, NOX ID, per-task links, UTR, payment screenshot).
+          The transaction ID and screenshot are unverified student claims, not proof of payment.
         </p>
       </div>
 
@@ -332,8 +400,10 @@ export default function Form2ImportPage() {
               <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="px-3 py-2 text-left">Email</th>
+                  <th className="px-3 py-2 text-left">Name</th>
+                  <th className="px-3 py-2 text-left">NOX ID</th>
                   <th className="px-3 py-2 text-left">Programme</th>
-                  <th className="px-3 py-2 text-left">Project Link</th>
+                  <th className="px-3 py-2 text-left">Task links</th>
                   <th className="px-3 py-2 text-left">UTR (unverified)</th>
                   <th className="px-3 py-2 text-left">Crosscheck</th>
                 </tr>
@@ -342,13 +412,16 @@ export default function Form2ImportPage() {
                 {previewData.rows.map((r) => (
                   <tr key={r.rowIndex} className={r.errors.length > 0 ? 'bg-rose-50/40' : r.duplicate ? 'bg-slate-50/60' : ''}>
                     <td className="px-3 py-2 font-medium text-slate-800">{r.email || '-'}</td>
+                    <td className="px-3 py-2">{r.name || '-'}</td>
+                    <td className="px-3 py-2 font-mono">{r.claimedApplicationId || '-'}</td>
                     <td className="px-3 py-2">{r.programCode}</td>
-                    <td className="px-3 py-2 max-w-[200px] truncate">
-                      {r.projectLink ? (
-                        <span className="inline-flex items-center gap-1 text-slate-600"><Link2 className="w-3 h-3" />{r.projectLink}</span>
-                      ) : '-'}
+                    <td className="px-3 py-2">{taskLinkChips(r)}</td>
+                    <td className="px-3 py-2 font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <span>{r.transactionId || '-'}</span>
+                        {screenshotLink(r.paymentScreenshot)}
+                      </div>
                     </td>
-                    <td className="px-3 py-2 font-mono">{r.transactionId || '-'}</td>
                     <td className="px-3 py-2">
                       {r.errors.length > 0 ? (
                         <span className="inline-flex items-center gap-1 text-rose-700"><XCircle className="w-3 h-3" />{r.errors.join('; ')}</span>
@@ -415,8 +488,9 @@ export default function Form2ImportPage() {
                 <tr>
                   <th className="px-3 py-2 text-left">Submission</th>
                   <th className="px-3 py-2 text-left">Email</th>
+                  <th className="px-3 py-2 text-left">Name</th>
                   <th className="px-3 py-2 text-left">Programme</th>
-                  <th className="px-3 py-2 text-left">Project Link</th>
+                  <th className="px-3 py-2 text-left">Task links</th>
                   <th className="px-3 py-2 text-left">UTR (unverified)</th>
                   <th className="px-3 py-2 text-left">Crosscheck</th>
                   <th className="px-3 py-2 text-left">Payment (manual check)</th>
@@ -428,13 +502,15 @@ export default function Form2ImportPage() {
                   <tr key={s.submissionId}>
                     <td className="px-3 py-2 font-mono font-bold text-amber-700">{s.submissionId}</td>
                     <td className="px-3 py-2">{s.email}</td>
+                    <td className="px-3 py-2">{s.name || '-'}</td>
                     <td className="px-3 py-2">{s.programCode}</td>
-                    <td className="px-3 py-2 max-w-[180px] truncate">
-                      <a href={s.projectLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
-                        <Link2 className="w-3 h-3" /> Open
-                      </a>
+                    <td className="px-3 py-2">{taskLinkChips(s)}</td>
+                    <td className="px-3 py-2 font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <span>{s.transactionId}</span>
+                        {screenshotLink(s.paymentScreenshot)}
+                      </div>
                     </td>
-                    <td className="px-3 py-2 font-mono">{s.transactionId}</td>
                     <td className="px-3 py-2">
                       <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${matchChip(s.matchState)}`}>
                         {s.matchState === 'MATCHED' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
@@ -505,6 +581,21 @@ export default function Form2ImportPage() {
               Pass means you explicitly confirm BOTH: requirements complete AND project properly working.
               After every change request the student has 3 calendar days (IST) to correct and resubmit via Form 2.
             </p>
+
+            <div className="border border-slate-200 rounded-xl p-3 space-y-1.5 text-[11px]">
+              <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Submitted work (Form 2)</h4>
+              {(reviewSub.name || reviewSub.claimedApplicationId) && (
+                <div className="text-slate-600">
+                  {reviewSub.name && <span className="font-semibold text-slate-800">{reviewSub.name}</span>}
+                  {reviewSub.claimedApplicationId && <span className="ml-1 font-mono">({reviewSub.claimedApplicationId})</span>}
+                </div>
+              )}
+              {taskLinkChips(reviewSub)}
+              <div className="flex items-center gap-2 text-slate-500">
+                <span>UTR <span className="font-mono">{reviewSub.transactionId}</span> (unverified claim)</span>
+                {screenshotLink(reviewSub.paymentScreenshot)}
+              </div>
+            </div>
 
             {(reviewSub.reviewRounds || []).length > 0 && (
               <div className="space-y-2">

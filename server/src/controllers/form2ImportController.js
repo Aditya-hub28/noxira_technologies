@@ -16,12 +16,34 @@ const AuditLog = require('../models/AuditLog');
  * treats the student-provided UTR as proof of payment.
  */
 
+// Approved Form 2 layout (owner-confirmed 27 Nov 2026):
+//   Page 1: Email (auto-collected by Google), Email I'd (typed), Name
+//   (certificate name), Registration No. (= NOX application ID), Domain
+//   dropdown, then per Task 1-3 an optional LinkedIn video post link and a
+//   GitHub/Drive link (Task 1 repo required, Tasks 2-3 optional).
+//   Page 2: UPI QR (form-side, not a column), required UTR and a required
+//   payment screenshot file upload (exports as a Drive-link column).
 const TARGET_DEFINITIONS = [
-  { target: 'email', required: true, regex: /email|mail/i },
+  // The student-TYPED email ("Email I'd") is the identity claim used for
+  // crosschecks. Google's auto-collected "Email Address" column also exists
+  // in the export; it stays available in rawRow but never drives matching.
+  { target: 'email', required: true, regex: /^email\s*(i'?d|id)?$/i, fallbackRegex: /email|mail/i },
+  { target: 'name', required: false, regex: /^name$|full\s*name|certificate/i },
+  { target: 'applicationId', required: false, regex: /application.*id|nox[-\s]?id|reg(istration)?\s*(no\.?|number|id)\b/i },
   { target: 'programme', required: true, regex: /programme|program|domain|internship|track|course/i },
-  { target: 'projectLink', required: true, regex: /project.*(link|url)|link.*project|github|drive.*link|project\s*submission/i, fallbackRegex: /link|url/i },
+  // Task-specific link targets MUST be evaluated before projectLink so its
+  // generic fallback can never steal a LinkedIn or Task 2/3 column.
+  { target: 'linkedinTask1', required: false, regex: /linkedin[\s\S]*task\s*1|task\s*1[\s\S]*linkedin/i },
+  { target: 'linkedinTask2', required: false, regex: /linkedin[\s\S]*task\s*2|task\s*2[\s\S]*linkedin/i },
+  { target: 'linkedinTask3', required: false, regex: /linkedin[\s\S]*task\s*3|task\s*3[\s\S]*linkedin/i },
+  { target: 'repoTask2', required: false, regex: /(github|repository|repo|drive)[\s\S]*task\s*2|task\s*2[\s\S]*(github|repository|repo|drive)/i },
+  { target: 'repoTask3', required: false, regex: /(github|repository|repo|drive)[\s\S]*task\s*3|task\s*3[\s\S]*(github|repository|repo|drive)/i },
+  // Canonical project link = the Task 1 GitHub/Drive column on the approved
+  // form (its header matches the task-1 alternative below). Older simple
+  // exports with a generic "Project Link" column still map via the rest.
+  { target: 'projectLink', required: true, regex: /(github|repository|repo|drive)[\s\S]*task\s*1|task\s*1[\s\S]*(github|repository|repo|drive)|project.*(link|url)|link.*project|github|drive.*link|project\s*submission/i, fallbackRegex: /link|url/i },
   { target: 'transactionId', required: true, regex: /utr|transaction|txn|payment.*(id|ref)|reference.*(id|number)/i },
-  { target: 'applicationId', required: false, regex: /application.*id|nox[-\s]?id|reg(istration)?.*id/i },
+  { target: 'paymentScreenshot', required: false, regex: /screenshot|payment.*(proof|upload|image|shot)/i },
   { target: 'timestamp', required: false, regex: /timestamp|submission.*time|date/i }
 ];
 
@@ -152,6 +174,13 @@ async function evaluateRows(rows, colMap, programs) {
   const hTxn = headerFor('transactionId');
   const hAppId = headerFor('applicationId');
   const hTimestamp = headerFor('timestamp');
+  const hName = headerFor('name');
+  const hLinkedin1 = headerFor('linkedinTask1');
+  const hLinkedin2 = headerFor('linkedinTask2');
+  const hLinkedin3 = headerFor('linkedinTask3');
+  const hRepo2 = headerFor('repoTask2');
+  const hRepo3 = headerFor('repoTask3');
+  const hShot = headerFor('paymentScreenshot');
 
   // Same UTR appearing under different emails within this file
   const utrEmails = new Map();
@@ -175,13 +204,33 @@ async function evaluateRows(rows, colMap, programs) {
     const transactionId = (r[hTxn] || '').trim();
     const claimedApplicationId = hAppId ? (r[hAppId] || '').trim().toUpperCase() : '';
     const tsRaw = hTimestamp ? (r[hTimestamp] || '').trim() : '';
+    const name = hName ? (r[hName] || '').trim() : '';
+    const linkedin1 = hLinkedin1 ? (r[hLinkedin1] || '').trim() : '';
+    const linkedin2 = hLinkedin2 ? (r[hLinkedin2] || '').trim() : '';
+    const linkedin3 = hLinkedin3 ? (r[hLinkedin3] || '').trim() : '';
+    const repo2 = hRepo2 ? (r[hRepo2] || '').trim() : '';
+    const repo3 = hRepo3 ? (r[hRepo3] || '').trim() : '';
+    // Raw string, never URL-validated: Google's file-upload column can hold
+    // several comma-separated Drive links. Untrusted claim, like the UTR.
+    const paymentScreenshot = hShot ? (r[hShot] || '').trim() : '';
 
     const errors = [];
     if (!email || !EMAIL_RE.test(email)) errors.push('Valid email is required');
     const prog = resolveProgramCode(programmeRaw, programs);
     if (prog.error) errors.push(prog.error);
-    if (!projectLink || !HTTP_URL_RE.test(projectLink)) errors.push('Project link must be an http(s) URL');
+    if (!projectLink || !HTTP_URL_RE.test(projectLink)) errors.push('Task 1 GitHub/Drive link must be an http(s) URL');
     if (!transactionId) errors.push('Transaction ID (UTR) is required');
+    // Optional per-task links: validated only when the student provided one
+    const optionalLinks = [
+      ['LinkedIn post (Task 1)', linkedin1],
+      ['GitHub/Drive link (Task 2)', repo2],
+      ['LinkedIn post (Task 2)', linkedin2],
+      ['LinkedIn post (Task 3)', linkedin3],
+      ['GitHub/Drive link (Task 3)', repo3]
+    ];
+    for (const [label, url] of optionalLinks) {
+      if (url && !HTTP_URL_RE.test(url)) errors.push(`${label} must be an http(s) URL`);
+    }
     if (claimedApplicationId && !/^NOX-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/.test(claimedApplicationId)) {
       errors.push('Application ID must be in NOX-XXXXXX format');
     }
@@ -227,9 +276,16 @@ async function evaluateRows(rows, colMap, programs) {
     evaluated.push({
       rowIndex: i,
       email,
+      name: name || undefined,
       programCode: prog.code || programmeRaw,
       claimedApplicationId: claimedApplicationId || undefined,
       projectLink,
+      taskLinks: {
+        task1: { linkedin: linkedin1 || undefined, repo: projectLink || undefined },
+        task2: { linkedin: linkedin2 || undefined, repo: repo2 || undefined },
+        task3: { linkedin: linkedin3 || undefined, repo: repo3 || undefined }
+      },
+      paymentScreenshot: paymentScreenshot || undefined,
       transactionId,
       formSubmittedAt,
       duplicate,
@@ -384,12 +440,15 @@ exports.commitForm2 = async (req, res, next) => {
       const submission = new Submission({
         submissionId: generateSubmissionId(),
         email: e.email,
+        name: e.name || undefined,
         programCode: e.programCode,
         claimedApplicationId: e.claimedApplicationId || undefined,
         applicationId: e._applicationDoc ? e._applicationDoc._id : null,
         matchState: e.matchState,
         utrSharedFlag: e.utrShared || false,
         projectLink: e.projectLink,
+        taskLinks: e.taskLinks || undefined,
+        paymentScreenshot: e.paymentScreenshot || undefined,
         transactionId: e.transactionId,
         formSubmittedAt: e.formSubmittedAt || undefined,
         importBatchId: importBatch._id,

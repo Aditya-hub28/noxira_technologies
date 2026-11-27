@@ -50,10 +50,36 @@ const SubmissionSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  // Student-typed certificate name from the approved Form 2 layout ("Name -
+  // as you want on your certificate"). A student-provided claim, exactly like
+  // the typed email; identity crosschecks still run on email + NOX ID only.
+  name: {
+    type: String,
+    trim: true,
+    maxlength: 120
+  },
   projectLink: {
     type: String,
     required: true,
     trim: true
+  },
+  // Per-task links from the approved Form 2 layout (Tasks 1-3, each with an
+  // optional LinkedIn video post link and a GitHub/Drive link). The Task 1
+  // GitHub/Drive link is the required one on the form and is ALSO stored in
+  // projectLink above, which stays the canonical link review rounds point at.
+  taskLinks: {
+    task1: {
+      linkedin: { type: String, trim: true },
+      repo: { type: String, trim: true }
+    },
+    task2: {
+      linkedin: { type: String, trim: true },
+      repo: { type: String, trim: true }
+    },
+    task3: {
+      linkedin: { type: String, trim: true },
+      repo: { type: String, trim: true }
+    }
   },
   // UNTRUSTED student-provided UTR / transaction reference. NOT payment proof.
   transactionId: {
@@ -64,6 +90,14 @@ const SubmissionSchema = new mongoose.Schema({
   // Optional form timestamp column (student-visible submission time)
   formSubmittedAt: {
     type: Date
+  },
+  // Student-uploaded payment screenshot (Drive link from the form's required
+  // file-upload question; may hold several comma-separated Drive links). An
+  // UNTRUSTED student-provided claim, exactly like the UTR - manual payment
+  // verification (Module 7) remains the only payment check.
+  paymentScreenshot: {
+    type: String,
+    trim: true
   },
   importBatchId: {
     type: mongoose.Schema.Types.ObjectId,

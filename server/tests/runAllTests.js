@@ -3805,13 +3805,28 @@ async function runTestSuite() {
     const m6AppId = mockApplyM6.getData().application.applicationId;
     await Application.updateOne({ applicationId: m6AppId }, { $set: { status: 'APPROVED', decidedAt: new Date() } });
 
+    // Approved Form 2 layout (owner-confirmed 27 Nov 2026): Google-auto Email
+    // Address + typed Email I'd, Name, Registration No. (= NOX ID), Domain,
+    // LinkedIn + GitHub/Drive per Task 1-3, UTR, payment screenshot upload.
+    const F2_COLS = ['Timestamp', 'Email Address', "Email I'd", 'Name', 'Registration No.', 'In which Domain you performed?',
+      'LinkedIn Video Explanation Post Link (Task 1)', 'GitHub Repository Link (Task 1)',
+      'LinkedIn Video Explanation Post Link (Task 2)', 'GitHub Repository Link (Task 2)',
+      'LinkedIn Video Explanation Post Link (Task 3)', 'GitHub Repository Link (Task 3)',
+      'UTR Number', 'Payment Screenshot'];
+    const buildRaw = (csv) => csv.split('\n').slice(1).map((line) => {
+      const cells = line.split(',');
+      const obj = {};
+      F2_COLS.forEach((h, i) => { obj[h] = (cells[i] || '').trim(); });
+      return obj;
+    });
     const csvText = [
-      'Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
-      `rohan.m6@example.com,FS-DEV,https://github.com/rohan/project,UTR000111,${m6AppId},2026-11-06 10:00`,
-      'ghost@example.com,FS-DEV,https://github.com/ghost/project,UTR000222,,2026-11-06 10:05',
-      'rohan.m6@example.com,FS-DEV,https://github.com/rohan/other,UTR000333,NOX-AAAAAA,2026-11-06 10:10',
-      'bad-link@example.com,FS-DEV,not-a-url,UTR000444,,2026-11-06 10:15',
-      'no-utr@example.com,FS-DEV,https://github.com/x/y,,,'
+      F2_COLS.join(','),
+      `2026-11-06 10:00,rohan.google@gmail.com,rohan.m6@example.com,Rohan Verma,${m6AppId},FS-DEV,https://www.linkedin.com/posts/rohan-task1,https://github.com/rohan/task1,https://www.linkedin.com/posts/rohan-task2,https://github.com/rohan/task2,,,UTR000111,https://drive.google.com/file/d/shot1/view`,
+      '2026-11-06 10:05,ghost.google@gmail.com,ghost@example.com,Ghost Person,,FS-DEV,,https://github.com/ghost/project,,,,,UTR000222,',
+      `2026-11-06 10:10,rohan.google@gmail.com,rohan.m6@example.com,Rohan Verma,NOX-AAAAAA,FS-DEV,,https://github.com/rohan/other,,,,,UTR000333,`,
+      '2026-11-06 10:15,bad-link@example.com,bad-link@example.com,Bad Link,,FS-DEV,,not-a-url,,,,,UTR000444,',
+      '2026-11-06 10:20,no-utr@example.com,no-utr@example.com,No Utr,,FS-DEV,,https://github.com/x/y,,,,,,',
+      '2026-11-06 10:25,bad-li@example.com,bad-li@example.com,Bad Li,,FS-DEV,not-a-url,https://github.com/ok/t1,,,,,UTR000555,'
     ].join('\n');
 
     // 1. Preview: auto-suggested mapping resolves all required targets
@@ -3823,10 +3838,31 @@ async function runTestSuite() {
     assert.strictEqual(mockPreview.getStatus(), 200);
     const previewData = mockPreview.getData();
     assert.strictEqual(previewData.stage, 'PREVIEW', 'Mapping must auto-suggest all required columns');
-    assert.strictEqual(previewData.summary.totalRows, 5);
-    assert.strictEqual(previewData.summary.errorRows, 2, 'bad link + missing UTR must be error rows');
+    assert.strictEqual(previewData.summary.totalRows, 6);
+    assert.strictEqual(previewData.summary.errorRows, 3, 'bad Task 1 link + missing UTR + bad optional LinkedIn link must be error rows');
     assert.strictEqual(previewData.summary.matchedRows, 1, 'only the fully crosschecked row matches');
     assert.strictEqual(previewData.summary.unmatchedRows, 2, 'ghost email + wrong application ID are unmatched');
+
+    // Auto-mapping against the real export headers of the approved layout
+    const mapFor = (t) => ((previewData.columnMapping.find((m) => m.target === t) || {}).header || '');
+    assert.strictEqual(mapFor('email'), "Email I'd", 'The typed Email ID column drives matching, not Google auto Email Address');
+    assert.strictEqual(mapFor('name'), 'Name');
+    assert.strictEqual(mapFor('applicationId'), 'Registration No.', 'Registration No. auto-maps to the NOX application ID');
+    assert.strictEqual(mapFor('programme'), 'In which Domain you performed?');
+    assert.strictEqual(mapFor('projectLink'), 'GitHub Repository Link (Task 1)', 'Task 1 GitHub/Drive column is the canonical project link');
+    assert.strictEqual(mapFor('linkedinTask1'), 'LinkedIn Video Explanation Post Link (Task 1)');
+    assert.strictEqual(mapFor('repoTask2'), 'GitHub Repository Link (Task 2)');
+    assert.strictEqual(mapFor('linkedinTask3'), 'LinkedIn Video Explanation Post Link (Task 3)');
+    assert.strictEqual(mapFor('repoTask3'), 'GitHub Repository Link (Task 3)');
+    assert.strictEqual(mapFor('transactionId'), 'UTR Number');
+    assert.strictEqual(mapFor('paymentScreenshot'), 'Payment Screenshot');
+    assert.strictEqual(mapFor('timestamp'), 'Timestamp');
+    assert.strictEqual(previewData.rows[0].name, 'Rohan Verma');
+    assert.strictEqual(previewData.rows[0].taskLinks.task1.repo, 'https://github.com/rohan/task1');
+    assert.strictEqual(previewData.rows[0].taskLinks.task1.linkedin, 'https://www.linkedin.com/posts/rohan-task1');
+    assert.strictEqual(previewData.rows[0].taskLinks.task2.repo, 'https://github.com/rohan/task2');
+    assert.strictEqual(previewData.rows[0].paymentScreenshot, 'https://drive.google.com/file/d/shot1/view');
+    assert.ok(previewData.rows[5].errors.some((e) => e.includes('LinkedIn post (Task 1)')), 'Optional LinkedIn link validated when provided');
 
     const rowsByEmail = Object.fromEntries(previewData.rows.map((r) => [r.email || r.rowIndex, r]));
     assert.strictEqual(rowsByEmail['rohan.m6@example.com'] ? previewData.rows[0].matchState : null, 'MATCHED');
@@ -3837,8 +3873,8 @@ async function runTestSuite() {
 
     // Crosscheck integrity: a REAL application ID claimed with a DIFFERENT email must not match
     const csvMismatch = [
-      'Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
-      `impostor@example.com,FS-DEV,https://github.com/impostor/p,UTR000999,${m6AppId},2026-11-06 11:00`
+      F2_COLS.join(','),
+      `2026-11-06 11:00,impostor@gmail.com,impostor@example.com,Im Postor,${m6AppId},FS-DEV,,https://github.com/impostor/p,,,,,UTR000999,`
     ].join('\n');
     const mockMismatch = mockReqRes({
       body: { batchId: 'BATCH-M6-MISMATCH' },
@@ -3850,10 +3886,7 @@ async function runTestSuite() {
     assert.ok(mockMismatch.getData().rows[0].matchReason.includes('different email'));
 
     // 2. Commit: server re-validates from raw rows
-    const rawRows = csvText.split('\n').slice(1).map((line) => {
-      const [Email, Domain, Link, Utr, AppId, Ts] = line.split(',');
-      return { 'Email': Email, 'Internship Domain': Domain, 'Project Link': Link, 'UTR Number': Utr, 'Application ID': AppId, 'Timestamp': Ts };
-    });
+    const rawRows = buildRaw(csvText);
     const mockCommit = mockReqRes({
       body: {
         rows: rawRows,
@@ -3869,13 +3902,18 @@ async function runTestSuite() {
     assert.strictEqual(commitSummary.committed, 3, '3 valid rows commit (1 matched + 2 unmatched)');
     assert.strictEqual(commitSummary.matched, 1);
     assert.strictEqual(commitSummary.unmatched, 2);
-    assert.strictEqual(commitSummary.errorRows, 2);
+    assert.strictEqual(commitSummary.errorRows, 3);
 
     const m6Batch = await ImportBatch.findOne({ batchId: 'BATCH-M6-FORM2' });
     const savedSubs = await Submission.find({ programCode: 'FS-DEV', importBatchId: m6Batch._id }).lean();
     assert.strictEqual(savedSubs.length, 3);
     const matchedSub = savedSubs.find((s) => s.transactionId === 'UTR000111');
     assert.strictEqual(matchedSub.matchState, 'MATCHED');
+    assert.strictEqual(matchedSub.name, 'Rohan Verma', 'Certificate name stored from the Name column');
+    assert.strictEqual(matchedSub.taskLinks.task1.repo, 'https://github.com/rohan/task1', 'Task 1 repo also stored per-task');
+    assert.strictEqual(matchedSub.taskLinks.task1.linkedin, 'https://www.linkedin.com/posts/rohan-task1');
+    assert.strictEqual(matchedSub.taskLinks.task2.repo, 'https://github.com/rohan/task2');
+    assert.strictEqual(matchedSub.paymentScreenshot, 'https://drive.google.com/file/d/shot1/view', 'Payment screenshot stored as an untrusted claim');
     assert.ok(matchedSub.applicationId, 'Matched submission must reference the Application');
     assert.ok(/^SUB-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/.test(matchedSub.submissionId), 'Human-friendly SUB- ID');
     // UTR is stored as an untrusted claim: the model must carry NO payment-verified state
@@ -3901,9 +3939,9 @@ async function runTestSuite() {
 
     // 4b. Cross-applicant UTR reuse is flagged (not blocked, no payment conclusion)
     const csvShared = [
-      'Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
-      'first.m6@example.com,FS-DEV,https://github.com/first/p,UTR-SHARED-1,,2026-11-06 12:00',
-      'second.m6@example.com,FS-DEV,https://github.com/second/p,UTR-SHARED-1,,2026-11-06 12:01'
+      F2_COLS.join(','),
+      '2026-11-06 12:00,first@gmail.com,first.m6@example.com,First Person,,FS-DEV,,https://github.com/first/p,,,,,UTR-SHARED-1,',
+      '2026-11-06 12:01,second@gmail.com,second.m6@example.com,Second Person,,FS-DEV,,https://github.com/second/p,,,,,UTR-SHARED-1,'
     ].join('\n');
     const mockShared = mockReqRes({
       body: { batchId: 'BATCH-M6-SHARED' },
@@ -3915,10 +3953,7 @@ async function runTestSuite() {
     assert.strictEqual(mockShared.getData().rows[1].utrShared, true, 'Same UTR across applicants must flag row 2');
     assert.strictEqual(mockShared.getData().summary.errorRows, 0, 'Shared UTR is a review flag, not an error');
 
-    const sharedRaw = csvShared.split('\n').slice(1).map((line) => {
-      const [Email, Domain, Link, Utr, AppId, Ts] = line.split(',');
-      return { 'Email': Email, 'Internship Domain': Domain, 'Project Link': Link, 'UTR Number': Utr, 'Application ID': AppId, 'Timestamp': Ts };
-    });
+    const sharedRaw = buildRaw(csvShared);
     const mockSharedCommit = mockReqRes({
       body: { rows: sharedRaw, batchId: 'BATCH-M6-SHARED', columnMapping: mockShared.getData().columnMapping }
     });
@@ -3929,8 +3964,8 @@ async function runTestSuite() {
     assert.ok(sharedSubs.every((s) => s.utrSharedFlag === true), 'Shared-UTR flag must persist on both submissions');
 
     // Later batch, different applicant, same UTR as an earlier import -> flagged
-    const csvLater = ['Email,Internship Domain,Project Link,UTR Number,Application ID,Timestamp',
-      'third.m6@example.com,FS-DEV,https://github.com/third/p,UTR000111,,2026-11-06 12:30'].join('\n');
+    const csvLater = [F2_COLS.join(','),
+      '2026-11-06 12:30,third@gmail.com,third.m6@example.com,Third Person,,FS-DEV,,https://github.com/third/p,,,,,UTR000111,'].join('\n');
     const mockLater = mockReqRes({
       body: { batchId: 'BATCH-M6-LATER' },
       file: { buffer: Buffer.from(csvLater, 'utf8'), originalname: 'form2d.csv', size: csvLater.length }
