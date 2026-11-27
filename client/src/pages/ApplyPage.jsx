@@ -2,7 +2,7 @@ import '../programme-cards.css';
 import React, { useState, useMemo } from 'react';
 import { INTERNSHIP_EMAIL } from '../config/supportContact';
 import '../components/email-link.css';
-import { PROGRAMME_IMAGES } from '../config/programmeImages';
+import { getProgrammeImage } from '../config/programmeImages';
 import { useProgrammeCatalogue } from '../utils/useProgrammeCatalogue';
 import { resolveProgramDescription } from '../utils/programUtils';
 import { useSiteSettings } from '../context/SiteSettingsContext';
@@ -144,17 +144,21 @@ export default function ApplyPage() {
             >
               {/* Real subject photography is illustrative, not a NOXIRA facility or student claim. */}
               <div className="programme-square-art relative border-b border-slate-200 overflow-hidden">
-                {PROGRAMME_IMAGES[prg.code] && <img
-                  src={PROGRAMME_IMAGES[prg.code].src}
-                  srcSet={`${PROGRAMME_IMAGES[prg.code].small} 480w, ${PROGRAMME_IMAGES[prg.code].src} 960w`}
-                  sizes="(min-width: 1280px) 604px, (min-width: 768px) 45vw, 100vw"
-                  width="960"
-                  height="640"
-                  alt={PROGRAMME_IMAGES[prg.code].alt}
-                  loading="lazy"
-                  decoding="async"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />}
+                {(() => {
+                  const image = getProgrammeImage(prg);
+                  return <img
+                    src={image.src}
+                    srcSet={`${image.small} 480w, ${image.src} 960w`}
+                    sizes="(min-width: 1280px) 604px, (min-width: 768px) 45vw, 100vw"
+                    width="960"
+                    height="640"
+                    alt={image.alt}
+                    loading="eager"
+                    decoding="async"
+                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />;
+                })()}
                 <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wider text-cyan-700 bg-white/95 border border-cyan-200 px-2 py-0.5 rounded-md">
                   {prg.category || 'Engineering'}
                 </span>
