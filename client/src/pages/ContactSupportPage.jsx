@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, Mail, Phone } from 'lucide-react';
-import { SUPPORT_EMAIL, SUPPORT_WHATSAPP, SUPPORT_LOCATION } from '../config/supportContact';
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { SUPPORT_EMAIL, SUPPORT_LOCATION } from '../config/supportContact';
 import '../doc.css';
 
 /**
@@ -9,6 +10,7 @@ import '../doc.css';
  * validates and shows a notice. Nothing is sent anywhere.
  */
 export default function ContactSupportPage() {
+  const { whatsappNumber } = useSiteSettings();
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [notice, setNotice] = useState('');
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -29,7 +31,9 @@ export default function ContactSupportPage() {
         <ul className="ways">
           <li><MapPin /><span><b>Visit Us:</b> {SUPPORT_LOCATION}</span></li>
           <li><Mail /><span><b>Email:</b> <span data-testid="support-email">{SUPPORT_EMAIL}</span></span></li>
-          <li><Phone /><span><b>Call Us and WhatsApp:</b> <span data-testid="support-whatsapp">{SUPPORT_WHATSAPP}</span></span></li>
+          {whatsappNumber ? (
+            <li><Phone /><span><b>Call Us and WhatsApp:</b> <span data-testid="support-whatsapp">+{whatsappNumber}</span></span></li>
+          ) : null}
         </ul>
       </section>
 

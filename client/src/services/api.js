@@ -128,6 +128,8 @@ export const api = {
   adminRejectReview: (id) => request(`/admin/reviews/${encodeURIComponent(id)}/reject`, { method: 'PATCH' }),
   adminDeleteReview: (id) => request(`/admin/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   adminGetGoogleForm1: () => request('/admin/settings/google-form-1'),
-  adminUpdateGoogleForm1: (url) => request('/admin/settings/google-form-1', { method: 'PUT', body: JSON.stringify({ url }) })
+  adminUpdateGoogleForm1: (url) => request('/admin/settings/google-form-1', { method: 'PUT', body: JSON.stringify({ url }) }),
+  adminGetWhatsapp: () => request('/admin/settings/whatsapp'),
+  adminUpdateWhatsapp: (number) => request('/admin/settings/whatsapp', { method: 'PUT', body: JSON.stringify({ number }) })
 };
 

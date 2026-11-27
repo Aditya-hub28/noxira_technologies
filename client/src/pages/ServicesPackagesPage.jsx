@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import './services-packages.css';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 import { Check, Minus, ArrowRight, MessageCircle, Phone, Lightbulb, FileText } from 'lucide-react';
 
-/* Placeholder: put the NOXIRA business WhatsApp number here (digits only, with country code).
-   While empty, the button opens WhatsApp with the message pre-filled and lets the visitor pick a chat. */
-const WHATSAPP_NUMBER = '';
-const wa = (text) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+/* The NOXIRA business WhatsApp number is set by the admin (Admin > Settings) and comes from site settings.
+   While it is empty, the button opens WhatsApp with the message pre-filled and lets the visitor pick a chat. */
+const waLink = (number, text) => `https://wa.me/${number || ''}?text=${encodeURIComponent(text)}`;
 const rupee = (n) => '₹' + n.toLocaleString('en-IN');
 
 const WEB = [
@@ -145,6 +145,8 @@ const APPS = [
 ];
 
 function Card({ p, kind }) {
+  const { whatsappNumber } = useSiteSettings();
+  const wa = (text) => waLink(whatsappNumber, text);
   return (
     <article className={'pk' + (p.featured ? ' pk-feat' : '')}>
       {p.featured ? <span className="pk-flag">{p.featured}</span> : null}
@@ -169,6 +171,8 @@ function Card({ p, kind }) {
 }
 
 export default function PackagesPage() {
+  const { whatsappNumber } = useSiteSettings();
+  const wa = (text) => waLink(whatsappNumber, text);
   const [need, setNeed] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
