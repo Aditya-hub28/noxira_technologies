@@ -63,9 +63,9 @@ const CERT_FIELDS = {
   name: { centerX: 561.5, baselineY: 360, size: 41, maxWidth: 650, minSize: 22, color: [11, 27, 63] },
   course: { centerX: 561.5, baselineY: 454, size: 18.5, maxWidth: 700, minSize: 11, color: [28, 37, 64] },
   timeline: { centerX: 561.5, baselineY: 541.5, size: 17, maxWidth: 500, minSize: 11, color: [28, 37, 64] },
-  issue: { centerX: 561, baselineY: 641.5, size: 17, maxWidth: 250, minSize: 11, color: [11, 27, 63] },
-  certId: { centerX: 893, baselineY: 690.5, size: 12.5, maxWidth: 200, minSize: 8, color: [11, 27, 63], spacing: 0.06 },
-  qr: { x: 837, y: 536, size: 112 }
+  issue: { centerX: 561, baselineY: 664.5, size: 17, maxWidth: 250, minSize: 11, color: [11, 27, 63] },
+  certId: { centerX: 893, baselineY: 713.5, size: 12.5, maxWidth: 200, minSize: 8, color: [11, 27, 63], spacing: 0.06 },
+  qr: { x: 837, y: 559, size: 112 }
 };
 
 function px(v) { return v * PX; }
