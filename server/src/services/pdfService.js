@@ -1,4 +1,6 @@
 const fs = require('fs');
+const path = require('path');
+const fontkit = require('@pdf-lib/fontkit');
 const { PDFDocument, rgb, StandardFonts, degrees } = require('pdf-lib');
 const { generateVerificationQRCodeBuffer } = require('./qrService');
 
@@ -45,6 +47,105 @@ function calculateAdaptiveFontSize(text, font, initialFontSize, maxAllowedWidth,
   return minFontSize;
 }
 
+
+// ---------------------------------------------------------------------------
+// NOXIRA certificate template (v2, approved 28 Nov 2026)
+// A blank vector PDF (frame, logo, title, paragraph, signature, labels) is used
+// as the page. Only the website-controlled fields are drawn on top, in the
+// empty placeholder areas: name, course, timeline, date of issue, QR, certificate ID.
+// Coordinates come from the 1123x794 CSS-pixel design; PX converts them to points.
+// ---------------------------------------------------------------------------
+const TEMPLATE_DIR = path.resolve(__dirname, '../assets/certificate');
+const PAGE_W = 841.89;
+const PAGE_H = 595.28;
+const PX = PAGE_W / 1123;
+const CERT_FIELDS = {
+  name: { centerX: 561.5, baselineY: 360, size: 41, maxWidth: 650, minSize: 22, color: [11, 27, 63] },
+  course: { centerX: 561.5, baselineY: 454, size: 18.5, maxWidth: 700, minSize: 11, color: [28, 37, 64] },
+  timeline: { centerX: 561.5, baselineY: 541.5, size: 17, maxWidth: 500, minSize: 11, color: [28, 37, 64] },
+  issue: { centerX: 561, baselineY: 641.5, size: 17, maxWidth: 250, minSize: 11, color: [11, 27, 63] },
+  certId: { centerX: 893, baselineY: 690.5, size: 12.5, maxWidth: 200, minSize: 8, color: [11, 27, 63], spacing: 0.06 },
+  qr: { x: 837, y: 536, size: 112 }
+};
+
+function px(v) { return v * PX; }
+function pyBaseline(v) { return PAGE_H - v * PX; }
+
+function fitSize(text, font, size, maxWidth, minSize) {
+  let s = size;
+  while (s > minSize && font.widthOfTextAtSize(text, s * PX) > maxWidth * PX) s -= 0.5;
+  return s;
+}
+
+function drawCentered(page, text, font, field) {
+  const size = fitSize(text, font, field.size, field.maxWidth, field.minSize);
+  const pt = size * PX;
+  const spacing = (field.spacing || 0) * pt;
+  const width = font.widthOfTextAtSize(text, pt) + spacing * Math.max(text.length - 1, 0);
+  const color = rgb(field.color[0] / 255, field.color[1] / 255, field.color[2] / 255);
+  let x = px(field.centerX) - width / 2;
+  const y = pyBaseline(field.baselineY);
+  if (!spacing) {
+    page.drawText(text, { x, y, size: pt, font, color });
+    return;
+  }
+  for (const ch of text) {
+    page.drawText(ch, { x, y, size: pt, font, color });
+    x += font.widthOfTextAtSize(ch, pt) + spacing;
+  }
+}
+
+async function generateNoxiraTemplateCertificate({
+  recipientName,
+  programTitle,
+  startDate,
+  endDate,
+  issueDate,
+  certificateNumber,
+  publicVerificationToken,
+  isDraft = false
+}) {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+  const [templatePage] = await pdfDoc.embedPdf(fs.readFileSync(path.join(TEMPLATE_DIR, 'noxira-certificate-template.pdf')));
+  const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  page.drawPage(templatePage, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
+
+  const fontsDir = path.join(TEMPLATE_DIR, 'fonts');
+  const fName = await pdfDoc.embedFont(fs.readFileSync(path.join(fontsDir, 'playfair-display-latin-700-normal.woff')), { subset: true });
+  const fBody = await pdfDoc.embedFont(fs.readFileSync(path.join(fontsDir, 'lora-latin-700-normal.woff')), { subset: true });
+  const fLabel = await pdfDoc.embedFont(fs.readFileSync(path.join(fontsDir, 'montserrat-latin-700-normal.woff')), { subset: true });
+
+  const startStr = formatDate(startDate);
+  const endStr = formatDate(endDate);
+  const timeline = startStr === endStr ? `Conducted on ${endStr}` : `${startStr} to ${endStr}`;
+
+  drawCentered(page, recipientName, fName, CERT_FIELDS.name);
+  drawCentered(page, programTitle, fBody, CERT_FIELDS.course);
+  drawCentered(page, timeline, fBody, CERT_FIELDS.timeline);
+  drawCentered(page, formatDate(issueDate || new Date()), fBody, CERT_FIELDS.issue);
+  drawCentered(page, String(certificateNumber), fLabel, CERT_FIELDS.certId);
+
+  const qrImage = await pdfDoc.embedPng(await generateVerificationQRCodeBuffer(publicVerificationToken));
+  const q = CERT_FIELDS.qr;
+  page.drawImage(qrImage, { x: px(q.x), y: PAGE_H - px(q.y + q.size), width: px(q.size), height: px(q.size) });
+
+  if (isDraft) {
+    const draftText = 'DRAFT - NOT ISSUED';
+    const draftSize = 54;
+    page.drawText(draftText, {
+      x: (PAGE_W - fLabel.widthOfTextAtSize(draftText, draftSize)) / 2 + 40,
+      y: PAGE_H / 2 - 60,
+      size: draftSize,
+      font: fLabel,
+      color: rgb(239 / 255, 68 / 255, 68 / 255),
+      opacity: 0.22,
+      rotate: degrees(28)
+    });
+  }
+  return Buffer.from(await pdfDoc.save());
+}
+
 /**
  * Renders a print-ready vector PDF certificate using pdf-lib
  * Supports custom background image overlays (Canva / Figma templates)
@@ -64,6 +165,15 @@ async function generateCertificatePdf({
   backgroundImagePath = null,
   customLayout = null
 }) {
+  // No custom uploaded background: use the approved NOXIRA template (v2).
+  const hasUploadedBg = Boolean(customBackgroundBuffer) || Boolean(backgroundImagePath && fs.existsSync(backgroundImagePath));
+  if (!hasUploadedBg) {
+    return generateNoxiraTemplateCertificate({
+      recipientName, programTitle, startDate, endDate, issueDate,
+      certificateNumber, publicVerificationToken, isDraft
+    });
+  }
+
   // A4 Landscape dimensions in points
   const width = 841.89;
   const height = 595.28;
