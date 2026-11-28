@@ -25,7 +25,6 @@ import ReviewsPage from './pages/ReviewsPage';
 import HomePage from './pages/HomePage';
 import ServicesPackagesPage from './pages/ServicesPackagesPage';
 import ServicesLegalPage from './pages/ServicesLegalPage';
-import ProgramDetailPage from './pages/ProgramDetailPage';
 import ApplyPage from './pages/ApplyPage';
 import DownloadOfferLetterPage from './pages/DownloadOfferLetterPage';
 import VerifyPage from './pages/VerifyPage';
@@ -238,7 +237,7 @@ function AppContent() {
       >
         <Route path="/" element={<HomePage />} />
         <Route path="/programs" element={<ProgrammeListingRedirect />} />
-        <Route path="/programs/:code" element={<ProgramDetailPage />} />
+        <Route path="/programs/:code" element={<ProgrammeListingRedirect />} />
         <Route path="/apply" element={<ApplyPage />} />
         <Route path="/offer-letter" element={<DownloadOfferLetterPage />} />
         <Route path="/verify" element={<VerifyPage />} />
