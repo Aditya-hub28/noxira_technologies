@@ -156,3 +156,24 @@ export const PROGRAMME_IMAGES = {
     "alt": "A well-equipped laboratory with a microscope and vials ready for analysis."
   }
 };
+
+// Programmes added later in admin may use a code that has no photo, or a
+// differently cased code. Resolve by code, then by category default, so a card
+// never renders as an empty dark square.
+const CATEGORY_DEFAULT_CODE = {
+  Development: 'FS-DEV',
+  'AI & Data Science': 'AI-ENG',
+  Business: 'BIZ-AN',
+  Design: 'UIUX',
+  Engineering: 'CAD-MECH',
+  Programming: 'PY-PROG',
+};
+
+export function getProgrammeImage(programme) {
+  const code = String(programme?.code || '').trim().toUpperCase();
+  return (
+    PROGRAMME_IMAGES[code] ||
+    PROGRAMME_IMAGES[CATEGORY_DEFAULT_CODE[programme?.category]] ||
+    PROGRAMME_IMAGES['FS-DEV']
+  );
+}
