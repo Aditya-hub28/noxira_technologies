@@ -35,7 +35,6 @@ export const api = {
 
   // Public Intake & Programs
   getPrograms: () => request('/programs'),
-  getProgramDetail: (code) => request(`/programs/${encodeURIComponent(code)}`),
   lookupOfferLetter: (email, id) => request(`/intake/offer-letter?email=${encodeURIComponent(email)}&id=${encodeURIComponent(id)}`),
 
   // Admin Programs Management

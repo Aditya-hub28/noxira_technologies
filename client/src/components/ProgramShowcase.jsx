@@ -16,6 +16,6 @@ export default function ProgramShowcase({ programs, loading, configured = false 
       <h3><Link to="/apply">{p.title}</Link></h3><p>{configured ? 'Browse our full catalogue to explore this track and check programme information.' : resolveProgramDescription(p)}</p>
       <div className="program-card-actions"><Link to="/apply" aria-label={`Browse all programmes, including ${p.title}`}>Explore programmes <ArrowRight size={15} aria-hidden="true"/></Link></div>
     </article>})}</div>
-    <div className="program-directory"><p>Find your field in the full NOXIRA programme catalogue.</p><Link to="/apply" className="gb">View All Programmes <ArrowRight size={16} aria-hidden="true"/></Link></div>
+    <div className="program-directory"><p>Pick your programme on the Apply Now page.</p><Link to="/apply" className="gb">Apply Now <ArrowRight size={16} aria-hidden="true"/></Link></div>
   </div></section>;
 }

@@ -109,17 +109,12 @@ test('MODULE 2: catalogue uses source-backed feed with live precedence and statu
   assert.strictEqual(programsContent.includes('prg.startDate'), false, 'Must not render raw batch start dates');
 });
 
-// TEST 9: ProgramDetailPage copy rules, fee info, and dynamic form integration
-test('MODULE 2: programme details preserve fee-policy, live duration and three-state application copy', () => {
-  const detailContent = fs.readFileSync(path.join(clientSrcDir, 'pages/ProgramDetailPage.jsx'), 'utf8');
-  assert.ok(detailContent.includes('useSiteSettings'), 'Must consume useSiteSettings');
-  assert.ok(detailContent.includes('Task Submission &amp; Review Fee is payable only at final submission. Applying is free.'), 'Must state fee is payable only at final submission and applying is free');
-  assert.strictEqual(detailContent.includes('Applications open once NOXIRA publishes the fee'), false, 'Must NOT contain fee-gate blocking statement');
-  assert.ok(detailContent.includes('program.durationWeeks') && detailContent.includes('Not published'), 'Must display live duration only when supplied, not invent fallback duration');
-  assert.strictEqual(detailContent.includes('program.startDate'), false, 'Must not render raw cohort dates');
-  assert.ok(detailContent.includes('Applications are open for candidate intake via Google Form.'), 'Must include open copy');
-  assert.ok(detailContent.includes('Applications are not open yet. The application link is not available yet.'), 'Must include closed copy');
-  assert.ok(detailContent.includes('Application status is currently unavailable.'), 'Must include neutral error/loading copy');
+// TEST 9: programme detail pages are removed; Apply Now is the only programme listing
+test('PROGRAMMES: detail page removed, /programs/:code redirects to Apply Now', () => {
+  assert.strictEqual(fs.existsSync(path.join(clientSrcDir, 'pages/ProgramDetailPage.jsx')), false, 'ProgramDetailPage.jsx must be deleted');
+  const app = fs.readFileSync(path.join(clientSrcDir, 'App.jsx'), 'utf8');
+  assert.strictEqual(app.includes('ProgramDetailPage'), false, 'App must not reference ProgramDetailPage');
+  assert.ok(app.includes('path="/programs/:code" element={<ProgrammeListingRedirect />}'), 'Old detail URLs must redirect to /apply');
 });
 
 // TEST 10: StatusPage.jsx is deleted and DownloadOfferLetterPage.jsx exists
@@ -143,7 +138,6 @@ test('CONTENT RULES: Zero forbidden keywords in public client files', () => {
     'components/PublicLayout.jsx',
     'pages/HomePage.jsx',
     'pages/ApplyPage.jsx',
-    'pages/ProgramDetailPage.jsx',
     'pages/DownloadOfferLetterPage.jsx'
   ];
 
